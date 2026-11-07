@@ -1,0 +1,22 @@
+#!/bin/bash
+# Hand off to the core dev engine (build, DB adapter, serve in the
+# foreground) through the CLI — the app tree carries no runner copy.
+#
+# The pin check, the gen/* refresh, and the build all belong to the engine
+# (its step 0 checks the pair before the toolchain is materialized, and
+# cli/generators.sh refreshes gen/* in front of every build). This wrapper
+# only resolves the CLI and names the app.
+#
+# The CLI is resolved without a machine path: SNAILS_DIR (a checkout) wins,
+# else `snails` on PATH.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -n ${SNAILS_DIR:-} ]]; then
+  SNAILS_CLI="$SNAILS_DIR/bin/snails"
+else
+  SNAILS_CLI="$(command -v snails 2>/dev/null || true)"
+fi
+[[ -n $SNAILS_CLI && -x $SNAILS_CLI ]] || {
+  echo "bin/dev: snails CLI not found; set SNAILS_DIR to the snails checkout (or put snails on PATH)" >&2
+  exit 1
+}
+exec "$SNAILS_CLI" harness dev "$ROOT" "$@"

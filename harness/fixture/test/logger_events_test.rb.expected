@@ -1,0 +1,11 @@
+ok test_process_started_records_the_deployment
+ok test_request_completed_at_info
+ok test_request_failed_is_one_error_record
+ok test_job_finished_at_info
+ok test_job_started_at_debug
+ok test_job_failed_is_an_error_record
+ok test_database_queue_job_events
+ok test_job_db_time_includes_body_statements
+ok test_warn_drops_info_but_keeps_errors
+ok test_job_events_are_dropped_only_for_the_delivery_job
+LoggerEventsTest: 10 tests passed

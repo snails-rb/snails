@@ -1,0 +1,5 @@
+# Local HTTP proxy for the optional proxy profile. Replace :80 with your
+# domain to let Caddy obtain TLS automatically.
+:80 {
+  reverse_proxy app:3000
+}

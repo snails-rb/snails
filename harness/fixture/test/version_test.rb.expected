@@ -1,0 +1,8 @@
+ok test_snails_version_reads_the_constant
+ok test_snails_rev_reads_the_constant
+ok test_app_version_defaults_to_nil
+ok test_app_readers_can_be_overridden
+ok test_app_revision_reads_env
+ok test_app_revision_reads_the_revision_file
+ok test_app_revision_is_memoized
+VersionTest: 7 tests passed

@@ -1,0 +1,26 @@
+module Snails
+  class Logger
+    module Context
+      def self.request_id: () -> String?
+      def self.begin_request: () -> String
+      def self.controller: () -> String
+      def self.controller=: (String name) -> String
+      def self.action: () -> String
+      def self.action=: (String name) -> String
+      def self.format: () -> String
+      def self.format=: (String name) -> String
+      def self.now_us: () -> Integer
+      def self.db_us: () -> Integer
+      def self.add_db_us: (Integer microseconds) -> void
+      def self.job_name: () -> String?
+      def self.job_name=: (String? name) -> String?
+      def self.job_id: () -> Integer?
+      def self.job_id=: (Integer? id) -> Integer?
+      def self.job_attempt: () -> Integer?
+      def self.job_attempt=: (Integer? attempt) -> Integer?
+      def self.job_events_suppressed?: () -> bool
+      def self.begin_job: (String name, Integer? id, Integer? attempt) -> void
+      def self.end_job: () -> void
+    end
+  end
+end

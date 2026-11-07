@@ -1,0 +1,3 @@
+ok test_mode_predicates
+ok test_env_reads_snails_env
+EnvModeTest: 2 tests passed

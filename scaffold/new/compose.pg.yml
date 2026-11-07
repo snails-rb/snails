@@ -1,0 +1,83 @@
+# Single-host deployment: the app image, PostgreSQL, and an optional Caddy
+# proxy.
+#
+# `bin/compose up -d` starts the app and the database on 127.0.0.1:3000.
+# The proxy profile adds Caddy for a public TLS host:
+#
+#   bin/compose --profile proxy up -d
+#
+# The default POSTGRES_PASSWORD is a development value. Set it in .env before
+# the first `up` — postgres keeps the first volume's password — and use a
+# URL-safe value (letters, digits, -._~): the same value goes into PG_URL
+# as-is, so other characters need PG_URL set separately with percent-encoding.
+# The database is named <app>_production and the dev container uses
+# <app>_development, so the service `app` and the database are never
+# confused. The pin defaults below are the values at creation time;
+# bin/compose overrides them with the current pins after a bump.
+# Values in .env are interpolated here; never commit .env.
+services:
+  app:
+    build:
+      context: .
+      args:
+        SPINEL_REV: ${SPINEL_REV:-__SPINEL_REV__}
+        SNALS_REV: ${SNALS_REV:-__SNALS_REV__}
+        APP_NAME: ${APP_NAME:-__APP_NAME__}
+    image: ${APP_IMAGE:-__APP_NAME__:local}
+    restart: unless-stopped
+    # Docker's local driver keeps 100MB per container (20m x 5, compressed).
+    logging:
+      driver: local
+      options:
+        max-size: "20m"
+        max-file: "5"
+        compress: "true"
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      SNAILS_ENV: production
+      PORT: "3000"
+      PG_URL: postgres://postgres:${POSTGRES_PASSWORD:-password}@db:5432/__DB_NAME__
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/up"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: __DB_NAME__
+    volumes:
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d __DB_NAME__"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  caddy:
+    profiles: ["proxy"]
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:

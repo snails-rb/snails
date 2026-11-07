@@ -1,0 +1,17 @@
+module Snails
+  def self.cache: () -> Cache
+
+  class Cache
+    @entries: Hash[String, untyped]
+    @expires_at: Hash[String, Integer]
+    @lock: Mutex
+    def initialize: () -> void
+    def fetch: (untyped key, ?expires_in: untyped) { () -> untyped } -> untyped
+    def read: (untyped key) -> untyped
+    def write: (untyped key, untyped value, ?expires_in: untyped) -> bool
+    def delete: (untyped key) -> bool
+    def exist?: (untyped key) -> bool
+    def increment: (untyped key, ?Integer amount, ?expires_in: untyped) -> Integer
+    def clear: () -> void
+  end
+end

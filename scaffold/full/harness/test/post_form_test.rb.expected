@@ -1,0 +1,5 @@
+ok the form collects blank errors in declaration order
+ok posts create rejects a short title
+ok posts create rejects HTML in the title
+ok posts create writes a valid form
+ok posts update rejects an invalid title

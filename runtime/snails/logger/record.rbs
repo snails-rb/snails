@@ -1,0 +1,31 @@
+module Snails
+  class Logger
+    class Record
+      SEVERITIES: Array[Symbol]
+      SCHEMA_VERSION: Integer
+      RESERVED_FIELDS: Array[String]
+
+      def initialize: (
+        Symbol severity,
+        String event,
+        String body,
+        ?fields: Hash[untyped, untyped],
+        ?exception: Exception?,
+        ?time: Time?,
+        ?context: Hash[String, untyped],
+        ?resource: Hash[String, untyped]
+      ) -> void
+
+      def severity: () -> Symbol
+      def event: () -> String
+      def body: () -> String
+      def fields: () -> Hash[String, untyped]
+      def resource: () -> Hash[String, untyped]
+      def exception: () -> Exception?
+      def time: () -> Time
+      def exception_type: () -> String?
+      def exception_message: () -> String?
+      def exception_stacktrace: () -> String?
+    end
+  end
+end

@@ -1,0 +1,5 @@
+ok test_permit_keeps_named_scalars
+ok test_permit_shapes_nested_hash_and_array_filters
+ok test_permit_passes_non_hash_array_elements
+ok test_permit_rejects_unmodeled_input
+ParamsTest: 4 tests passed

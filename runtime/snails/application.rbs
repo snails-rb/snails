@@ -1,0 +1,11 @@
+module Snails
+  def self.app: () -> Application
+
+  class Application
+    def app_name: () -> String
+    def secret_key_base: () -> String
+    def time_zone: () -> String
+    def version: () -> String?
+    def revision: () -> String?
+  end
+end

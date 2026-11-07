@@ -1,0 +1,7 @@
+ok test_prune_removes_only_finished_rows_past_retention
+ok test_prune_removes_old_occurrences
+ok test_the_template_ships_the_retention_index
+ok test_one_prune_call_stops_at_the_batch_limit
+ok test_the_job_clears_a_backlog_larger_than_one_batch
+ok test_prune_rejects_a_non_positive_limit
+QueuePruneJobTest: 6 tests passed

@@ -1,0 +1,3 @@
+ok test_database_connection_reader_is_private
+ok test_database_public_entries_stay_callable
+DatabasePublicBoundaryTest: 2 tests passed

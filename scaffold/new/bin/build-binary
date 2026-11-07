@@ -1,0 +1,19 @@
+#!/bin/bash
+# Build the native binary through the CLI engine (snails build-binary).
+#
+# The engine owns the pin check, core sync, generators, and spin build; this
+# wrapper only resolves the CLI.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -n ${SNAILS_DIR:-} ]]; then
+  SNAILS_CLI="$SNAILS_DIR/bin/snails"
+else
+  SNAILS_CLI="$(command -v snails 2>/dev/null || true)"
+fi
+[[ -n $SNAILS_CLI && -x $SNAILS_CLI ]] || {
+  echo "bin/build-binary: snails CLI not found; set SNAILS_DIR to the snails checkout (or put snails on PATH)" >&2
+  exit 1
+}
+
+exec "$SNAILS_CLI" build-binary "$ROOT" "$@"

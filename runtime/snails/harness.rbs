@@ -1,0 +1,12 @@
+module Snails
+  module Harness
+    class IntegrationTest
+      def assert: (untyped value, ?untyped message) -> void
+      def assert_nil: (untyped value, ?untyped message) -> void
+      def assert_not_nil: (untyped value, ?untyped message) -> void
+      def assert_not: (untyped value, ?untyped message) -> void
+      def assert_not_equal: (untyped expected, untyped actual, ?untyped message) -> void
+      def assert_operator: (untyped left, untyped operator, untyped right, ?untyped message) -> void
+    end
+  end
+end

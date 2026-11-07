@@ -1,0 +1,10 @@
+module Api
+  class PostsController < Api::ApplicationController
+    def index: () -> void
+    def show: () -> void
+    def create: () -> void
+    def update: () -> void
+    def destroy: () -> void
+    def set_post: () -> untyped
+  end
+end

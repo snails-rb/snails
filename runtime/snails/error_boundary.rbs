@@ -1,0 +1,5 @@
+module Snails
+  module ErrorBoundary
+    def self.fatal?: (Exception failure) -> bool
+  end
+end

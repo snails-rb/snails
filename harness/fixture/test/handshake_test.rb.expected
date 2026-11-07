@@ -1,0 +1,4 @@
+ok test_build_response
+ok test_check_rejects_non_get
+ok test_header_helpers_are_private
+HandshakeTest: 3 tests passed

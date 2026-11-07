@@ -1,0 +1,5 @@
+ok test_explicit_capture_collects
+ok test_registration_routes_delivery
+ok test_reregistration_replaces
+ok test_unregistered_delivery_raises
+DeliverySeamTest: 4 tests passed

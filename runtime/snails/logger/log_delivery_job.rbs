@@ -1,0 +1,5 @@
+module Snails
+  class LogDeliveryJob < ActiveJob::Base
+    def self.perform: (untyped body) -> void
+  end
+end

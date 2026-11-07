@@ -1,0 +1,7 @@
+ok test_recurring_registers_the_beat
+ok test_a_non_positive_interval_registers_nothing
+ok test_beat_enqueues_once_per_interval
+ok test_no_executor_runs_at_the_call_site
+ok test_process_queue_carries_enqueue_once
+ok test_enqueue_once_answers_whether_it_enqueued
+JobRecurringTest: 6 tests passed

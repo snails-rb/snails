@@ -1,0 +1,4 @@
+ok test_request_db_ms_is_nonzero_for_a_real_query
+ok test_request_db_ms_is_zero_without_a_query
+ok test_context_resets_db_time_per_request
+LoggerRequestDbTest: 3 tests passed

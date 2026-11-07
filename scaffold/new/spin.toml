@@ -1,0 +1,6 @@
+# spin manifest for a `snails new` project.
+#
+# jemalloc is the server allocator; the build fails rather than quietly
+# producing a slower binary when libjemalloc is missing (libjemalloc-dev
+# required).
+allocator = "jemalloc"

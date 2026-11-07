@@ -1,0 +1,7 @@
+module Sqlx
+  module Json
+    def self.encodable?: (untyped value) -> bool
+    def self.encode: (untyped value) -> String?
+    def self.decode: (untyped text) -> untyped
+  end
+end

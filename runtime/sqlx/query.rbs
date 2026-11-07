@@ -1,0 +1,28 @@
+module Sqlx
+  module Query
+    def find_by_sql: (String sql, ?Array[untyped]? values) -> Array[untyped]
+    def one_by_sql: (String sql, ?Array[untyped]? values) -> untyped
+    def row_by_sql: (String sql, ?Array[untyped]? values) -> Hash[String, untyped]?
+    def exists_by_sql: (String sql, ?Array[untyped]? values) -> bool
+    def rows_by_sql: (String sql, ?Array[untyped]? values) -> Array[Hash[String, untyped]]
+    def write: (String sql, ?Array[untyped]? values) -> Array[Hash[String, untyped]]
+    def values_for_placeholders: (String sql, Array[untyped]? values) -> Array[untyped]
+    def placeholder_count: (String sql) -> Integer
+    def where_clause: (Hash[Symbol, untyped] conditions) -> String
+    def projection: () -> String
+    def find_by: (Hash[Symbol, untyped] conditions, ?order: Symbol) -> untyped
+    def find_by!: (Hash[Symbol, untyped] conditions) -> untyped
+    def fetch_many: (Hash[Symbol, untyped]? conditions, ?order: Symbol, ?limit: Integer, ?offset: Integer) -> Array[untyped]
+    def find_each: (?Hash[Symbol, untyped]? conditions, ?batch_size: Integer) { (untyped) -> void } -> void
+    def find_in_batches: (?Hash[Symbol, untyped]? conditions, ?batch_size: Integer) { (Array[untyped]) -> void } -> void
+    def find: (untyped id) -> untyped
+    def count: (?Hash[Symbol, untyped] conditions) -> Integer
+    def exists?: (?untyped conditions) -> bool
+    def create!: (Hash[Symbol, untyped] attrs) -> untyped
+    def update!: (untyped id, Hash[Symbol, untyped] attrs) -> untyped
+    def update_all!: (Hash[Symbol, untyped]? conditions, Hash[Symbol, untyped] attrs) -> Integer
+    def upsert_all!: (Array[Hash[Symbol, untyped]] rows, unique_by: Array[Symbol | String]) -> Integer
+    def delete!: (untyped id) -> Integer
+    def delete_all!: (Hash[Symbol, untyped]? conditions) -> Integer
+  end
+end

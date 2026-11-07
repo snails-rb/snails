@@ -1,0 +1,5 @@
+module Enumerable
+  def index_by: () { (untyped) -> untyped } -> Hash[untyped, untyped]
+  def many?: () -> bool
+  def sole: () -> untyped
+end

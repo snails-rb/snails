@@ -1,0 +1,9 @@
+ok test_get_defaults_to_index
+ok test_post_defaults_to_create
+ok test_put_defaults_to_update
+ok test_delete_defaults_to_destroy
+ok test_explicit_action_overrides_default
+ok test_controller_class_travels_on_the_row
+ok test_helper_rows_carry_no_format
+ok test_fixture_table_row_is_built_by_the_helper
+RouteDslTest: 8 tests passed

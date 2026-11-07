@@ -1,0 +1,15 @@
+ok test_registration
+ok test_conditional_registration
+ok test_dispatch_runs_own_filter
+ok test_filter_halt
+ok test_owner_partition
+ok test_missing_filter_method_raises
+ok test_rejects_non_symbol_filters
+ok test_only_match
+ok test_only_mismatch
+ok test_only_halt_skips_later_filters
+ok test_except_match
+ok test_except_excluded
+ok test_conditional_filter_without_context_raises
+ok test_inherited_filter_method
+BeforeActionTest: 14 tests passed

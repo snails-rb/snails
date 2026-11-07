@@ -1,0 +1,23 @@
+module Snails
+  class Form
+    class Errors
+      DEFAULT_MESSAGES: Hash[Symbol, String]
+
+      @form: Snails::Form
+      @entries: Array[Array[untyped]]
+
+      def initialize: (Snails::Form form) -> void
+      def add: (untyped attribute, (String | Symbol) message, **untyped options) -> void
+      def full_messages: () -> Array[String]
+      def join: (?String separator) -> String
+      def empty?: () -> bool
+      def any?: () -> bool
+      def size: () -> Integer
+      def on: (untyped attribute) -> Array[String]
+      def resolve_message: (Symbol attribute, untyped message, Hash[Symbol, untyped] options) -> String
+      def scope_key: () -> String
+      def form_name: () -> String
+      def interpolate: (String text, Hash[Symbol, untyped] options) -> String
+    end
+  end
+end

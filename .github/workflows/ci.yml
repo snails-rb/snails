@@ -1,0 +1,102 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'manual/**'
+      - '**/*.md'
+      - 'LICENSE'
+  pull_request:
+    paths-ignore:
+      - 'manual/**'
+      - '**/*.md'
+      - 'LICENSE'
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # The migration runner's pg cases run against this server; the sqlite
+    # cases need nothing but the sqlite3 CLI below.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v4
+      # The spinel binding pin lives in pins.toml (SPINEL_REV — the rev
+      # this core rev is validated with, the same value `snails new`
+      # stamps into new projects). tomllib keeps the reader honest against
+      # the format contract instead of grepping KEY=VALUE lines.
+      - name: Load tool pins
+        run: |
+          REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
+          echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-dev sqlite3 libsqlite3-dev libjemalloc-dev postgresql-client
+      - name: Cache spinel build
+        id: cache-spinel
+        uses: actions/cache@v4
+        with:
+          path: .spinel
+          key: spinel-build-${{ runner.os }}-${{ env.SPINEL_REV }}
+      - name: Clone and build spinel
+        if: steps.cache-spinel.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/matz/spinel .spinel
+          cd .spinel && git checkout ${{ env.SPINEL_REV }} && make deps && make -j"$(nproc)"
+      # A per-run, pin-exact install: the gates materialize their toolchains from
+      # this PATH install (accepted only while it reports the pinned rev).
+      # Not a human-managed global toolchain — that default was retired;
+      # nobody maintains this rev by hand.
+      - name: Install spinel to user prefix
+        working-directory: .spinel
+        run: |
+          make install PREFIX="$HOME/.local"
+          "$HOME/.local/bin/spin" --version
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Cache spin native package objects
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/spin
+          key: spin-native-${{ runner.os }}-sp${{ env.SPINEL_REV }}
+      - name: Pins format gate
+        run: bash scripts/test-pins-format.sh
+      - name: Sync/scaffold contract regression
+        run: bash scripts/test-sync-scaffold.sh
+      - name: require-all generator regression
+        run: bash scripts/test-gen-require-all.sh
+      - name: gen-route-helpers
+        run: bash scripts/test-gen-route-helpers.sh
+      - name: gen-model-columns (AST model parser)
+        run: bash scripts/test-gen-model-columns.sh
+      - name: queue generator (generate job_queue)
+        run: bash scripts/test-generate-job-queue.sh
+      - name: Migration runner regression
+        run: bash scripts/test-migrate.sh
+      - name: CLI regression
+        run: bash scripts/test-cli.sh
+      - name: Dist lifecycle regression
+        run: bash scripts/test-dist.sh
+      - name: Small harness (core spinel compile + contracts)
+        run: bash scripts/test-runtime.sh
+      - name: PostgreSQL request-cache contract
+        run: bash scripts/test-runtime.sh --pg
+      - name: Scaffolder end-to-end (demo)
+        run: bash scripts/test-new.sh --only=demo

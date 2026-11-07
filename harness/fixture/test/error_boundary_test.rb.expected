@@ -1,0 +1,7 @@
+ok test_a_standard_error_is_not_fatal
+ok test_a_not_implemented_error_is_not_fatal
+ok test_another_script_error_is_not_fatal
+ok test_a_system_exit_is_fatal
+ok test_a_signal_exception_is_fatal
+ok test_a_no_memory_error_is_fatal
+ErrorBoundaryTest: 6 tests passed

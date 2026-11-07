@@ -1,0 +1,4 @@
+ok test_token_authentication
+ok test_basic_authentication
+ok test_parser_helpers_are_private
+HttpAuthenticationTest: 3 tests passed

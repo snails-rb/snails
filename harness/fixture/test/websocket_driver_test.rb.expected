@@ -1,0 +1,3 @@
+ok test_text_reaches_the_frame_writer
+ok test_close_reaches_the_close_encoder
+WebSocketDriverTest: 2 tests passed

@@ -1,0 +1,14 @@
+ok test_fetch_misses_then_hits
+ok test_fetch_caches_a_nil_value
+ok test_empty_string_is_a_hit
+ok test_write_and_read
+ok test_exist_and_delete
+ok test_increment_counts
+ok test_delete_and_clear
+ok test_expired_entry_is_a_miss
+ok test_expires_in_must_be_positive
+ok test_accepts_duration_expiry
+ok test_expires_in_must_be_seconds_or_duration
+ok test_fetch_requires_a_block
+ok test_concurrent_increment
+SnailsCacheTest: 13 tests passed

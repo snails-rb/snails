@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS posts (id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, body TEXT, created_at TIMESTAMP NOT NULL, updated_at TIMESTAMP NOT NULL);
+
+CREATE TABLE IF NOT EXISTS comments (id BIGSERIAL PRIMARY KEY, post_id BIGINT NOT NULL, body TEXT, created_at TIMESTAMP NOT NULL, updated_at TIMESTAMP NOT NULL);
+
+CREATE INDEX IF NOT EXISTS index_comments_on_post_id ON comments (post_id);

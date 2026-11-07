@@ -1,0 +1,30 @@
+module Sqlx
+  class RecordNotFound < StandardError
+    def initialize: (?String message) -> void
+  end
+
+  class ValueTooLong < StandardError
+    def initialize: (?String message) -> void
+  end
+
+  class RecordNotUnique < StandardError
+    def initialize: (?String message) -> void
+  end
+
+  class Busy < StandardError
+    def initialize: (?String message) -> void
+  end
+
+  class ConnectionTimeout < StandardError
+    def initialize: (?String message) -> void
+  end
+
+  class ConnectionFailed < StandardError
+    def initialize: (?String message) -> void
+  end
+
+  class RecordInvalid < StandardError
+    def record: () -> untyped
+    def initialize: (untyped record) -> void
+  end
+end

@@ -1,0 +1,6 @@
+module Snails
+  class Form
+    def run_rule: (Symbol attribute, Symbol rule, untyped options) -> void
+    def member?: (untyped members, untyped value) -> bool
+  end
+end

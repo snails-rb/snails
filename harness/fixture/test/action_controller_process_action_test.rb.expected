@@ -1,0 +1,7 @@
+ok test_dispatch_sets_action_context_and_runs_the_action
+ok test_a_responding_filter_halts_the_action
+ok test_a_missing_action_method_is_loud
+ok test_a_renderless_action_answers_204
+ok test_a_rendered_action_keeps_its_response
+ok test_the_health_endpoint_answers_ok
+ProcessActionTest: 6 tests passed

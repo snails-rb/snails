@@ -1,0 +1,18 @@
+class Integer
+  def seconds: () -> Snails::Duration
+  def second: () -> Snails::Duration
+  def minutes: () -> Snails::Duration
+  def minute: () -> Snails::Duration
+  def hours: () -> Snails::Duration
+  def hour: () -> Snails::Duration
+  def days: () -> Snails::Duration
+  def day: () -> Snails::Duration
+  def weeks: () -> Snails::Duration
+  def week: () -> Snails::Duration
+  def fortnights: () -> Snails::Duration
+  def fortnight: () -> Snails::Duration
+  def months: () -> Snails::Duration
+  def month: () -> Snails::Duration
+  def years: () -> Snails::Duration
+  def year: () -> Snails::Duration
+end

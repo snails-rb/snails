@@ -1,0 +1,5 @@
+# spin manifest — snails small harness fixture.
+# jemalloc follows the server-build contract: the default allocator for
+# server-shaped builds (spin fails the build when the library is
+# missing — libjemalloc-dev required).
+allocator = "jemalloc"

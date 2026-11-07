@@ -1,0 +1,7 @@
+# The spinel image build copies nothing from the context (spinel is cloned
+# inside the build), so ignoring state and history is transfer hygiene only.
+.git
+.spinel
+build
+tmp
+storage

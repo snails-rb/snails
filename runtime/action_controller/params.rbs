@@ -1,0 +1,10 @@
+module ActionController
+  module Params
+    def self.sub: (Hash[String, untyped], String) -> Hash[String, untyped]
+    def self.str: (Hash[String, untyped], String, String) -> String
+    def self.provided: (Hash[String, untyped], String) -> bool
+    def self.permitted: (Hash[Symbol, String], Hash[String, untyped], String, Symbol) -> Hash[Symbol, String]
+    def self.require_key: (Hash[String, untyped], String) -> untyped
+    def self.permit: (Hash[untyped, untyped], untyped) -> Hash[Symbol, untyped]
+  end
+end

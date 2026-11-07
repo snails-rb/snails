@@ -1,0 +1,3 @@
+ok test_checkout_timeout_raises
+ok test_a_no_database_scope_does_not_wait_for_a_connection
+PgPoolTimeoutTest: 2 tests passed

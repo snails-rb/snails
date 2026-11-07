@@ -1,0 +1,13 @@
+ok test_integer_units_return_duration
+ok test_string_helpers
+ok test_string_camelize
+ok test_string_word_forms
+ok test_collection_helpers
+ok test_hash_key_transforms
+ok test_hash_deep_transform_keys
+ok test_array_deep_transform_keys
+ok test_hash_to_query
+ok test_object_blank_predicates
+ok test_time_helpers
+ok test_stored_time_conversions
+ExtTest: 12 tests passed

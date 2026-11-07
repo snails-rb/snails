@@ -1,0 +1,6 @@
+class Object
+  def blank?: () -> bool
+  def present?: () -> bool
+  def presence: () -> untyped
+  def presence_in: (Array[String] list) -> untyped
+end

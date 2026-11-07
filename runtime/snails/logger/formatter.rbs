@@ -1,0 +1,8 @@
+module Snails
+  class Logger
+    class Formatter
+      def self.format_time: (Time time) -> String
+      def call: (untyped severity, ::Time time, untyped progname, untyped message) -> String
+    end
+  end
+end

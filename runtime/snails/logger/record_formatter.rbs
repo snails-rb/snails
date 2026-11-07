@@ -1,0 +1,7 @@
+module Snails
+  class Logger
+    class RecordFormatter
+      def call: (Record record, untyped progname) -> String
+    end
+  end
+end

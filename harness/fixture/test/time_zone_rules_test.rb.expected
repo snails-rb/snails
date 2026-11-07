@@ -1,0 +1,3 @@
+ok test_posix_dst_rule_offsets
+ok test_rule_instant_is_not_public
+TimeZoneRulesTest: 2 tests passed

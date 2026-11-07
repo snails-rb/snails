@@ -1,0 +1,5 @@
+class Array
+  def deep_transform_keys: () { (untyped key) -> untyped } -> Array[untyped]
+  def deep_transform_keys!: () { (untyped key) -> untyped } -> Array[untyped]
+  def to_sentence: (?words_connector: String, ?two_words_connector: String, ?last_word_connector: String) -> String
+end

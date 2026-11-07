@@ -1,0 +1,44 @@
+module Snails
+  def self.logger: () -> Snails::Logger
+
+  class Logger
+    @level: Symbol?
+    @output: untyped
+    @formatter: untyped
+    @record_formatter: untyped
+    @delivery: Delivery
+    @progname: String
+    @host_name: String?
+    @write_lock: Mutex
+
+    def initialize: () -> void
+    def level: () -> Symbol
+    def level=: (Symbol name) -> Symbol
+    def debug?: () -> bool
+    def info?: () -> bool
+    def warn?: () -> bool
+    def error?: () -> bool
+    def fatal?: () -> bool
+    def output: () -> untyped
+    def output=: (untyped io) -> untyped
+    def formatter: () -> untyped
+    def formatter=: (untyped value) -> untyped
+    def record_formatter: () -> untyped
+    def record_formatter=: (untyped value) -> untyped
+    def transport: () -> untyped
+    def transport=: (untyped value) -> untyped
+    def progname: () -> String
+    def progname=: (String name) -> String
+    def host_name: () -> String
+    def host_name=: (String name) -> String
+    def after_fork: () -> void
+    def register_flush: () -> void
+    def flush: () -> void
+    def report_local: (Symbol severity, untyped message) -> void
+    def debug: (untyped message, ?event: String?, ?fields: Hash[untyped, untyped], ?exception: Exception?) -> void
+    def info: (untyped message, ?event: String?, ?fields: Hash[untyped, untyped], ?exception: Exception?) -> void
+    def warn: (untyped message, ?event: String?, ?fields: Hash[untyped, untyped], ?exception: Exception?) -> void
+    def error: (untyped message, ?event: String?, ?fields: Hash[untyped, untyped], ?exception: Exception?) -> void
+    def fatal: (untyped message, ?event: String?, ?fields: Hash[untyped, untyped], ?exception: Exception?) -> void
+  end
+end

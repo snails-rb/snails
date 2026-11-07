@@ -1,0 +1,6 @@
+module Sqlx
+  module Row
+    def initialize: (**untyped attrs) -> void
+    def read_attribute: (Symbol | String name) -> untyped
+  end
+end

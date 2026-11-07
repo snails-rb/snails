@@ -1,0 +1,9 @@
+module ActionMailer
+  module CaptureMethod
+    def self.deliver: (Message message) -> Message
+  end
+
+  module DeliveryLog
+    def self.deliver: (Message message) -> Message
+  end
+end

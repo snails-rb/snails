@@ -1,0 +1,8 @@
+ok test_fire_due_callbacks_is_private
+ok test_register_periodic_rejects_non_positive_seconds
+ok test_bucket_change_gates_and_fires_once_per_bucket
+ok test_a_fresh_registration_catches_up_the_current_bucket
+ok test_raising_callback_does_not_stop_the_others
+ok test_loop_stopped_is_recorded
+ok test_run_failed_is_recorded
+JobSchedulerTest: 7 tests passed

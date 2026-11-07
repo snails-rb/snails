@@ -1,0 +1,10 @@
+module ActiveJob
+  module Scheduler
+    POLL_INTERVAL: Float
+    PERIODIC: Array[Hash[String, untyped]]
+
+    def self.register_periodic: (Integer seconds, ^() -> void work) -> void
+    def self.run_periodic: (?Integer now) -> void
+    def self.run: () -> void
+  end
+end

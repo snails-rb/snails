@@ -1,0 +1,96 @@
+[
+  {
+    "event": "request.completed",
+    "severity": "info",
+    "body": "GET /up 200",
+    "context": {
+      "snails.request_id": "ab12cd34",
+      "snails.controller": "Snails::HealthController",
+      "snails.action": "show"
+    },
+    "fields": {
+      "http.request.method": "GET",
+      "url.path": "/up",
+      "http.response.status_code": 200,
+      "snails.duration_ms": 0.4,
+      "snails.db_ms": 0.3,
+      "snails.format": "json"
+    },
+    "resource": {
+      "service.name": "example-service",
+      "host.name": "example-host",
+      "process.pid": 1234,
+      "deployment.environment.name": "production",
+      "snails.version": "v0.20.0",
+      "snails.rev": "0123456789abcdef0123456789abcdef01234567",
+      "snails.log.schema_version": 1
+    }
+  },
+  {
+    "event": "job.finished",
+    "severity": "info",
+    "body": "job ExampleJob succeeded",
+    "context": {
+      "snails.job.name": "ExampleJob",
+      "snails.job.id": 42,
+      "snails.job.attempt": 1
+    },
+    "fields": {
+      "snails.job.status": "succeeded",
+      "snails.duration_ms": 12.5,
+      "snails.db_ms": 2.1
+    },
+    "resource": {
+      "service.name": "example-service",
+      "host.name": "example-host",
+      "process.pid": 1234,
+      "deployment.environment.name": "production",
+      "snails.version": "v0.20.0",
+      "snails.rev": "0123456789abcdef0123456789abcdef01234567",
+      "snails.log.schema_version": 1
+    }
+  },
+  {
+    "event": "process.started",
+    "severity": "info",
+    "body": "process example-service started on port 3000",
+    "context": {},
+    "fields": {
+      "snails.port": 3000,
+      "snails.workers": 1,
+      "snails.queue_adapter": "ActiveJob::DatabaseQueue",
+      "snails.worker_concurrency": 1,
+      "snails.db_adapter": "postgresql"
+    },
+    "resource": {
+      "service.name": "example-service",
+      "host.name": "example-host",
+      "process.pid": 1234,
+      "deployment.environment.name": "production",
+      "snails.version": "v0.20.0",
+      "snails.rev": "0123456789abcdef0123456789abcdef01234567",
+      "snails.log.schema_version": 1
+    }
+  },
+  {
+    "event": "app.log",
+    "severity": "warn",
+    "body": "request rejected",
+    "context": {
+      "snails.request_id": "ab12cd34"
+    },
+    "fields": {
+      "http.response.status_code": 422,
+      "snails.app.area": "api"
+    },
+    "resource": {
+      "service.name": "example-service",
+      "host.name": "example-host",
+      "process.pid": 1234,
+      "deployment.environment.name": "production",
+      "snails.version": "v0.20.0",
+      "snails.rev": "0123456789abcdef0123456789abcdef01234567",
+      "snails.log.schema_version": 1
+    }
+  }
+]

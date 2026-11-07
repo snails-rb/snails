@@ -1,0 +1,5 @@
+module Sqlx
+  module Model
+    def enum: (Hash[Symbol, Integer] pairs) -> Enum
+  end
+end

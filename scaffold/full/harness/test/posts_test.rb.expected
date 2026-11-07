@@ -1,0 +1,8 @@
+ok posts create persists the submitted post
+ok posts index lists the stored posts
+ok count answers with and without conditions
+ok posts show returns the stored post
+ok posts show renders the time columns as ISO8601
+ok posts update changes the stored post
+ok a write with RETURNING answers its rows and count
+ok posts destroy removes the post

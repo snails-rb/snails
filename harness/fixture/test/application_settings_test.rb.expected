@@ -1,0 +1,5 @@
+ok test_application_is_one_stable_object
+ok test_app_settings_read_from_their_owners
+ok test_settings_read_without_a_request
+ok test_legacy_config_time_zone_is_not_defined
+ApplicationSettingsTest: 4 tests passed

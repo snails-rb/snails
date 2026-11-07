@@ -1,0 +1,22 @@
+module Snails
+  def self.iana_zone: (String name) -> String
+  def self.time_zone: () -> String
+  def self.time_zone=: (String name) -> void
+
+  module TimeZone
+    ZONE_NAMES: Hash[String, String]
+    class TimeZoneData
+      def name: () -> String
+      def initialize: (String name, Array[Integer] transitions, Array[Integer] offsets, Integer initial_offset, Array[Integer] rule) -> void
+      def offset_at: (Integer epoch) -> Integer
+      def rule_or: (Integer epoch, Integer fallback) -> Integer
+      def rule_instant: (Integer year, Integer month, Integer week, Integer wday, Integer secs) -> Integer
+    end
+    def self.be32: (Array[Integer] b, Integer i) -> Integer
+    def self.find_zone!: (String? zone) -> TimeZoneData
+    def self.load_zone!: (String raw) -> TimeZoneData
+    def self.parse_tz_rule: (String spec) -> Array[Integer]
+    def self.posix_seconds: (String text) -> Integer
+    def self.in_time_zone: (Time t, String? zone) -> Time
+  end
+end

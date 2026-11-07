@@ -1,0 +1,18 @@
+module Sqlx
+  class Base
+    extend Query
+    extend Model
+    include Row
+
+    def self.table_name: () -> String
+    def self.only_columns: () -> Array[Symbol | String]
+    def self.datetime_columns: () -> Array[String]
+    def self.date_columns: () -> Array[String]
+    def self.boolean_columns: () -> Array[String]
+    def self.json_columns: () -> Array[String]
+    def self.from_row: (untyped row) -> untyped
+    def self.all: () -> Array[untyped]
+
+    @attrs: Hash[Symbol, untyped]
+  end
+end

@@ -1,0 +1,6 @@
+module ActiveJob
+  module Launcher
+    def self.start: () -> void
+    def self.concurrency: () -> Integer
+  end
+end

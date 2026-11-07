@@ -1,0 +1,135 @@
+name: spinel-image
+
+# Publishes ghcr.io/snails-rb/spinel — the pinned spinel toolchain plus build
+# dependencies — as one multi-arch image per pins.toml SPINEL_REV. Consumers
+# (app Dockerfiles) FROM that tag, so this workflow is the only publish path.
+#
+# Triggers: pin (or Dockerfile/workflow) changes reaching main, or a manual
+# run. There is deliberately no skip-if-exists guard — re-running re-publishes
+# the same pin tag, and image tags are mutable pointers for a pin (callers
+# that need immutability pin the manifest digest).
+on:
+  push:
+    branches: [main]
+    paths:
+      - pins.toml
+      - Dockerfile.spinel
+      - .github/workflows/spinel-image.yml
+  workflow_dispatch:
+
+concurrency:
+  group: spinel-image-${{ github.ref }}
+  # A publish is a release action: queue a second run instead of cancelling
+  # one between the per-arch pushes and the tag merge (a cancelled merge can
+  # leave the pin tag missing or partial).
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/snails-rb/spinel
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rev: ${{ steps.pin.outputs.rev }}
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+      # tomllib keeps the reader honest against the pins format contract
+      # instead of grepping KEY=VALUE lines (same reader as ci.yml).
+      - name: Read the spinel pin
+        id: pin
+        run: |
+          REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
+          echo "rev=$REV" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build ${{ matrix.arch }}
+    needs: pin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Native on each arch — cross-emulating the other one is the
+          # 15-19 minute cost this workflow exists to avoid.
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+          - runner: ubuntu-latest
+            platform: linux/amd64
+            arch: amd64
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+
+      # The snails-rb org owns the package; a PAT with write:packages publishes
+      # it (secrets must exist before the first run — see cli-publish skill).
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.SNAILS_RB_REGISTRY_USER }}
+          password: ${{ secrets.SNAILS_RB_REGISTRY_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push (one arch)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.spinel
+          platforms: ${{ matrix.platform }}
+          push: true
+          provenance: false
+          tags: ${{ env.IMAGE }}:${{ needs.pin.outputs.rev }}-${{ matrix.arch }}
+          build-args: |
+            SPINEL_REV=${{ needs.pin.outputs.rev }}
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ matrix.arch }}
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ matrix.arch }},mode=max
+
+  publish:
+    name: publish pin tag
+    needs: [pin, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.SNAILS_RB_REGISTRY_USER }}
+          password: ${{ secrets.SNAILS_RB_REGISTRY_TOKEN }}
+
+      - name: Merge both arches under the pin tag
+        env:
+          REV: ${{ needs.pin.outputs.rev }}
+        run: |
+          docker buildx imagetools create \
+            -t "$IMAGE:$REV" \
+            "$IMAGE:$REV-arm64" \
+            "$IMAGE:$REV-amd64"
+          docker buildx imagetools inspect "$IMAGE:$REV"
+
+      # The image is already pushed: this guard fails the run (and alerts)
+      # when the compressed image grows past the docs target; it cannot
+      # unpublish. A pre-push check would need a separate build-without-push.
+      - name: Check compressed size
+        env:
+          REV: ${{ needs.pin.outputs.rev }}
+        run: |
+          for arch in amd64 arm64; do
+            bytes=$(docker buildx imagetools inspect --raw "$IMAGE:$REV-$arch" | python3 -c 'import json, sys; print(sum(layer["size"] for layer in json.load(sys.stdin)["layers"]))')
+            mb=$((bytes / 1000000))
+            echo "image size: $arch ${mb} MB compressed"
+            if (( bytes > 200000000 )); then
+              echo "image size guard: $arch compressed ${mb} MB exceeds 200 MB — review the package set in Dockerfile.spinel" >&2
+              exit 1
+            fi
+          done

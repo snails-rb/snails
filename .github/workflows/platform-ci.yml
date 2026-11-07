@@ -1,0 +1,284 @@
+name: platform-ci
+
+# Platform coverage that the Linux amd64 suite in ci.yml cannot see:
+# Linux arm64, macOS, and the bookworm app image.
+#
+# This workflow runs the platform lanes on main pushes and manual runs only:
+# the macOS runners are the scarce resource, and a PR does not need a second
+# long platform matrix. This is the spinel-style split: one Linux lane for a
+# PR, the remaining OS/target lanes on the merge commit.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'manual/**'
+      - '**/*.md'
+      - 'LICENSE'
+  workflow_dispatch:
+
+concurrency:
+  group: platform-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+jobs:
+  linux-arm64:
+    name: linux arm64 (sqlite)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Load tool pin
+        run: |
+          REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
+          echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang libclang-dev pkg-config \
+            libssl-dev libffi-dev sqlite3 libsqlite3-dev libpq-dev libjemalloc-dev
+      - name: Cache the pinned spinel install
+        uses: actions/cache@v4
+        with:
+          path: ~/.local
+          key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+      - name: Cache spinel native package objects
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/spin
+          key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+          restore-keys: |
+            spin-native-${{ runner.os }}-${{ runner.arch }}-
+      - name: Build spinel when the cache misses
+        run: |
+          if "$HOME/.local/bin/spin" --version 2>/dev/null | grep -q "${SPINEL_REV:0:8}"; then
+            echo "cached spinel matches $SPINEL_REV"
+            exit 0
+          fi
+          rm -rf "$RUNNER_TEMP/spinel-src"
+          git clone https://github.com/matz/spinel "$RUNNER_TEMP/spinel-src"
+          cd "$RUNNER_TEMP/spinel-src"
+          git checkout "$SPINEL_REV"
+          make deps
+          make -j"$(getconf _NPROCESSORS_ONLN)"
+          make install PREFIX="$HOME/.local"
+      - name: Expose the pinned toolchain
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/spin" --version
+      - name: Small harness (sqlite)
+        run: /bin/bash scripts/test-runtime.sh
+
+  linux-pg:
+    name: linux pg (PG_URL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Load tool pin
+        run: |
+          REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
+          echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang libclang-dev pkg-config \
+            libssl-dev libffi-dev sqlite3 libsqlite3-dev libpq-dev libjemalloc-dev \
+            postgresql-client
+      - name: Cache the pinned spinel install
+        uses: actions/cache@v4
+        with:
+          path: ~/.local
+          key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+      - name: Cache spinel native package objects
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/spin
+          key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+          restore-keys: |
+            spin-native-${{ runner.os }}-${{ runner.arch }}-
+      - name: Build spinel when the cache misses
+        run: |
+          if "$HOME/.local/bin/spin" --version 2>/dev/null | grep -q "${SPINEL_REV:0:8}"; then
+            echo "cached spinel matches $SPINEL_REV"
+            exit 0
+          fi
+          rm -rf "$RUNNER_TEMP/spinel-src"
+          git clone https://github.com/matz/spinel "$RUNNER_TEMP/spinel-src"
+          cd "$RUNNER_TEMP/spinel-src"
+          git checkout "$SPINEL_REV"
+          make deps
+          make -j"$(getconf _NPROCESSORS_ONLN)"
+          make install PREFIX="$HOME/.local"
+      - name: Expose the pinned toolchain
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/spin" --version
+      - name: Harness test against PG_URL
+        env:
+          SNAILS_DIR: ${{ github.workspace }}
+        run: |
+          psql "postgres://postgres:postgres@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 -c "CREATE DATABASE snails_test"
+          APP="$RUNNER_TEMP/pgapp"
+          rm -rf "$APP"
+          "$SNAILS_DIR/bin/snails" new "$APP" --scaffold --database=postgresql
+          PG_URL="postgres://postgres:postgres@127.0.0.1:5432/snails_test" "$APP/bin/test"
+
+  macos:
+    name: macos (full)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Load tool pin
+        run: |
+          REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
+          echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
+      - name: Install Homebrew dependencies
+        run: |
+          brew install openssl@3 jemalloc pkg-config libpq
+          {
+            echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+            echo "CPATH=$(brew --prefix openssl@3)/include:$(brew --prefix jemalloc)/include:${CPATH:-}"
+            echo "LIBRARY_PATH=$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
+          } >> "$GITHUB_ENV"
+      - name: Cache the pinned spinel install
+        uses: actions/cache@v4
+        with:
+          path: ~/.local
+          key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+      - name: Cache spinel native package objects
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/spin
+          key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+          restore-keys: |
+            spin-native-${{ runner.os }}-${{ runner.arch }}-
+      - name: Build spinel when the cache misses
+        run: |
+          if "$HOME/.local/bin/spin" --version 2>/dev/null | grep -q "${SPINEL_REV:0:8}"; then
+            echo "cached spinel matches $SPINEL_REV"
+            exit 0
+          fi
+          rm -rf "$RUNNER_TEMP/spinel-src"
+          git clone https://github.com/matz/spinel "$RUNNER_TEMP/spinel-src"
+          cd "$RUNNER_TEMP/spinel-src"
+          git checkout "$SPINEL_REV"
+          make deps
+          make -j"$(sysctl -n hw.ncpu)"
+          make install PREFIX="$HOME/.local"
+      - name: Expose the pinned toolchain
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/spin" --version
+      - name: Install GNU tools for the repo test scripts
+        run: |
+          brew install gnu-sed coreutils
+          {
+            echo "$(brew --prefix gnu-sed)/libexec/gnubin"
+            echo "$(brew --prefix coreutils)/libexec/gnubin"
+          } >> "$GITHUB_PATH"
+      - name: Full repo suite
+        run: |
+          /bin/bash scripts/test-runtime.sh
+          /bin/bash scripts/test-pins-format.sh
+          /bin/bash scripts/test-cli.sh
+          /bin/bash scripts/test-sync-scaffold.sh
+          /bin/bash scripts/test-gen-require-all.sh
+          /bin/bash scripts/test-gen-route-helpers.sh
+          /bin/bash scripts/test-gen-model-columns.sh
+          /bin/bash scripts/test-generate-job-queue.sh
+          /bin/bash scripts/test-migrate.sh
+          /bin/bash scripts/test-dist.sh
+          /bin/bash scripts/test-new.sh --only=demo
+
+  image:
+    name: app image (bookworm)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Load tool pin
+        run: |
+          REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
+          echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang libclang-dev pkg-config \
+            libssl-dev libffi-dev sqlite3 libsqlite3-dev libpq-dev libjemalloc-dev
+      - name: Cache the pinned spinel install
+        uses: actions/cache@v4
+        with:
+          path: ~/.local
+          key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+      - name: Cache spinel native package objects
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/spin
+          key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+          restore-keys: |
+            spin-native-${{ runner.os }}-${{ runner.arch }}-
+      - name: Build spinel when the cache misses
+        run: |
+          if "$HOME/.local/bin/spin" --version 2>/dev/null | grep -q "${SPINEL_REV:0:8}"; then
+            echo "cached spinel matches $SPINEL_REV"
+            exit 0
+          fi
+          rm -rf "$RUNNER_TEMP/spinel-src"
+          git clone https://github.com/matz/spinel "$RUNNER_TEMP/spinel-src"
+          cd "$RUNNER_TEMP/spinel-src"
+          git checkout "$SPINEL_REV"
+          make deps
+          make -j"$(getconf _NPROCESSORS_ONLN)"
+          make install PREFIX="$HOME/.local"
+      - name: Expose the pinned toolchain
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/spin" --version
+      - name: App image contract
+        run: /bin/bash scripts/test-image.sh

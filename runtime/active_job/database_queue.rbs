@@ -1,0 +1,17 @@
+module ActiveJob
+  class DatabaseQueue
+    ORPHANED_AFTER_SECONDS: Integer
+    BATCH_SIZE: Integer
+    DRAIN_INTERVAL_SECONDS: Integer
+    LAST_DRAIN_AT: Array[Integer]
+    LAST_DRAIN_WAS_FULL: Array[bool]
+    DRAIN_FLAGS_LOCK: Mutex
+
+    def self.enqueue: (String job_name, ^() -> void work, untyped? payload) -> void
+    def self.enqueue_at: (String job_name, ^() -> void work, untyped? payload, Time scheduled_at) -> void
+    def self.enqueue_once: (String name, ^() -> void work, untyped? payload, Time scheduled_at) -> bool
+    def self.drain_due?: () -> bool
+    def self.drain: () -> Integer
+    def self.perform_claimed: (untyped job) -> void
+  end
+end

@@ -1,0 +1,21 @@
+module Sqlx
+  class Enum
+    @labels: Array[String]
+    @values: Array[Integer]
+
+    def initialize: (Hash[Symbol, Integer] pairs) -> void
+    def label: (Integer value) -> String?
+    def label?: (Integer raw, untyped label) -> bool
+    def value: (untyped text) -> Integer
+    def writer: (table: String, column: String) -> EnumWriter
+  end
+
+  class EnumWriter
+    @table: String
+    @column: String
+    @declaration: Enum
+
+    def initialize: (table: String, column: String, declaration: Enum) -> void
+    def write!: (untyped id, untyped label) -> nil
+  end
+end

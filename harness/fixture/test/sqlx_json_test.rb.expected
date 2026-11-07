@@ -1,0 +1,10 @@
+ok test_hash_round_trip
+ok test_scalar_round_trip
+ok test_string_is_a_json_string
+ok test_symbol_keys_become_strings
+ok test_nil_is_null
+ok test_encodable_predicate
+ok test_non_json_value_raises
+ok test_decode_rejects_a_non_string
+ok test_decode_malformed_raises_argument_error
+JsonTest: 9 tests passed

@@ -1,0 +1,38 @@
+class Time
+  def beginning_of_minute: () -> Time
+  def end_of_minute: () -> Time
+  def beginning_of_hour: () -> Time
+  def end_of_hour: () -> Time
+  def beginning_of_day: () -> Time
+  def end_of_day: () -> Time
+  def noon: () -> Time
+  def beginning_of_week: () -> Time
+  def end_of_week: () -> Time
+  def next_week: () -> Time
+  def prev_week: () -> Time
+  def beginning_of_month: () -> Time
+  def end_of_month: () -> Time
+  def beginning_of_year: () -> Time
+  def end_of_year: () -> Time
+  def days_since: (?Integer n) -> Time
+  def days_ago: (?Integer n) -> Time
+  def yesterday: () -> Time
+  def tomorrow: () -> Time
+  def weeks_since: (?Integer n) -> Time
+  def weeks_ago: (?Integer n) -> Time
+  def months_since: (?Integer n) -> Time
+  def months_ago: (?Integer n) -> Time
+  def years_since: (?Integer n) -> Time
+  def years_ago: (?Integer n) -> Time
+  def same_day?: (Time other) -> bool
+  def today?: () -> bool
+  def yesterday?: () -> bool
+  def tomorrow?: () -> bool
+  def past?: () -> bool
+  def future?: () -> bool
+  def on_weekend?: () -> bool
+  def on_weekday?: () -> bool
+  def on_wday?: (Integer wday) -> bool
+  def in_time_zone: (String? zone) -> Time
+  def to_fs: (Symbol name) -> String
+end

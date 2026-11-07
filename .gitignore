@@ -1,0 +1,11 @@
+# editor / OS
+.DS_Store
+*.swp
+
+# build / scratch
+/build/
+/tmp/
+/storage/
+
+# pinned spinel toolchain (materialized next to pins.toml — state, never source)
+/.spinel/

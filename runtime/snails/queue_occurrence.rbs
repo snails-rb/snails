@@ -1,0 +1,12 @@
+module Snails
+  class QueueOccurrence < Sqlx::Base
+    COLUMNS: Array[String]
+
+    attr_reader job_name: String
+    attr_reader scheduled_at: Time?
+    attr_reader created_at: Time?
+
+    def self.insert!: (String job_name, Time scheduled_at, Time now) -> void
+    def self.prune_before!: (Time scheduled_before, limit: Integer) -> Integer
+  end
+end

@@ -1,0 +1,2 @@
+ok test_zone_data_is_reused_after_the_source_file_disappears
+TimeZoneCacheTest: 1 tests passed

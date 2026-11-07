@@ -1,0 +1,17 @@
+module ActionMailer
+  interface _DeliveryMethod
+    def deliver: (Message message) -> Message
+  end
+
+  class Base
+    self.@deliveries: Array[Message]
+    self.@delivery_method: untyped
+
+    def self.default: (?Hash[Symbol, untyped]? opts) -> void
+    def self.defaults: () -> Hash[Symbol, untyped]
+    def self.deliveries: () -> Array[Message]
+    def self.delivery_method: () -> _DeliveryMethod
+    def self.delivery_method=: (untyped method) -> untyped
+    def mail: (Hash[Symbol, untyped]? opts) -> Message
+  end
+end

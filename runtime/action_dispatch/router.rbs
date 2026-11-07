@@ -1,0 +1,61 @@
+module ActionDispatch
+  module Router
+    class Route
+      def verb: () -> String
+      def pattern: () -> String
+      def controller: () -> Class
+      def action: () -> Symbol
+      def req_format: () -> Symbol?
+      def int_params: () -> String
+      def pattern_parts: () -> Array[String]
+
+      def initialize: (String verb, String pattern, Class controller, Symbol action, ?Symbol? req_format, ?String int_params) -> void
+    end
+
+    class MatchResult
+      def controller: () -> Class
+      def action: () -> Symbol
+      def path_params: () -> Hash[String, String]
+      def req_format: () -> Symbol?
+
+      def initialize: (Class controller, Symbol action, Hash[String, String] path_params, ?Symbol? req_format) -> void
+    end
+
+    def self.match: (
+      String method,
+      String path,
+      Array[::ActionDispatch::Router::Route] table
+    ) -> ::ActionDispatch::Router::MatchResult?
+
+    def self.match_path: (
+      String method,
+      String path,
+      Array[::ActionDispatch::Router::Route] table,
+      String format
+    ) -> ::ActionDispatch::Router::MatchResult?
+
+    def self.format_extension: (String ext) -> bool
+
+    def self.match_pattern: (
+      String pattern,
+      String path,
+      ?String int_params
+    ) -> Hash[String, String]?
+
+    def self.glob_rest: (Array[String] path_parts, Integer from) -> String
+    def self.param_prefix_length: (String segment) -> Integer
+    def self.match_parts: (
+      Array[String] pattern_parts,
+      Array[String] path_parts,
+      ?String int_params,
+      ?String format
+    ) -> Hash[String, String]?
+
+    def self.int_constrained: (
+      String int_params,
+      String name
+    ) -> bool
+
+    def self.digits_only: (String s) -> bool
+  end
+end

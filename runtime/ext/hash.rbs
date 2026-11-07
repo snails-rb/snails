@@ -1,0 +1,9 @@
+class Hash
+  def symbolize_keys: () -> Hash[Symbol, untyped]
+  def stringify_keys: () -> Hash[String, untyped]
+  def deep_transform_keys: () { (untyped key) -> untyped } -> Hash[untyped, untyped]
+  def deep_transform_keys!: () { (untyped key) -> untyped } -> Hash[untyped, untyped]
+  def to_query: (?String? namespace) -> String
+  def escape_query_component: (String text) -> String
+  def deep_transform: (untyped object) { (untyped key) -> untyped } -> untyped
+end

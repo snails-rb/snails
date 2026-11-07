@@ -1,0 +1,6 @@
+ok test_two_leases_get_distinct_connections
+ok test_transaction_rollback_does_not_erase_another_lease
+ok test_create_returns_its_own_row_under_concurrency
+ok test_changes_are_connection_scoped
+ok test_require_leases_refuses_a_lease_less_access
+PgLeaseTest: 5 tests passed

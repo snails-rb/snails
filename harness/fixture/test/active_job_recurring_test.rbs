@@ -1,0 +1,3 @@
+class UniqueQueueAdapter
+  def self.enqueue_once: (String job_name, ^() -> void work, untyped? payload, Time scheduled_at) -> bool
+end

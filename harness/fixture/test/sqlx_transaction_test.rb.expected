@@ -1,0 +1,5 @@
+ok test_a_standard_error_rolls_back_and_reraises
+ok test_a_script_error_rolls_back_and_leaves_the_connection_reusable
+ok test_an_interrupt_rolls_back_and_reraises
+ok test_a_failed_transaction_holds_no_lock_for_the_sibling_connection
+SqlxTransactionTest: 4 tests passed

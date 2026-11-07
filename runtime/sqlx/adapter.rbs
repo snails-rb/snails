@@ -1,0 +1,8 @@
+module Sqlx
+  def self.quote: (untyped value) -> String
+  def self.adapter_name: () -> String
+
+  class Base
+    def self.transaction: () { () -> untyped } -> untyped
+  end
+end

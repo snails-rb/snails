@@ -1,0 +1,20 @@
+module ActiveJob
+  EXECUTORS: Array[String]
+  QUEUE_ADAPTER: Array[Class]
+  RECURRING: Array[Hash[String, untyped]]
+
+  def self.enqueue: (Class job_class, ?untyped? payload) -> void
+  def self.schedule: (Class job_class, Time at, ?untyped? payload) -> void
+  def self.executor_registered: () -> bool
+  def self.register_executor: () -> void
+  def self.recurring: (Class job_class, Integer interval) -> void
+  def self.enqueue_recurring: (Hash[String, untyped] entry, ?untyped now) -> void
+  def self.scheduled_at_for: (Integer interval, ?untyped now) -> Time
+  def self.queue_adapter: () -> Class
+  def self.queue_adapter=: (Class adapter) -> void
+
+  class Base
+    def self.job_name: () -> String
+    def self.perform: (untyped? data) -> void
+  end
+end

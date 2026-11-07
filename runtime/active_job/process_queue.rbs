@@ -1,0 +1,14 @@
+module ActiveJob
+  class ProcessQueue
+    MAX_PENDING: Integer
+    PENDING: Array[Hash[String, untyped]]
+    NEXT_ID: Array[Integer]
+
+    def self.enqueue: (String job_name, ^() -> void work, untyped? payload) -> void
+    def self.enqueue_at: (String job_name, ^() -> void work, untyped? payload, Time scheduled_at) -> void
+    def self.enqueue_once: (String job_name, ^() -> void work, untyped? payload, Time scheduled_at) -> bool
+    def self.drain: () -> Integer
+    def self.pending_count: () -> Integer
+    def self.drain_due?: () -> bool
+  end
+end

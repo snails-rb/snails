@@ -1,0 +1,11 @@
+module Snails
+  module RouteTable
+    def self.get: (String path, Class controller, ?Symbol action) -> ActionDispatch::Router::Route
+    def self.post: (String path, Class controller, ?Symbol action) -> ActionDispatch::Router::Route
+    def self.put: (String path, Class controller, ?Symbol action) -> ActionDispatch::Router::Route
+    def self.delete: (String path, Class controller, ?Symbol action) -> ActionDispatch::Router::Route
+    def self.resources: (String path, Class controller, ?Symbol? format, ?Array[Symbol]? only) -> Array[ActionDispatch::Router::Route]
+    def self.check_only: (Array[Symbol]? only) -> void
+    def self.action_wanted: (Array[Symbol]? only, Symbol name) -> bool
+  end
+end

@@ -1,0 +1,6 @@
+module Snails
+  module Main
+    def self.configure_database!: () -> untyped
+    def self.start: () -> untyped
+  end
+end

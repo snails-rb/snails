@@ -1,0 +1,7 @@
+module Snails
+  VERSION: String
+  REV: String
+
+  def self.version: () -> String
+  def self.rev: () -> String
+end

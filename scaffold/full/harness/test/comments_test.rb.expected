@@ -1,0 +1,7 @@
+ok comments create persists the submitted comment
+ok comments index lists the post's comments oldest first
+ok comments show returns the stored comment
+ok comments update changes the stored comment
+ok comments destroy removes the comment
+ok comments create on an unknown post is a 404
+ok comments destroy with their post

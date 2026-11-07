@@ -1,0 +1,102 @@
+ROOT 0
+SOURCE_FILE scaffold/new/config/routes.rb
+FILE 0 scaffold/new/config/routes.rb
+N 0 ProgramNode
+I 0 node_line 7
+I 0 node_file 0
+I 0 node_col 0
+R 0 statements 1
+N 1 StatementsNode
+I 1 node_line 7
+I 1 node_file 0
+I 1 node_col 0
+A 1 body 2
+N 2 ModuleNode
+I 2 node_line 7
+I 2 node_file 0
+I 2 node_col 0
+R 2 constant_path 3
+R 2 body 4
+N 3 ConstantReadNode
+S 3 name Snails
+I 3 node_line 7
+I 3 node_file 0
+I 3 node_col 7
+N 4 StatementsNode
+I 4 node_line 8
+I 4 node_file 0
+I 4 node_col 2
+A 4 body 5
+N 5 ModuleNode
+I 5 node_line 8
+I 5 node_file 0
+I 5 node_col 2
+R 5 constant_path 6
+R 5 body 7
+N 6 ConstantReadNode
+S 6 name RouteTable
+I 6 node_line 8
+I 6 node_file 0
+I 6 node_col 9
+N 7 StatementsNode
+I 7 node_line 9
+I 7 node_file 0
+I 7 node_col 4
+A 7 body 8
+N 8 DefNode
+S 8 name table
+I 8 node_line 9
+I 8 node_file 0
+I 8 node_col 4
+R 8 parameters -1
+R 8 body 9
+R 8 receiver 17
+N 9 StatementsNode
+I 9 node_line 10
+I 9 node_file 0
+I 9 node_col 6
+A 9 body 10
+N 10 ArrayNode
+I 10 node_line 10
+I 10 node_file 0
+I 10 node_col 6
+A 10 elements 11
+N 11 CallNode
+S 11 name get
+I 11 node_line 11
+I 11 node_file 0
+I 11 node_col 8
+R 11 receiver -1
+R 11 arguments 12
+R 11 block -1
+N 12 ArgumentsNode
+I 12 node_line 11
+I 12 node_file 0
+I 12 node_col 12
+A 12 arguments 13,14,16
+N 13 StringNode
+S 13 content /up
+I 13 node_line 11
+I 13 node_file 0
+I 13 node_col 12
+I 13 fzl 1
+N 14 ConstantPathNode
+S 14 name HealthController
+I 14 node_line 11
+I 14 node_file 0
+I 14 node_col 19
+R 14 parent 15
+N 15 ConstantReadNode
+S 15 name Snails
+I 15 node_line 11
+I 15 node_file 0
+I 15 node_col 19
+N 16 SymbolNode
+S 16 value show
+I 16 node_line 11
+I 16 node_file 0
+I 16 node_col 45
+N 17 SelfNode
+I 17 node_line 9
+I 17 node_file 0
+I 17 node_col 8

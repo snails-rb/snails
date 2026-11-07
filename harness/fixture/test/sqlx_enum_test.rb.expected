@@ -1,0 +1,13 @@
+ok test_declaration_round_trip
+ok test_label_unknown_is_nil
+ok test_value_unknown_raises
+ok test_value_accepts_spellings
+ok test_label_predicate
+ok test_label_predicate_unknown_label_raises
+ok test_declaration_rejects_bad_shapes
+ok test_standard_shape_walk
+ok test_enum_writer_from_declaration
+ok test_enum_writer_answers_nil
+ok test_enum_writer_unknown_label_raises
+ok test_enum_writer_missing_row_silent
+EnumTest: 12 tests passed

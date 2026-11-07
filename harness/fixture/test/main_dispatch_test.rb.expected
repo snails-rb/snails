@@ -1,0 +1,5 @@
+ok test_dispatch_exposes_current_during_the_action
+ok test_dispatch_clears_current_when_the_action_raises
+ok test_dispatch_answers_json_404_for_a_miss
+ok test_dispatch_answers_json_400_for_malformed_params
+MainDispatchTest: 4 tests passed

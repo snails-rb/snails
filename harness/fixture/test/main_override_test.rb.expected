@@ -1,0 +1,3 @@
+ok test_app_override_wins
+ok test_untouched_core_default_stays
+MainOverrideTest: 2 tests passed

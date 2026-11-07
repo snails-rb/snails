@@ -1,0 +1,11 @@
+ok test_active_job_recurring_fire_is_private
+ok test_json_render_helpers_are_private
+ok test_router_helpers_are_private
+ok test_date_time_helpers_are_private
+ok test_time_zone_helpers_are_private
+ok test_harness_request_builder_is_private
+ok test_harness_status_table_is_private
+ok test_database_low_level_helpers_are_private
+ok test_tep_server_helpers_are_private
+ok test_websocket_helpers_are_private
+PrivateBoundaryTest: 10 tests passed

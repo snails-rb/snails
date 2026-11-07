@@ -1,0 +1,10 @@
+class String
+  def squish: () -> String
+  def underscore: () -> String
+  def camelize: (?Symbol mode) -> String
+  def humanize: () -> String
+  def titleize: () -> String
+  def pluralize: (Integer count) -> String
+  def parameterize: () -> String
+  def to_time: () -> Time?
+end

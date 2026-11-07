@@ -1,0 +1,5 @@
+ok test_no_executor_runs_at_the_call_site
+ok test_drain_round_trip_isolates_failures
+ok test_drain_once_is_private
+ok test_a_raising_adapter_does_not_stop_the_drain_loop
+JobWorkerTest: 4 tests passed

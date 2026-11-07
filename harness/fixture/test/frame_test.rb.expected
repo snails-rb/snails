@@ -1,0 +1,5 @@
+ok test_parse_masked_text_frame
+ok test_reserved_opcode_closes
+ok test_fragmented_control_frame_closes
+ok test_opcode_helpers_are_private
+FrameTest: 4 tests passed

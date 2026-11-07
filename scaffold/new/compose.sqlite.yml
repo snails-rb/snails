@@ -1,0 +1,66 @@
+# Single-host deployment: the app image and an optional Caddy proxy.
+#
+# `bin/compose up -d` starts the app on 127.0.0.1:3000. The proxy profile
+# adds Caddy for a public TLS host:
+#
+#   bin/compose --profile proxy up -d
+#
+# The sqlite database lives in ./storage on the host — bin/compose creates
+# it as your user (bare `docker compose`: run `mkdir -p storage` first).
+# The container runs as PUID:PGID (your user's ids, default 1000), so the
+# files stay yours and the host can run migrations and backups against
+# them directly.
+# The pin defaults below are the values at creation time; bin/compose
+# overrides them with the current pins after a bump.
+# Values in .env are interpolated here; never commit .env.
+services:
+  app:
+    build:
+      context: .
+      args:
+        SPINEL_REV: ${SPINEL_REV:-__SPINEL_REV__}
+        SNALS_REV: ${SNALS_REV:-__SNALS_REV__}
+        APP_NAME: ${APP_NAME:-__APP_NAME__}
+    image: ${APP_IMAGE:-__APP_NAME__:local}
+    restart: unless-stopped
+    # Docker's local driver keeps 100MB per container (20m x 5, compressed).
+    logging:
+      driver: local
+      options:
+        max-size: "20m"
+        max-file: "5"
+        compress: "true"
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      SNAILS_ENV: production
+      PORT: "3000"
+      DATABASE_PATH: /snails/storage/production.sqlite3
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
+    volumes:
+      - ./storage:/snails/storage
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/up"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  caddy:
+    profiles: ["proxy"]
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

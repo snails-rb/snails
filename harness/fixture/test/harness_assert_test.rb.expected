@@ -1,0 +1,21 @@
+ok assert_raises passes when the block raises the class
+ok assert_raises accepts a subclass of the named class
+ok assert_raises fails when nothing is raised
+ok assert_raises fails on a different exception
+ok assert_match passes on a regexp
+ok assert_match treats a string pattern as a literal
+ok assert_match fails when the pattern does not match
+ok assert_includes passes when the collection holds the object
+ok assert_includes fails when the object is missing
+ok assert_response accepts an integer status code
+ok assert_response keeps matching status symbols
+ok assert_response fails on a status mismatch
+ok assert_response resolves a status symbol through the shared table
+ok assert_response category symbols follow the response ranges
+ok assert_response rejects a symbol outside the table
+ok assert passes on truthy and fails on falsy
+ok assert_nil passes on nil and fails on a value
+ok assert_not_nil passes on a value and fails on nil
+ok assert_not passes on falsy and fails on truthy
+ok assert_not_equal passes on a difference and fails on a match
+ok assert_operator passes on a held comparison and rejects a bad operator

@@ -1,0 +1,5 @@
+module ActionMailer
+  class DeliveryJob < ActiveJob::Base
+    def self.perform: (Hash[String, untyped] data) -> void
+  end
+end

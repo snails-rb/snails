@@ -1,0 +1,21 @@
+# Build context for the app image. The build stage needs the app source and
+# snails-core/; local state, VCS/CI metadata, and the scaffold-generated
+# deploy examples stay out.
+#
+# snails-core/ is assembled by `snails sync` in bin/build-image and must stay
+# in the context — do not add it here.
+.git
+.github
+.spinel
+.snails
+# Local build outputs stay out, but the engines stage the image context
+# (the CLI tree the runtime Dockerfile COPYs) under build/image-context/.
+build/*
+!build/image-context
+tmp
+storage
+harness
+deploy
+compose*.yml
+.env
+.env.*

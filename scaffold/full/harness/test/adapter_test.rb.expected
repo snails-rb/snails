@@ -1,0 +1,2 @@
+ok where_clause compares a boolean the way the adapter spells it
+ok a read binds its value on this adapter

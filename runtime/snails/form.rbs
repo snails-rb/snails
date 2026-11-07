@@ -1,0 +1,21 @@
+module Snails
+  class Form
+    FIELDS: Array[String]
+    VALIDATIONS: Array[Array[untyped]]
+    MESSAGE_SCOPES: Array[Array[untyped]]
+    DEFAULT_RULE_OPTIONS: Array[Symbol]
+
+    def self.field_names: () -> Array[String]
+    def self.validates: (*Symbol attributes, **untyped rules) -> void
+    def self.validate: (*Symbol method_names, **untyped options) -> void
+    def self.message_scope: (untyped scope) -> void
+
+    def initialize: (?Hash[untyped, untyped] values) -> void
+    def read_attribute: (untyped name) -> untyped
+    def write_attribute: (untyped name, untyped value) -> untyped
+    def valid?: () -> bool
+    def errors: () -> Errors
+    def human_attribute_name: (Symbol attribute) -> String
+    def normalize: () -> void
+  end
+end

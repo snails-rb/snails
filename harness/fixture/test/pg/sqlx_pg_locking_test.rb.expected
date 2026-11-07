@@ -1,0 +1,3 @@
+ok test_a_lock_wait_failure_raises_sqlx_busy
+ok test_locking_read_is_not_cached
+PgLockingReadTest: 2 tests passed

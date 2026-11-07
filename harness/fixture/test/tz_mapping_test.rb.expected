@@ -1,0 +1,8 @@
+ok test_registered_names_map
+ok test_unregistered_passes_through
+ok test_unknown_name_raises
+ok test_unknown_iana_path_raises
+ok test_time_zone_setter_pins_process_and_readers
+ok test_invalid_setter_leaves_the_zone_unchanged
+ok test_process_zone_pinned_at_boot
+TzMappingTest: 7 tests passed

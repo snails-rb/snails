@@ -1,0 +1,3 @@
+ok test_configure_does_not_open_a_connection_until_first_use
+ok test_a_forked_child_opens_its_own_pool
+DatabaseLazyOpenTest: 2 tests passed

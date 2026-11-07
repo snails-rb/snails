@@ -1,0 +1,140 @@
+# The FFI bindings live under Tep (Tep::Sock, Tep::Crypto) — the nested
+# module form the pinned spinel toolchain compiles.
+#
+# Transport: the socket/process/IO layer rides spinel's maintained,
+# auto-linked `sp_net` — there is no vendored C shim. The socket + process
+# ops are `sp_net_*`, called through thin `sphttp_*` delegators so call
+# sites stay unchanged; everything that is not a raw socket op — the
+# monotonic clock, body drain, sendfile, filesize, and chunked write — is
+# implemented in Ruby below. The HTTP request read (server_threaded.rb /
+# server_scheduled.rb) and the WS frame recv (websocket/connection.rb) read
+# via `sp_net_recv_some(:binstr)` directly. No `ffi_cflags` is needed.
+module Tep
+  module Sock
+    # ── Socket + process layer: sp_net (auto-linked) ──
+    # recv uses the `:binstr` return mode: it builds a binary-safe String
+    # from (ptr, len) rather than strlen, so a recv'd 0x00 does not
+    # truncate.
+    ffi_func :sp_net_listen,                [:int, :int],       :int
+    ffi_func :sp_net_accept,                [:int],             :int
+    ffi_func :sp_net_accept_nb,             [:int],             :int
+    ffi_func :sp_net_set_nonblock,          [:int],             :int
+    ffi_func :sp_net_close,                 [:int],             :int
+    ffi_func :sp_net_write_str,             [:int, :str],       :int
+    ffi_func :sp_net_write_bytes,           [:int, :str, :int], :int
+    ffi_func :sp_net_recv_some,             [:int, :int],       :binstr
+    ffi_func :sp_net_recv_all,              [:int, :int],       :binstr
+    ffi_func :sp_net_connect,               [:str, :int],       :int
+    ffi_func :sp_net_fork,                  [],                 :int
+    ffi_func :sp_net_exit,                  [:int],             :int
+    ffi_func :sp_net_getpid,                [],                 :int
+    ffi_func :sp_net_wait_any,              [],                 :int
+    ffi_func :sp_net_install_term_handlers, [],                 :int
+    ffi_func :sp_net_shutdown_requested,    [],                 :int
+    ffi_func :sp_net_poll_reset,            [],                 :int
+    ffi_func :sp_net_poll_add,              [:int, :int],       :int
+    ffi_func :sp_net_poll_run,              [:int],             :int
+    ffi_func :sp_net_poll_ready,            [:int],             :int
+    ffi_func :sp_net_shell_capture,         [:str, :int],       :binstr
+
+    # Delegators: keep the `Sock.sphttp_*` call sites unchanged while
+    # routing them through sp_net.
+    def self.sphttp_listen(port, reuse);      Sock.sp_net_listen(port, reuse);      end
+    def self.sphttp_accept(sfd);              Sock.sp_net_accept(sfd);              end
+    def self.sphttp_accept_nb(sfd);           Sock.sp_net_accept_nb(sfd);           end
+    def self.sphttp_set_nonblock(fd);         Sock.sp_net_set_nonblock(fd);         end
+    def self.sphttp_close(fd);                Sock.sp_net_close(fd);                end
+    def self.sphttp_write_str(fd, s);         Sock.sp_net_write_str(fd, s);         end
+    def self.sphttp_write_bytes(fd, data, n); Sock.sp_net_write_bytes(fd, data, n); end
+    def self.sphttp_recv_some(fd, n);         Sock.sp_net_recv_some(fd, n);         end
+    def self.sphttp_recv_all(fd, n);          Sock.sp_net_recv_all(fd, n);          end
+    def self.sphttp_connect(host, port);      Sock.sp_net_connect(host, port);      end
+    def self.sphttp_fork;                     Sock.sp_net_fork;                     end
+    def self.sphttp_exit(status);             Sock.sp_net_exit(status);             end
+    def self.sphttp_getpid;                   Sock.sp_net_getpid;                   end
+    def self.sphttp_wait_any;                 Sock.sp_net_wait_any;                 end
+    def self.sphttp_install_term_handlers;    Sock.sp_net_install_term_handlers;    end
+    def self.sphttp_shutdown_requested;       Sock.sp_net_shutdown_requested;       end
+    def self.sphttp_poll_reset;               Sock.sp_net_poll_reset;               end
+    def self.sphttp_poll_add(fd, mode);       Sock.sp_net_poll_add(fd, mode);       end
+    def self.sphttp_poll_run(timeout_ms);     Sock.sp_net_poll_run(timeout_ms);     end
+    def self.sphttp_poll_ready(slot);         Sock.sp_net_poll_ready(slot);         end
+    def self.sphttp_shell_capture(cmd, n);    Sock.sp_net_shell_capture(cmd, n);    end
+
+    # `sphttp_now_us()` — a reading of the native monotonic clock
+    # (Process.clock_gettime), in microseconds.
+    #
+    # @return [Integer] microseconds since an unspecified fixed point
+    def self.sphttp_now_us
+      (Process.clock_gettime(Process::CLOCK_MONOTONIC) * 1000000.0).to_i
+    end
+
+    # ── Protocol/IO helpers implemented in Ruby on sp_net + File ──
+    # Kept under the `sphttp_*` names so call sites stay unchanged.
+
+    # `sphttp_filesize(path)` — the file size the caller advertises as
+    # Content-Length; it must equal what `sphttp_sendfile` writes, or a
+    # multibyte asset truncates. The file is read whole, so small static
+    # assets only.
+    #
+    # @return [Integer] the byte count, or -1 when the path does not
+    #   exist (callers 404 on `< 0`)
+    def self.sphttp_filesize(path)
+      if !File.exist?(path)
+        return -1
+      end
+      File.size(path)
+    end
+
+    # `sphttp_sendfile(fd, path)` — read a static file (binary-safe) and
+    # write its bytes; the caller has already emitted the headers and
+    # checked existence via `sphttp_filesize`. The write counts bytes,
+    # not characters, so it matches the advertised Content-Length and a
+    # multibyte asset does not truncate.
+    #
+    # @return [void]
+    def self.sphttp_sendfile(fd, path)
+      if !File.exist?(path)
+        return
+      end
+      data = File.read(path)
+      Sock.sp_net_write_bytes(fd, data, data.bytesize)
+    end
+
+    # `sphttp_write_chunk(fd, s)` — write one Transfer-Encoding chunk:
+    # hex byte size + CRLF, the data, CRLF. The size counts bytes, not
+    # characters, so a multibyte payload frames correctly.
+    #
+    # @return [void]
+    def self.sphttp_write_chunk(fd, s)
+      Sock.sp_net_write_str(fd, s.bytesize.to_s(16) + "\r\n")
+      Sock.sp_net_write_bytes(fd, s, s.bytesize)
+      Sock.sp_net_write_str(fd, "\r\n")
+    end
+
+    # `sphttp_write_chunk_end(fd)` — write the chunked-encoding
+    # terminator: the zero-length chunk.
+    #
+    # @return [void]
+    def self.sphttp_write_chunk_end(fd)
+      Sock.sp_net_write_str(fd, "0\r\n\r\n")
+    end
+  end
+
+  # Crypto FFI — SHA-256/HMAC/PBKDF2/B64URL/random. The symbols live in
+  # spinel's libspinel_rt.a, which the spinel driver auto-links into every
+  # binary; no ffi_cflags is needed, only the signatures.
+  module Crypto
+    ffi_func :sp_crypto_hmac_sha256_hex,      [:str, :str],       :str
+    ffi_func :sp_crypto_hmac_sha256_b64url,   [:str, :str],       :str
+    ffi_func :sp_crypto_b64url_encode,        [:str],             :str
+    ffi_func :sp_crypto_b64url_decode,        [:str],             :str
+    ffi_func :sp_crypto_pbkdf2_sha256_b64url, [:str, :str, :int], :str
+    ffi_func :sp_crypto_random_b64url,        [:int],             :str
+    # SHA-1 + WebSocket accept-key compute. SHA-1 is shipped only
+    # because RFC 6455 requires it for the Sec-WebSocket-Accept
+    # derivation; do NOT use it for anything else (collision-broken).
+    ffi_func :sp_crypto_sha1_hex,             [:str],             :str
+    ffi_func :sp_crypto_websocket_accept,     [:str],             :str
+  end
+end

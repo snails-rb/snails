@@ -1,0 +1,7 @@
+module ActiveJob
+  module Worker
+    POLL_INTERVAL: Float
+
+    def self.run: () -> void
+  end
+end

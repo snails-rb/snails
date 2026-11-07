@@ -1,0 +1,15 @@
+module ActionDispatch
+  module Http
+    class Headers
+      @env: Hash[String, untyped]
+
+      def initialize: (Hash[String, untyped] env) -> void
+      def []: (String key) -> untyped
+      def fetch: (String key, ?untyped default) -> untyped
+      def has_key?: (String key) -> bool
+      def each_header: () { (String name, untyped value) -> void } -> void
+      def to_h: () -> Hash[String, untyped]
+      def self.env_key: (String name) -> String
+    end
+  end
+end

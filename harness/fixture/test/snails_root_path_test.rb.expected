@@ -1,0 +1,5 @@
+ok test_root_is_the_working_directory
+ok test_join_appends_parts
+ok test_plus_joins_a_path
+ok test_to_path_is_accepted_by_file_methods
+SnailsRootPathTest: 4 tests passed

@@ -1,0 +1,18 @@
+# Build and run artifacts — generated, not source.
+/build/
+/harness/build/
+/tmp/
+
+# Local state: the sqlite DB the gate and server boot with.
+/storage/
+/harness/storage/
+
+# Local environment overrides — copy .env.sample here; never commit real values.
+/.env
+
+# Vendored core — assembled by `bin/snails sync`.
+/snails-core/
+
+# Pinned spinel toolchain — materialized by sync next to pins.toml
+# (state, never source).
+/.spinel/

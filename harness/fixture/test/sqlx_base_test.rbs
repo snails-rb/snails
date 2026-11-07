@@ -1,0 +1,23 @@
+class SqlxCrossReader
+  def self.read_samples: () -> Array[SqlxRowModel]
+  def self.read_by_name: (String name) -> Array[SqlxRowModel]
+  def self.read_loop_rows: () -> Array[SqlxLoopModel]
+end
+
+class SqlxLoopModel < Sqlx::Base
+  def id: () -> Integer
+  def name: () -> String
+end
+
+class SqlxDeclaredModel < Sqlx::Base
+  def id: () -> Integer
+  def name: () -> String
+  def created_at: () -> Time?
+  def seen_at: () -> Time?
+  def flag: () -> bool
+end
+
+class SqlxStamplessModel < Sqlx::Base
+  def id: () -> Integer
+  def name: () -> String
+end

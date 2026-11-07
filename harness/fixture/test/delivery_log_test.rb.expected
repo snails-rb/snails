@@ -1,0 +1,5 @@
+ok the stamped environment registers the capture in test mode
+ok the gate records deliveries into the project tmp log
+ok the recorded line carries to, from and subject
+ok assert_emails and emails read the harness-relative log
+skip assert_emails skips without a live gate: assert_emails (no live gate — run bin/test)

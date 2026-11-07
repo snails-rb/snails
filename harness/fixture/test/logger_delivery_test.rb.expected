@@ -1,0 +1,9 @@
+ok test_without_a_transport_answers_nil
+ok test_delivers_one_record_as_a_batch
+ok test_returns_a_non_fatal_failure
+ok test_a_busy_hand_off_keeps_the_batch_for_the_next_flush
+ok test_repeated_busy_reports_once
+ok test_validates_the_transport_slot
+ok test_logger_delegates_the_transport_slot
+ok test_after_fork_notifies_a_transport_that_answers_the_hook
+LoggerDeliveryTest: 8 tests passed

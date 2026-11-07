@@ -1,0 +1,5 @@
+module Snails
+  module RouteTable
+    def self.table: () -> Array[ActionDispatch::Router::Route]
+  end
+end

@@ -1,0 +1,38 @@
+module Snails
+  class Logger
+    class Delivery
+      MAX_RECORDS: Integer
+      FLUSH_INTERVAL_SECONDS: Integer
+
+      class DroppedBatch < StandardError
+        @count: Integer
+
+        def initialize: (Integer count, Exception cause) -> void
+        def count: () -> Integer
+        def severity: () -> Symbol
+      end
+
+      class RetainedBatch < StandardError
+        @count: Integer
+
+        def initialize: (Integer count) -> void
+        def count: () -> Integer
+        def severity: () -> Symbol
+      end
+
+      @transport: untyped
+      @buffer: untyped
+      @buffer_lock: Mutex
+      @flush_registered: bool
+      @blocked: bool
+
+      def initialize: () -> void
+      def transport: () -> untyped
+      def transport=: (untyped value) -> untyped
+      def after_fork: () -> void
+      def register_flush: () -> void
+      def deliver: (Record record) -> Exception?
+      def flush: () -> Exception?
+    end
+  end
+end

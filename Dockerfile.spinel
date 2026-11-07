@@ -1,0 +1,134 @@
+# syntax=docker/dockerfile:1.7
+#
+# The snails project's spinel image — the pinned spinel toolchain plus the
+# app build dependencies — published as ghcr.io/snails-rb/spinel:<SPINEL_REV>.
+# Consuming app Dockerfiles FROM it in a build stage; the tag is the pins.toml
+# SPINEL_REV. This is a builder image, not a runtime base: the app runtime
+# stage is app-owned and installs the shared libraries and tzdata it needs.
+#
+# Two stages keep the published image to the toolchain and the contracts an
+# app build actually uses. The builder stage needs Ruby and the prism gem
+# because spinel's table generators run in Ruby; the published stage only runs
+# the compiled spinel/spin binaries, so Ruby, the gems, curl, and clang stay
+# out of it.
+#
+# This is a snails-published build image, not an upstream matz/spinel image.
+# The build context carries nothing (spinel is cloned during the build).
+#
+# Publish path: .github/workflows/spinel-image.yml (both arches, native).
+
+# Each base is a multi-arch index digest so tag drift cannot change one arch
+# behind the other and neither stage gets a different base than the other.
+ARG RUBY_IMAGE=ruby:3.3-slim-bookworm@sha256:245eafdd393b298a1bcc6948504b59a117539d46a7fd12ebb8bd2c103f814566
+ARG DEBIAN_IMAGE=debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
+
+FROM ${RUBY_IMAGE} AS toolchain-build
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# Ruby is only here for the toolchain build: tools/gen_respond_to_tables.rb
+# requires the prism gem. Ruby 3.3 ships a bundled prism, but the pinned
+# prism/rbs gems are installed explicitly so the generated tables do not
+# depend on the base image's Ruby release. curl fetches the parser sources in
+# `make deps`; the -dev packages build spinel's carried openssl/ffi/sqlite3
+# code.
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential \
+      ca-certificates \
+      curl \
+      git \
+      libffi-dev \
+      libsqlite3-dev \
+      libssl-dev \
+      make \
+      patch \
+      pkg-config \
+    && gem install 'prism:1.9.0' 'rbs:4.0.1' --no-document \
+    && rm -rf /var/lib/apt/lists/*
+
+# Declared right above its first use: only the clone/build layers below depend
+# on the pin, so a pin bump never re-runs the apt or gem layers above.
+ARG SPINEL_REV
+
+RUN test -n "$SPINEL_REV" || { echo "SPINEL_REV build arg is required (pins.toml value)" >&2; exit 1; } \
+    && git clone https://github.com/matz/spinel /opt/spinel-src \
+    && git -C /opt/spinel-src checkout "$SPINEL_REV" \
+    && cd /opt/spinel-src \
+    && make deps \
+    && make -j"$(nproc)" \
+    && make install PREFIX=/opt/spinel \
+    && install -Dm644 LICENSE /opt/spinel/LICENSE \
+    && rm -rf /opt/spinel-src
+
+FROM ${DEBIAN_IMAGE}
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# Every package below is a contract of an app build, not a copy of the old
+# buildpack base: build-essential provides cc and the C headers; git, patch,
+# pkg-config, and make are what `spin` invokes for dependencies; the -dev
+# packages are what the packages an app can require put on the link line
+# (openssl: -lssl -lcrypto, ffi: -lffi, sqlite3: -lsqlite3, pg: -lpq) plus the
+# scaffold's jemalloc allocator. clang/libclang, libyaml, zlib, and curl are
+# not used by any of those, so they are deliberately absent. tzdata is not
+# installed here either: the app runtime owns time-zone files (the base's copy
+# is incidental, not a contract).
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential \
+      ca-certificates \
+      git \
+      libffi-dev \
+      libjemalloc-dev \
+      libpq-dev \
+      libsqlite3-dev \
+      libssl-dev \
+      make \
+      patch \
+      pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=toolchain-build /opt/spinel /opt/spinel
+
+# The parsers are linked into the toolchain, but the gems that carry their
+# license files stay in the builder stage. Keep the notices in the published
+# image (spinel's own LICENSE rides with /opt/spinel above; the bundled
+# sqlite3 package carries its own LICENSE under packages/).
+COPY --from=toolchain-build /usr/local/bundle/gems/prism-*/LICENSE.md /opt/spinel/licenses/prism-LICENSE.md
+COPY --from=toolchain-build /usr/local/bundle/gems/rbs-*/BSDL /opt/spinel/licenses/rbs-BSDL
+
+ARG SPINEL_REV
+
+LABEL org.opencontainers.image.title="spinel toolchain" \
+      org.opencontainers.image.source="https://github.com/snails-rb/snails" \
+      org.opencontainers.image.version="${SPINEL_REV}"
+
+# Consumers run spin/spinel without arranging PATH themselves.
+ENV PATH="/opt/spinel/lib/spinel:${PATH}"
+
+# Publish-time smoke — the contracts asserted before anything reaches a
+# registry: both binaries report the pin (prefix match either way, the same
+# rule the toolchain resolver applies to a copy), and the packages this image
+# exists to link (openssl, ffi, json, sqlite3, pq) compile and run under
+# --strict-require. A missing -dev package would otherwise surface only in a
+# consumer build; sqlite3 is the sharp case because spinel's Makefile drops
+# the package silently when its headers are absent.
+RUN set -euo pipefail; \
+    for bin in spin spinel; do \
+      printed="$("$bin" --version 2>/dev/null | grep -oE '[0-9a-f]{7,40}' | head -n1)"; \
+      if [[ -z $printed || ( $printed != "$SPINEL_REV"* && "$SPINEL_REV" != "$printed"* ) ]]; then \
+        echo "toolchain smoke: $bin reports '$printed', want pin $SPINEL_REV" >&2; \
+        exit 1; \
+      fi; \
+    done; \
+    work="$(mktemp -d)"; cd "$work"; \
+    spinel -e 'require "openssl"; require "ffi"; require "json"; puts "smoke ok"' -o smoke --strict-require; \
+    out="$(./smoke)"; \
+    if [[ $out != "smoke ok" ]]; then echo "toolchain smoke: run produced '$out'" >&2; exit 1; fi; \
+    spinel -e 'require "sqlite3"; puts SQLite3::VERSION' -o sqlite-smoke --strict-require; \
+    sqlite_version="$(./sqlite-smoke)"; \
+    if [[ -z $sqlite_version ]]; then echo "toolchain smoke: sqlite3 produced no version" >&2; exit 1; fi; \
+    spinel -e 'require "ffi"; module PqLinkSmoke; extend FFI::Library; ffi_lib "pq"; end; puts "pq ok"' -o pq-smoke --strict-require; \
+    out="$(./pq-smoke)"; \
+    if [[ $out != "pq ok" ]]; then echo "toolchain smoke: pq link produced '$out'" >&2; exit 1; fi; \
+    rm -rf "$work"; \
+    echo "toolchain smoke: pin $SPINEL_REV ok (sqlite3 $sqlite_version)"

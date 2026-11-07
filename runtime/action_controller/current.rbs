@@ -1,0 +1,13 @@
+module ActionController
+  class API
+    def request: () -> ActionDispatch::Request?
+    def request=: (ActionDispatch::Request?) -> ActionDispatch::Request?
+  end
+
+  module Current
+    def self.request: () -> ActionDispatch::Request?
+    def self.request=: (ActionDispatch::Request? value) -> ActionDispatch::Request?
+    def self.controller: () -> ActionController::API?
+    def self.controller=: (ActionController::API? value) -> ActionController::API?
+  end
+end

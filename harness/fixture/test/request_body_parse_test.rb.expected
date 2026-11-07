@@ -1,0 +1,8 @@
+ok test_a_json_body_reaches_the_action
+ok test_a_broken_json_body_is_a_400
+ok test_a_json_body_that_is_not_an_object_is_a_400
+ok test_a_missing_required_parameter_is_a_400
+ok test_a_multipart_body_reaches_the_action
+ok test_a_multipart_body_without_a_boundary_is_a_400
+ok test_a_truncated_multipart_body_is_a_400
+RequestBodyParseTest: 7 tests passed
