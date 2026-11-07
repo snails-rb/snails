@@ -3,10 +3,10 @@ name: platform-ci
 # Platform coverage that the Linux amd64 suite in ci.yml cannot see:
 # Linux arm64, macOS, and the bookworm app image.
 #
-# This workflow runs the platform lanes on main pushes and manual runs only:
+# This workflow runs the platform jobs on main pushes and manual runs only:
 # the macOS runners are the scarce resource, and a PR does not need a second
-# long platform matrix. This is the spinel-style split: one Linux lane for a
-# PR, the remaining OS/target lanes on the merge commit.
+# long platform matrix. This is the spinel-style split: one Linux job for a
+# PR, the remaining OS/target jobs on the merge commit.
 
 on:
   push:
@@ -118,6 +118,18 @@ jobs:
             build-essential clang libclang-dev pkg-config \
             libssl-dev libffi-dev sqlite3 libsqlite3-dev libpq-dev libjemalloc-dev \
             postgresql-client
+      # The postgres service runs 18, but Ubuntu's postgresql-client is 16 and
+      # pg_dump refuses a newer server. Install the 18 client and put its bin
+      # ahead of Ubuntu's version wrapper on PATH.
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
       - name: Cache the pinned spinel install
         uses: actions/cache@v4
         with:
@@ -150,12 +162,14 @@ jobs:
       - name: Harness test against PG_URL
         env:
           SNAILS_DIR: ${{ github.workspace }}
+          PG_URL: postgres://postgres:postgres@127.0.0.1:5432/snails_test
         run: |
           psql "postgres://postgres:postgres@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 -c "CREATE DATABASE snails_test"
           APP="$RUNNER_TEMP/pgapp"
           rm -rf "$APP"
           "$SNAILS_DIR/bin/snails" new "$APP" --scaffold --database=postgresql
-          PG_URL="postgres://postgres:postgres@127.0.0.1:5432/snails_test" "$APP/bin/test"
+          "$SNAILS_DIR/bin/snails" migrate dump --app "$APP"
+          "$APP/bin/test"
 
   macos:
     name: macos (full)
