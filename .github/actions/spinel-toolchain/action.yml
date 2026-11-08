@@ -1,0 +1,44 @@
+name: spinel toolchain
+description: >
+  Install the spinel rev pinned in pins.toml and put spin on PATH for the rest
+  of the job. Call it after checkout; the caller owns the system packages the
+  build needs (clang, libclang, sqlite3, libpq, jemalloc).
+
+  A per-run, pin-exact install: the gates materialize their toolchain from this
+  PATH install and accept it only while it reports the pinned rev. This is not a
+  human-managed global toolchain — nobody maintains this rev by hand.
+
+runs:
+  using: composite
+  steps:
+    # tomllib keeps the reader honest against the pins format contract
+    # instead of grepping KEY=VALUE lines.
+    - name: Load tool pin
+      shell: bash
+      run: |
+        REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
+        echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
+    - name: Cache spinel build
+      id: cache-spinel
+      uses: actions/cache@v4
+      with:
+        path: .spinel
+        key: spinel-build-${{ runner.os }}-${{ env.SPINEL_REV }}
+    - name: Clone and build spinel
+      if: steps.cache-spinel.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        git clone https://github.com/matz/spinel .spinel
+        cd .spinel && git checkout "$SPINEL_REV" && make deps && make -j"$(nproc)"
+    - name: Install spinel to the user prefix
+      shell: bash
+      working-directory: .spinel
+      run: |
+        make install PREFIX="$HOME/.local"
+        "$HOME/.local/bin/spin" --version
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+    - name: Cache spin native package objects
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/spin
+        key: spin-native-${{ runner.os }}-sp${{ env.SPINEL_REV }}

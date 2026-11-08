@@ -81,7 +81,7 @@ bash scripts/test-cli.sh
 bash scripts/test-migrate.sh
 ```
 
-`.github/workflows/ci.yml` runs the Linux suite; `platform-ci.yml` adds macOS, arm64, and the app image. The scripts need a pinned spinel toolchain; `ci.yml` shows how it is installed.
+`.github/workflows/ci.yml` is the pull-request gate: the Linux amd64 suite on sqlite. `platform-ci.yml` runs on main and adds PostgreSQL, macOS, arm64, and the app image. The scripts need a pinned spinel toolchain; `ci.yml` shows how it is installed.
 
 ## License
 
