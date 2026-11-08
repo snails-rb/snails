@@ -13,7 +13,7 @@ module ActionMailer
     # Spin-root relative; the harness reads the same file as `../tmp/...`.
     PATH = "tmp/mail-capture.jsonl"
 
-    # `deliver(message)` — append one JSON line and return the message.
+    # append one JSON line and return the message.
     #
     # @param message [Message] the built mail
     # @return [Message] the same message

@@ -2,7 +2,7 @@
 # the server read off the wire (headers, possibly a prefix of the body).
 module Tep
   class Parser
-    # `parse(blob)` — turn one raw read off the wire into a Request.
+    # turn one raw read off the wire into a Request.
     #
     # @param blob [String] the bytes the server read from the socket
     # @return [Tep::Request, nil] the parsed request, or nil when the
@@ -119,10 +119,10 @@ module Tep
       req
     end
 
-    # `header_name_valid?(name)` -- whether a downcased header name can be
-    # used as one header's key. An empty name or one carrying whitespace or a
-    # control byte is refused: `Content-Length : 5` would otherwise read as a
-    # different header here than at the proxy, which is a framing ambiguity.
+    # whether a downcased header name can be used as one header's key. An empty
+    # name or one carrying whitespace or a control byte is refused:
+    # `Content-Length : 5` would otherwise read as a different header here than
+    # at the proxy, which is a framing ambiguity.
     #
     # @param name [String] the downcased name before the colon
     # @return [Boolean] true for a non-empty name with no whitespace/control
@@ -138,9 +138,9 @@ module Tep
     end
     private_class_method :header_name_valid?
 
-    # `digits_only?(s)` -- whether every byte is an ASCII digit. Content-Length
-    # is the one header parsed as a number; a sign, space, or comma would make
-    # `.to_i` accept a value an upstream proxy reads differently.
+    # whether every byte is an ASCII digit. Content-Length is the one header
+    # parsed as a number; a sign, space, or comma would make `.to_i` accept a
+    # value an upstream proxy reads differently.
     #
     # @param s [String] the stripped header value
     # @return [Boolean] true for a non-empty run of ASCII digits

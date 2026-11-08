@@ -15,8 +15,7 @@
 #   is the statically resolvable form under AOT.
 module ActionController
   class API
-    # `request` — the request object the dispatcher wires before the action
-    # runs.
+    # the request object the dispatcher wires before the action runs.
     #
     # @return [ActionDispatch::Request, nil] the current request, or nil
     #   outside a dispatch
@@ -30,8 +29,7 @@ module ActionController
   # @note The dispatcher writes both slots immediately before the action and
   #   clears them when it returns or raises.
   module Current
-    # `Current.request()` — the request parked for the current thread during
-    # the current action.
+    # the request parked for the current thread during the current action.
     #
     # @return [ActionDispatch::Request, nil] the current request, or nil
     #   outside an action
@@ -39,7 +37,7 @@ module ActionController
       Thread.current[:ac_current_request]
     end
 
-    # `Current.request=(value)` — park the request for the current thread.
+    # park the request for the current thread.
     #
     # @param value [ActionDispatch::Request, nil] the request to park
     # @return [ActionDispatch::Request, nil] the parked request
@@ -47,8 +45,7 @@ module ActionController
       Thread.current[:ac_current_request] = value
     end
 
-    # `Current.controller()` — the controller parked for the current thread
-    # during the current action.
+    # the controller parked for the current thread during the current action.
     #
     # @return [ActionController::API, nil] the current controller, or nil
     #   outside an action
@@ -56,8 +53,7 @@ module ActionController
       Thread.current[:ac_current_controller]
     end
 
-    # `Current.controller=(value)` — park the controller for the current
-    # thread.
+    # park the controller for the current thread.
     #
     # @param value [ActionController::API, nil] the controller to park
     # @return [ActionController::API, nil] the parked controller

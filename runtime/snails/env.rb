@@ -1,21 +1,21 @@
 # frozen_string_literal: true
 
-# `Snails.env` — the process mode and its predicates. The vocabulary is
-# SNAILS_ENV's: development | test | staging | production. `Snails.logger`'s
-# debug gate and app-side dev-only branches read these predicates.
+# the process mode and its predicates. The vocabulary is SNAILS_ENV's:
+# development | test | staging | production. `Snails.logger`'s debug gate and
+# app-side dev-only branches read these predicates.
 module Snails
-  # `Snails.env()` — the process mode, read once from SNAILS_ENV and
-  # memoized. Development is the default when unset (a deployment sets
-  # SNAILS_ENV=production, a harness test.env sets SNAILS_ENV=test).
+  # the process mode, read once from SNAILS_ENV and memoized. Development is the
+  # default when unset (a deployment sets SNAILS_ENV=production, a harness
+  # test.env sets SNAILS_ENV=test).
   #
   # @return [Env] the mode predicates
   def self.env
     @env ||= build_env
   end
 
-  # `Snails.env=(name)` — replace the process mode in-process (a test, a
-  # console-style override). A deployment sets SNAILS_ENV before the
-  # process starts; there is no separate env-name slot.
+  # replace the process mode in-process (a test, a console-style override). A
+  # deployment sets SNAILS_ENV before the process starts; there is no separate
+  # env-name slot.
   #
   # @param name [String, nil] a vocabulary name, or nil for development
   # @return [Env] the new mode
@@ -29,19 +29,19 @@ module Snails
   end
   private_class_method :build_env
 
-  # `Snails.env.production?` etc. — a plain object answering the known
-  # environment predicates (no `method_missing`, no `String` subclass).
-  # A name outside the vocabulary answers every predicate false rather
-  # than raising — mode is read on the request path (the logger's gate),
-  # where a raise would turn a typo into a 500.
+  # a plain object answering the known environment predicates (no
+  # `method_missing`, no `String` subclass). A name outside the vocabulary
+  # answers every predicate false rather than raising — mode is read on the
+  # request path (the logger's gate), where a raise would turn a typo into a
+  # 500.
   class Env
     def initialize(name)
       @name = name
     end
 
-    # `name()` — the mode name as declared: development, test, staging,
-    # production, or the raw out-of-vocabulary value. Log records use it for
-    # the deployment environment field.
+    # the mode name as declared: development, test, staging, production, or the
+    # raw out-of-vocabulary value. Log records use it for the deployment
+    # environment field.
     #
     # @return [String] the mode name
     def name

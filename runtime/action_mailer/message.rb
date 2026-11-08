@@ -29,8 +29,7 @@ module ActionMailer
       @body
     end
 
-    # `deliver_now()` — deliver through the registered method and return the
-    # message.
+    # deliver through the registered method and return the message.
     #
     # The seam name is `deliver`: every same-name method in the program must
     # fit this signature.
@@ -40,10 +39,9 @@ module ActionMailer
       ActionMailer::Base.delivery_method.deliver(self)
     end
 
-    # `deliver_later()` — queue the delivery outside test mode and return the
-    # message. Test mode stays inline so `DeliveryLog` / `assert_emails` see
-    # the line immediately; with no executor, ActiveJob runs it at the call
-    # site.
+    # queue the delivery outside test mode and return the message. Test mode
+    # stays inline so `DeliveryLog` / `assert_emails` see the line immediately;
+    # with no executor, ActiveJob runs it at the call site.
     #
     # @return [Message] this message
     def deliver_later

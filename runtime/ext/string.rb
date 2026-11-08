@@ -1,8 +1,8 @@
 # String — the text helpers.
 class String
-  # `squish()` — whitespace runs collapse to one space and the ends strip:
-  # the shape `<<~SQL.squish` produces. The scan is spelled out because a
-  # regex is not a form the compiler lowers.
+  # whitespace runs collapse to one space and the ends strip: the shape
+  # `<<~SQL.squish` produces. The scan is spelled out because a regex is not a
+  # form the compiler lowers.
   #
   # @return [String] this text with whitespace runs folded to one space and
   #   the ends stripped
@@ -24,9 +24,9 @@ class String
     out
   end
 
-  # `underscore()` — `"FooBar"` → `"foo_bar"`: camel boundaries split, `-`
-  # reads as `_`, the result downcased. The walk is spelled out rather than
-  # a regex pipeline, and no acronym or human-name table is modeled.
+  # `"FooBar"` → `"foo_bar"`: camel boundaries split, `-` reads as `_`, the
+  # result downcased. The walk is spelled out rather than a regex pipeline, and
+  # no acronym or human-name table is modeled.
   #
   # @return [String] the underscored, downcased form of this text
   def underscore
@@ -50,10 +50,9 @@ class String
     out.downcase
   end
 
-  # `camelize(mode = :upper)` — `"host_info"` → `"HostInfo"`, or
-  # `"hostInfo"` with `mode: :lower`: underscore-separated words
-  # capitalized, a `/` read as a namespace separator (`"a/b"` → `"A::B"`).
-  # The shape JSON keys need when a payload is camelCase.
+  # `"host_info"` → `"HostInfo"`, or `"hostInfo"` with `mode: :lower`:
+  # underscore-separated words capitalized, a `/` read as a namespace separator
+  # (`"a/b"` → `"A::B"`). The shape JSON keys need when a payload is camelCase.
   #
   # @param mode [Symbol] `:upper` capitalizes the leading word, `:lower`
   #   decamels it
@@ -95,8 +94,8 @@ class String
     out
   end
 
-  # `humanize()` — `"foo_bar"` → `"Foo bar"`: underscores to spaces, a
-  # trailing " id" dropped, first letter upcased.
+  # `"foo_bar"` → `"Foo bar"`: underscores to spaces, a trailing " id" dropped,
+  # first letter upcased.
   #
   # @return [String] this text in sentence case
   def humanize
@@ -107,8 +106,7 @@ class String
     s[0].to_s.upcase + s[1, s.length - 1].to_s
   end
 
-  # `titleize()` — `"foo_bar"` → `"Foo Bar"`: each word's first letter
-  # upcased.
+  # `"foo_bar"` → `"Foo Bar"`: each word's first letter upcased.
   #
   # @return [String] this text in title case
   def titleize
@@ -126,9 +124,8 @@ class String
     out
   end
 
-  # `pluralize(count)` — the plural of this word, or the word unchanged
-  # when `count == 1`: the word a count labels, singular for one item
-  # and plural for every other count.
+  # the plural of this word, or the word unchanged when `count == 1`: the word a
+  # count labels, singular for one item and plural for every other count.
   #
   # The suffix rules are the regular English ones, not the full
   # irregular tables: a consonant before "y" turns to "ies"
@@ -164,9 +161,9 @@ class String
     end
   end
 
-  # `parameterize()` — this text as a URL slug: downcased, with every
-  # run of characters outside `a-z`, `0-9` and "_" folded into a single
-  # "-", runs of "-" collapsed, and "-" trimmed off both ends.
+  # this text as a URL slug: downcased, with every run of characters outside
+  # `a-z`, `0-9` and "_" folded into a single "-", runs of "-" collapsed, and
+  # "-" trimmed off both ends.
   #
   # Letters outside ASCII are dropped rather than transliterated, so a
   # non-Latin word parameterizes to an empty string.
@@ -197,14 +194,14 @@ class String
     out
   end
 
-  # `to_time()` — `"2024-01-02 03:04:05.000006"` → the instant, in the app's
-  # configured zone: a stored datetime column read back. Text too short to
-  # carry an instant reads nil. The parse is the stored form's fixed width,
-  # not a date-parser pipeline: the storage form is the contract, and the
-  # micros stay in `Time.utc`'s seventh argument (a float added afterwards
-  # loses a microsecond and skews `> ?` bounds). The zone comes from the
-  # process TZ, which `config/environment.rb` pins, so the answer arrives in
-  # the app zone without a lookup.
+  # `"2024-01-02 03:04:05.000006"` → the instant, in the app's configured zone:
+  # a stored datetime column read back. Text too short to carry an instant reads
+  # nil. The parse is the stored form's fixed width, not a date-parser pipeline:
+  # the storage form is the contract, and the micros stay in `Time.utc`'s
+  # seventh argument (a float added afterwards loses a microsecond and skews
+  # `> ?` bounds). The zone comes from the process TZ, which
+  # `config/environment.rb` pins, so the answer arrives in the app zone without
+  # a lookup.
   #
   # @return [Time?] the parsed instant, or nil when the text cannot carry one
   def to_time

@@ -1,4 +1,4 @@
-# `Snails::Main` — the app entry contract shared by every snails app.
+# the app entry contract shared by every snails app.
 #
 # The entry index loads the request path (`main/dispatch.rb`) and the process
 # entry (`main/server.rb`). Boot requires this file before the app's

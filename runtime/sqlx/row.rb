@@ -4,13 +4,12 @@ module Sqlx
   # through. Included into Base so models inherit the instance
   # methods; a hand-written model initialize still overrides.
   module Row
-    # `initialize(**attrs)` — the generic row constructor behind the
-    # hash-backed accessor path: a model whose readers come from its
-    # literal accessor loop needs no hand-written initialize. Keys
-    # are checked against `only_columns` at this entry so a typo'd
-    # keyword raises here instead of reading as a silent nil later;
-    # missing keys are allowed — an unselected column reads as nil.
-    # A model that hand-writes `initialize` simply overrides this.
+    # the generic row constructor behind the hash-backed accessor path: a model
+    # whose readers come from its literal accessor loop needs no hand-written
+    # initialize. Keys are checked against `only_columns` at this entry so a
+    # typo'd keyword raises here instead of reading as a silent nil later;
+    # missing keys are allowed — an unselected column reads as nil. A model that
+    # hand-writes `initialize` simply overrides this.
     #
     # @param attrs [Hash{Symbol => Object}] the row's column values, keyed by column name
     # @raise [ArgumentError] when a key is not one of the model's declared columns
@@ -31,12 +30,11 @@ module Sqlx
       @attrs = attrs
     end
 
-    # `read_attribute(name)` — the read seam of the hash-backed accessor
-    # adapter: the model's literal accessor loop routes every column
-    # read through this one method, so the storage behind the readers
-    # is core-owned and free to change without touching models. A
-    # missing key answers nil — an unselected column and a NULL value
-    # read the same way.
+    # the read seam of the hash-backed accessor adapter: the model's literal
+    # accessor loop routes every column read through this one method, so the
+    # storage behind the readers is core-owned and free to change without
+    # touching models. A missing key answers nil — an unselected column and a
+    # NULL value read the same way.
     #
     # @param name [Symbol, String] the column name (String accepted —
     #   the accessor loop iterates member names as written)

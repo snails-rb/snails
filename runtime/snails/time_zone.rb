@@ -1,19 +1,18 @@
 # frozen_string_literal: true
 
-# `Snails` zone vocabulary and TZif reader: a zone name to a `TimeZoneData`
-# (through `TimeZone::ZONE_NAMES` and `/usr/share/zoneinfo`), and an instant
-# rendered in that zone. The process slot (`Snails.time_zone`) is pinned once
-# at boot; `in_time_zone` never swaps it, so concurrent requests can render in
-# different zones.
+# zone vocabulary and TZif reader: a zone name to a `TimeZoneData` (through
+# `TimeZone::ZONE_NAMES` and `/usr/share/zoneinfo`), and an instant rendered in
+# that zone. The process slot (`Snails.time_zone`) is pinned once at boot;
+# `in_time_zone` never swaps it, so concurrent requests can render in different
+# zones.
 #
 # The POSIX-footer DST rule walks the calendar, so `TimeZone` builds on
 # `Snails::DateAndTime::Calculations`.
 module Snails
-  # `Snails.iana_zone(name)` — the IANA identifier for a zone name in the
-  # runtime's zone vocabulary ("Seoul" → "Asia/Seoul"), or an IANA identifier
-  # passed through as-is. The identifier must name a zone file under `TZDIR`:
-  # a typo in the app's pin raises here instead of letting libc fall back to
-  # UTC silently.
+  # the IANA identifier for a zone name in the runtime's zone vocabulary
+  # ("Seoul" → "Asia/Seoul"), or an IANA identifier passed through as-is. The
+  # identifier must name a zone file under `TZDIR`: a typo in the app's pin
+  # raises here instead of letting libc fall back to UTC silently.
   #
   # @param name [String] the configured zone name
   # @return [String] the IANA identifier
@@ -31,10 +30,10 @@ module Snails
     iana
   end
 
-  # `Snails.time_zone()` — the process zone every local-time presentation
-  # uses, as an IANA identifier. The app sets it once from
-  # config/environment.rb with `Snails.time_zone = "<zone>"`; before that
-  # line runs, the slot reads as "UTC".
+  # the process zone every local-time presentation uses, as an IANA identifier.
+  # The app sets it once from config/environment.rb with
+  # `Snails.time_zone = "<zone>"`; before that line runs, the slot reads as
+  # "UTC".
   #
   # @return [String] the IANA identifier ("UTC" when nothing was set)
   def self.time_zone
@@ -43,9 +42,9 @@ module Snails
     zone
   end
 
-  # `Snails.time_zone=(name)` — pin the process zone. The name may be a zone
-  # vocabulary name or an IANA identifier; `Snails.iana_zone` resolves and
-  # validates it before the slot changes, and `ENV["TZ"]` is set for libc.
+  # pin the process zone. The name may be a zone vocabulary name or an IANA
+  # identifier; `Snails.iana_zone` resolves and validates it before the slot
+  # changes, and `ENV["TZ"]` is set for libc.
   #
   # @param name [String] the zone name or IANA identifier
   # @return [void]
@@ -234,10 +233,9 @@ module Snails
         @rule = rule
       end
 
-      # `offset_at(epoch)` — the UTC offset in seconds that applies at
-      # that instant. Transitions decide up to the last one; past it the
-      # zone file's POSIX DST rule takes over, and a zone with no
-      # transitions keeps its initial offset.
+      # the UTC offset in seconds that applies at that instant. Transitions
+      # decide up to the last one; past it the zone file's POSIX DST rule takes
+      # over, and a zone with no transitions keeps its initial offset.
       #
       # @param epoch [Integer] the instant, as a Unix timestamp
       # @return [Integer] the offset in seconds
@@ -285,10 +283,9 @@ module Snails
       private :rule_instant
     end
 
-    # `in_time_zone(t, zone)` — the instant `t` presented in `zone` as a
-    # fixed-offset `Time` (the same value as `getlocal(offset)`); the date
-    # helpers keep that offset. nil selects the app zone — the process TZ
-    # pinned by config/environment.rb.
+    # the instant `t` presented in `zone` as a fixed-offset `Time` (the same
+    # value as `getlocal(offset)`); the date helpers keep that offset. nil
+    # selects the app zone — the process TZ pinned by config/environment.rb.
     #
     # @param t [Time] the instant to render
     # @param zone [String, nil] the zone NAME; nil selects the app zone
@@ -312,9 +309,9 @@ module Snails
     @zone_data = {}
     @zone_data_lock = Mutex.new
 
-    # `find_zone!(zone)` — the parsed zone data for `zone`, loading the TZif
-    # file on the first use of that name. A name with no zone file raises
-    # through `Snails.iana_zone`; failures are not cached.
+    # the parsed zone data for `zone`, loading the TZif file on the first use of
+    # that name. A name with no zone file raises through `Snails.iana_zone`;
+    # failures are not cached.
     def self.find_zone!(zone)
       raw = zone.to_s
       data = nil

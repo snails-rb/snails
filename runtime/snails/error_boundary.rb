@@ -11,12 +11,11 @@
 # value for the caller to check.
 module Snails
   module ErrorBoundary
-    # `fatal?(failure)` — true when the exception means the process is
-    # stopping (`SystemExit`, `SignalException` — `Interrupt` included)
-    # or the VM is unsafe to continue (`NoMemoryError`). Those must
-    # escape every unit boundary; every other `Exception` is a unit
-    # failure the loop survives (for example `NotImplementedError`, a
-    # `ScriptError`).
+    # true when the exception means the process is stopping (`SystemExit`,
+    # `SignalException` — `Interrupt` included) or the VM is unsafe to continue
+    # (`NoMemoryError`). Those must escape every unit boundary; every other
+    # `Exception` is a unit failure the loop survives (for example
+    # `NotImplementedError`, a `ScriptError`).
     #
     # @param failure [Exception] the exception a unit boundary rescued
     # @return [Boolean] true when the boundary must re-raise

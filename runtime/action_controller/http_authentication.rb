@@ -18,10 +18,9 @@
 # dispatcher's internal env key.
 module ActionController
   class API
-    # `authenticate_with_http_token` — yield the presented token and its
-    # options to the block. No challenge goes out: a header without a
-    # Token or Bearer credential answers nil, and the caller decides what
-    # to do about it.
+    # yield the presented token and its options to the block. No challenge goes
+    # out: a header without a Token or Bearer credential answers nil, and the
+    # caller decides what to do about it.
     #
     # @return [Object, nil] the block's answer; nil when the request
     #   carried no token
@@ -31,10 +30,9 @@ module ActionController
       yield(token, token_options(HttpAuthentication.authorization(self)))
     end
 
-    # `authenticate_or_request_with_http_token(realm, message)` — yield
-    # the presented token and its options to the block. A falsy answer,
-    # or no token at all, sends a 401 with the Token challenge and marks
-    # the response performed, which halts the filter chain.
+    # yield the presented token and its options to the block. A falsy answer, or
+    # no token at all, sends a 401 with the Token challenge and marks the
+    # response performed, which halts the filter chain.
     #
     # The block is yielded to directly rather than forwarded to
     # `authenticate_with_http_token`: an explicit `&block` parameter is a Proc
@@ -52,10 +50,9 @@ module ActionController
       result
     end
 
-    # `request_http_token_authentication(realm, message)` — answer the
-    # request with a 401 whose `WWW-Authenticate` carries the Token
-    # challenge. The render marks the response performed, so the filter
-    # chain stops here.
+    # answer the request with a 401 whose `WWW-Authenticate` carries the Token
+    # challenge. The render marks the response performed, so the filter chain
+    # stops here.
     #
     # @param realm [String] the realm the challenge states
     # @param message [String, nil] the 401 body; nil sends the default text
@@ -66,10 +63,9 @@ module ActionController
         status: :unauthorized, content_type: "text/plain; charset=utf-8")
     end
 
-    # `authenticate_with_http_basic` — yield the presented Basic
-    # credentials to the block. No challenge goes out: a header without
-    # Basic credentials answers nil, and the caller decides what to do
-    # about it.
+    # yield the presented Basic credentials to the block. No challenge goes out:
+    # a header without Basic credentials answers nil, and the caller decides
+    # what to do about it.
     #
     # @return [Object, nil] the block's answer; nil when the request
     #   carried no Basic credentials
@@ -80,10 +76,9 @@ module ActionController
       yield(pair[0], pair[1])
     end
 
-    # `authenticate_or_request_with_http_basic(realm, message)` — yield
-    # the presented credentials to the block. A falsy answer, or no Basic
-    # credentials at all, sends a 401 with the Basic challenge and marks
-    # the response performed, which halts the filter chain.
+    # yield the presented credentials to the block. A falsy answer, or no Basic
+    # credentials at all, sends a 401 with the Basic challenge and marks the
+    # response performed, which halts the filter chain.
     #
     # @param realm [String] realm the 401 challenge states
     # @param message [String, nil] the 401 body; nil sends the default text
@@ -100,10 +95,9 @@ module ActionController
       result
     end
 
-    # `request_http_basic_authentication(realm, message)` — answer the
-    # request with a 401 whose `WWW-Authenticate` carries the Basic
-    # challenge. The render marks the response performed, so the filter
-    # chain stops here.
+    # answer the request with a 401 whose `WWW-Authenticate` carries the Basic
+    # challenge. The render marks the response performed, so the filter chain
+    # stops here.
     #
     # @param realm [String] the realm the challenge states
     # @param message [String, nil] the 401 body; nil sends the default text
@@ -182,8 +176,7 @@ module ActionController
   end
 
   module HttpAuthentication
-    # `authorization(controller)` — the request's Authorization header
-    # value.
+    # the request's Authorization header value.
     #
     # @param controller [ActionController::API] the controller holding the request
     # @return [String] the header value, or "" outside a dispatch — a

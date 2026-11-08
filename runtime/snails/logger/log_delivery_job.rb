@@ -1,17 +1,16 @@
 # frozen_string_literal: true
 
-# `Snails::LogDeliveryJob` — the HTTP half of log delivery. The default
-# transport encodes a batch and enqueues this job; the job posts the batch and
-# reports a failure locally. The queue writes this job's `job.*` records like
-# any other, and the record writer drops them (`Context.job_events_suppressed?`)
-# — those records would themselves be delivered, enqueueing another delivery
-# job.
+# the HTTP half of log delivery. The default transport encodes a batch and
+# enqueues this job; the job posts the batch and reports a failure locally. The
+# queue writes this job's `job.*` records like any other, and the record writer
+# drops them (`Context.job_events_suppressed?`) — those records would themselves
+# be delivered, enqueueing another delivery job.
 module Snails
   class LogDeliveryJob < ActiveJob::Base
-    # `perform(body)` — post one encoded OTLP batch. The transport is read at
-    # run time so a swapped transport is honored; a missing transport or a
-    # network/HTTP failure is written locally and, for a real failure, raised
-    # to the queue so the row records it.
+    # post one encoded OTLP batch. The transport is read at run time so a
+    # swapped transport is honored; a missing transport or a network/HTTP
+    # failure is written locally and, for a real failure, raised to the queue so
+    # the row records it.
     #
     # @param body [Hash] the OTLP logs JSON structure
     # @return [void]

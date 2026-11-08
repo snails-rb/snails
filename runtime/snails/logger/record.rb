@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# `Snails::Logger::Record` — one log event as a field bag: when it happened,
-# its severity and stable event name, a human body, structured fields, and an
-# optional exception. It is the contract a transport consumes; the local line
-# is only a rendering of this record.
+# one log event as a field bag: when it happened, its severity and stable event
+# name, a human body, structured fields, and an optional exception. It is the
+# contract a transport consumes; the local line is only a rendering of this
+# record.
 #
 # Field names are simple dotted identifiers; values are String, Integer,
 # finite Float, true/false, or nil so an OTLP encoder never has to guess.
@@ -61,8 +61,7 @@ module Snails
       # `job.failed`, `worker.loop_stopped`, `app.log`.
       EVENT_PATTERN = /\A[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\z/
 
-      # `initialize(severity, event, body, fields:, exception:, time:, context:, resource:)`
-      # — build one record. `fields` are caller-owned and checked against
+      # build one record. `fields` are caller-owned and checked against
       # `RESERVED_FIELDS`; `context` carries the request/job correlation the
       # logger already validated, so those names are allowed there; `resource`
       # carries the service/process attributes the transport sends per batch.
@@ -103,72 +102,72 @@ module Snails
         @resource = normalize_fields(resource, false)
       end
 
-      # `severity()` — the record's severity.
+      # the record's severity.
       #
       # @return [Symbol] one of `SEVERITIES`
       def severity
         @severity
       end
 
-      # `event()` — the stable event name.
+      # the stable event name.
       #
       # @return [String] e.g. `request.completed`
       def event
         @event
       end
 
-      # `body()` — the human-readable message.
+      # the human-readable message.
       #
       # @return [String]
       def body
         @body
       end
 
-      # `fields()` — the caller fields merged with logger context.
+      # the caller fields merged with logger context.
       #
       # @return [Hash{String => Object}] the record's field bag
       def fields
         @fields
       end
 
-      # `resource()` — the service/process attributes for the transport. The
-      # local formatter does not render them; an OTLP transport sends them once
-      # per batch rather than on every record.
+      # the service/process attributes for the transport. The local formatter
+      # does not render them; an OTLP transport sends them once per batch rather
+      # than on every record.
       #
       # @return [Hash{String => Object}] the resource attribute bag
       def resource
         @resource
       end
 
-      # `exception()` — the failure this record reports, when any.
+      # the failure this record reports, when any.
       #
       # @return [Exception, nil]
       def exception
         @exception
       end
 
-      # `time()` — the event time.
+      # the event time.
       #
       # @return [Time]
       def time
         @time
       end
 
-      # `exception_type()` — the exception class name as a field value.
+      # the exception class name as a field value.
       #
       # @return [String, nil]
       def exception_type
         @exception.nil? ? nil : @exception.class.name
       end
 
-      # `exception_message()` — the exception message as a field value.
+      # the exception message as a field value.
       #
       # @return [String, nil]
       def exception_message
         @exception.nil? ? nil : @exception.message
       end
 
-      # `exception_stacktrace()` — the backtrace joined into one string.
+      # the backtrace joined into one string.
       #
       # @return [String, nil] nil when there is no exception or no backtrace
       def exception_stacktrace

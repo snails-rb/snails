@@ -5,17 +5,16 @@
 # entry.
 module ActiveJob
   module Launcher
-    # `start()` — run the scheduler and the drain loops on new threads of THIS
-    # process, registering the logger's periodic flush on that scheduler first
+    # run the scheduler and the drain loops on new threads of THIS process,
+    # registering the logger's periodic flush on that scheduler first
     # (`Snails.logger.register_flush`), so the beat exists before the loop
-    # iterates the registry. The servers call it once per server process,
-    # from their connection loop — after any prefork, so every child drains
-    # the queue its requests enqueue to. A thread started before the fork
-    # would not exist in the children: fork carries only the forking thread.
-    # The scheduler and the drain loops are separate loops so a slow job
-    # cannot delay a periodic beat. `WORKER_CONCURRENCY` decides the worker
-    # thread count, one by default: throughput and FIFO order stay unchanged
-    # unless the app opts in.
+    # iterates the registry. The servers call it once per server process, from
+    # their connection loop — after any prefork, so every child drains the queue
+    # its requests enqueue to. A thread started before the fork would not exist
+    # in the children: fork carries only the forking thread. The scheduler and
+    # the drain loops are separate loops so a slow job cannot delay a periodic
+    # beat. `WORKER_CONCURRENCY` decides the worker thread count, one by
+    # default: throughput and FIFO order stay unchanged unless the app opts in.
     #
     # @return [void]
     def self.start

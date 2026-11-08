@@ -37,9 +37,9 @@ module Snails
     # :ready?`. A rule-level option of the same name wins.
     DEFAULT_RULE_OPTIONS = [ :if, :unless, :allow_nil, :allow_blank ]
 
-    # `field_names` — the field names this form declares, as written in
-    # its `FIELDS` accessor loop (the projection filter and the
-    # `validates`/`errors.add` declaration check's registry).
+    # the field names this form declares, as written in its `FIELDS` accessor
+    # loop (the projection filter and the `validates`/`errors.add` declaration
+    # check's registry).
     #
     # @return [Array[String]] the names in declaration order — a copy,
     #   so a caller cannot mutate the `FIELDS` registry
@@ -56,12 +56,11 @@ module Snails
       fields.dup
     end
 
-    # `validates(*attributes, **rules)` — register rules for declared
-    # fields. Rules run in registration order during `valid?`, and the
-    # errors keep that order — an HTTP 422 body is an ordered message
-    # list, so declaration order is the contract. One call may name
-    # several fields; each rule's attributes are registered together,
-    # before the next rule's (rule-major).
+    # register rules for declared fields. Rules run in registration order during
+    # `valid?`, and the errors keep that order — an HTTP 422 body is an ordered
+    # message list, so declaration order is the contract. One call may name
+    # several fields; each rule's attributes are registered together, before the
+    # next rule's (rule-major).
     #
     # Common options may sit at the call level and apply to every rule
     # in the call — `validates :email, presence: true, if: :ready?` —
@@ -127,13 +126,12 @@ module Snails
       end
     end
 
-    # `validate(*method_names, **options)` — register an instance method
-    # as a custom validation. It runs in registration order like a rule
-    # and reports through `errors.add`, for conditions the declarative
-    # rules do not express (short-circuits, cross-field rules). `if:`/
-    # `unless:` guard the call with a Symbol method name, as on a rule.
-    # The method is dispatched with `send`, so a typo'd name raises
-    # NoMethodError at the first `valid?` instead of skipping silently.
+    # register an instance method as a custom validation. It runs in
+    # registration order like a rule and reports through `errors.add`, for
+    # conditions the declarative rules do not express (short-circuits,
+    # cross-field rules). `if:`/ `unless:` guard the call with a Symbol method
+    # name, as on a rule. The method is dispatched with `send`, so a typo'd name
+    # raises NoMethodError at the first `valid?` instead of skipping silently.
     #
     # @param method_names [Array[Symbol]] the method names
     # @param options [Hash] the `if:`/`unless:` Symbol guards
@@ -162,9 +160,8 @@ module Snails
       end
     end
 
-    # `message_scope(scope)` — point this form's error keys at a locale
-    # subtree. Without it, keys resolve under
-    # `activemodel.errors.models.<form_name>.attributes`.
+    # point this form's error keys at a locale subtree. Without it, keys resolve
+    # under `activemodel.errors.models.<form_name>.attributes`.
     #
     # @param scope [String] the locale subtree prefix
     # @return [void]
@@ -176,14 +173,13 @@ module Snails
       MESSAGE_SCOPES << [ self.name, scope ]
     end
 
-    # `new(values)` — project the input hash onto the declared fields
-    # through the write seam, then run the `normalize` hook. Keys are
-    # matched against `FIELDS` (String and Symbol input keys both —
-    # HTTP params carry Strings; a later key wins when both spellings
-    # are present, following hash order), so keys outside the
-    # declaration are ignored: HTTP input is a superset by nature, and
-    # an input key can never reach framework state (`errors`) because
-    # it is not a field. A field the input never carried reads nil.
+    # project the input hash onto the declared fields through the write seam,
+    # then run the `normalize` hook. Keys are matched against `FIELDS` (String
+    # and Symbol input keys both — HTTP params carry Strings; a later key wins
+    # when both spellings are present, following hash order), so keys outside
+    # the declaration are ignored: HTTP input is a superset by nature, and an
+    # input key can never reach framework state (`errors`) because it is not a
+    # field. A field the input never carried reads nil.
     #
     # @param values [Hash] the input hash
     # @return [Form]
@@ -203,10 +199,9 @@ module Snails
       normalize
     end
 
-    # `read_attribute(name)` — the read seam of the field-storage path:
-    # every generated reader and the rule engine route through this one
-    # method, so the value path holds no dynamic dispatch. A missing
-    # field answers nil.
+    # the read seam of the field-storage path: every generated reader and the
+    # rule engine route through this one method, so the value path holds no
+    # dynamic dispatch. A missing field answers nil.
     #
     # @param name [Symbol, String] the field name (String accepted —
     #   the accessor loop iterates member names as written)
@@ -217,12 +212,11 @@ module Snails
       @values[name.to_sym]
     end
 
-    # `write_attribute(name, value)` — the write seam (there are no
-    # generated setters: spinel refuses an interpolated `define_method`
-    # name, so writes stay a plain call). The projection and the
-    # `normalize` hook write here. Input only — no dirty tracking; a
-    # name outside `FIELDS` is a caller bug and fails loud instead of
-    # storing a value no reader will see.
+    # the write seam (there are no generated setters: spinel refuses an
+    # interpolated `define_method` name, so writes stay a plain call). The
+    # projection and the `normalize` hook write here. Input only — no dirty
+    # tracking; a name outside `FIELDS` is a caller bug and fails loud instead
+    # of storing a value no reader will see.
     #
     # @param name [Symbol, String] the field name
     # @param value [untyped] the value to store
@@ -234,13 +228,13 @@ module Snails
       @values[name.to_sym] = value
     end
 
-    # `valid?` — reset the error list, run this class's registered
-    # validations in registration order, and answer whether the input
-    # is clean. Rule guards (`if`/`unless`/`allow_nil`/`allow_blank`)
-    # decide what each rule may report, and custom `validate` methods
-    # run in the same order — so `errors.full_messages` reflects
-    # declaration order, the ordered-list contract a 422 body depends
-    # on. Calling it again starts from an empty list.
+    # reset the error list, run this class's registered validations in
+    # registration order, and answer whether the input is clean. Rule guards
+    # (`if`/`unless`/`allow_nil`/`allow_blank`) decide what each rule may
+    # report, and custom `validate` methods run in the same order — so
+    # `errors.full_messages` reflects declaration order, the ordered-list
+    # contract a 422 body depends on. Calling it again starts from an empty
+    # list.
     #
     # @return [bool]
     def valid?
@@ -261,17 +255,17 @@ module Snails
       @errors.empty?
     end
 
-    # `errors` — the current error list: empty until a rule or custom
-    # method fails, replaced by every `valid?` call.
+    # the current error list: empty until a rule or custom method fails,
+    # replaced by every `valid?` call.
     #
     # @return [Errors]
     def errors
       @errors
     end
 
-    # `human_attribute_name(attribute)` — the display name a full
-    # message prefixes (`email` -> `Email`, `password_confirmation` ->
-    # `Password confirmation`). Override to carry locale names.
+    # the display name a full message prefixes (`email` -> `Email`,
+    # `password_confirmation` -> `Password confirmation`). Override to carry
+    # locale names.
     #
     # @param attribute [Symbol] the field name
     # @return [String]
@@ -279,10 +273,10 @@ module Snails
       attribute.to_s.humanize
     end
 
-    # `normalize` — the input-normalization hook, called once from
-    # `new` before validation reads any value. Override it for strips,
-    # downcasing, defaults — write through `write_attribute` (there are
-    # no generated setters); input shaping only, never persistence.
+    # the input-normalization hook, called once from `new` before validation
+    # reads any value. Override it for strips, downcasing, defaults — write
+    # through `write_attribute` (there are no generated setters); input shaping
+    # only, never persistence.
     #
     # @return [void]
     def normalize

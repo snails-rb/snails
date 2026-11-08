@@ -6,9 +6,8 @@
 module Snails
   module DateAndTime
     module Calculations
-      # `civil_days(y, m, d)` — the civil date as a day count from
-      # 1970-01-01, derived from the calendar fields rather than an
-      # instant's epoch seconds.
+      # the civil date as a day count from 1970-01-01, derived from the calendar
+      # fields rather than an instant's epoch seconds.
       #
       # @param y [Integer] the civil year
       # @param m [Integer] the civil month (1–12)
@@ -25,7 +24,7 @@ module Snails
         era * 146097 + doe - 719468
       end
 
-      # `days_in_month(y, m)` — the number of days in the civil month.
+      # the number of days in the civil month.
       #
       # @param y [Integer] the civil year
       # @param m [Integer] the civil month (1–12)
@@ -36,9 +35,8 @@ module Snails
         m == 12 ? civil_days(y + 1, 1, 1) - civil_days(y, 12, 1) : civil_days(y, m + 1, 1) - civil_days(y, m, 1)
       end
 
-      # `days_since(t, n = 1)` — `n` civil days later at the same wall-clock
-      # time; the day count walks the calendar, so a DST transition cannot
-      # move the clock.
+      # `n` civil days later at the same wall-clock time; the day count walks
+      # the calendar, so a DST transition cannot move the clock.
       #
       # @param t [Time] the instant to shift
       # @param n [Integer] the day count (default 1)
@@ -50,8 +48,8 @@ module Snails
         local_on(t, civil_days(t.year, t.month, t.day) + n, t.hour, t.min, t.sec, t.nsec)
       end
 
-      # `days_ago(t, n = 1)` — `n` civil days earlier at the same wall-clock
-      # time; the negative twin of `days_since`.
+      # `n` civil days earlier at the same wall-clock time; the negative twin of
+      # `days_since`.
       #
       # @param t [Time] the instant to shift
       # @param n [Integer] the day count (default 1)
@@ -63,7 +61,7 @@ module Snails
         days_since(t, -n)
       end
 
-      # `yesterday(t)` — one civil day earlier at the same wall-clock time.
+      # one civil day earlier at the same wall-clock time.
       #
       # @param t [Time] the instant to shift
       # @return [Time] the previous day at the same clock time
@@ -74,7 +72,7 @@ module Snails
         days_since(t, -1)
       end
 
-      # `tomorrow(t)` — one civil day later at the same wall-clock time.
+      # one civil day later at the same wall-clock time.
       #
       # @param t [Time] the instant to shift
       # @return [Time] the next day at the same clock time
@@ -85,8 +83,7 @@ module Snails
         days_since(t, 1)
       end
 
-      # `weeks_since(t, n = 1)` — `n` weeks (7 days each) later at the same
-      # wall-clock time.
+      # `n` weeks (7 days each) later at the same wall-clock time.
       #
       # @param t [Time] the instant to shift
       # @param n [Integer] the week count (default 1)
@@ -98,8 +95,7 @@ module Snails
         days_since(t, 7 * n)
       end
 
-      # `weeks_ago(t, n = 1)` — `n` weeks (7 days each) earlier at the same
-      # wall-clock time.
+      # `n` weeks (7 days each) earlier at the same wall-clock time.
       #
       # @param t [Time] the instant to shift
       # @param n [Integer] the week count (default 1)
@@ -111,9 +107,8 @@ module Snails
         days_since(t, -7 * n)
       end
 
-      # `months_since(t, n = 1)` — `n` calendar months later at the same
-      # wall-clock time; the day clamps to the target month's last day
-      # (Jan 31 + 1 month is Feb 29 in a leap year).
+      # `n` calendar months later at the same wall-clock time; the day clamps to
+      # the target month's last day (Jan 31 + 1 month is Feb 29 in a leap year).
       #
       # @param t [Time] the instant to shift
       # @param n [Integer] the month count (default 1)
@@ -129,8 +124,8 @@ module Snails
         local_time(t, y, m, t.day > last ? last : t.day, t.hour, t.min, t.sec, t.nsec)
       end
 
-      # `months_ago(t, n = 1)` — `n` calendar months earlier at the same
-      # wall-clock time; the negative twin of `months_since`.
+      # `n` calendar months earlier at the same wall-clock time; the negative
+      # twin of `months_since`.
       #
       # @param t [Time] the instant to shift
       # @param n [Integer] the month count (default 1)
@@ -142,9 +137,8 @@ module Snails
         months_since(t, -n)
       end
 
-      # `years_since(t, n = 1)` — `n` calendar years (12 months each) later at
-      # the same wall-clock time; a leap day clamps to the target month's
-      # last day.
+      # `n` calendar years (12 months each) later at the same wall-clock time; a
+      # leap day clamps to the target month's last day.
       #
       # @param t [Time] the instant to shift
       # @param n [Integer] the year count (default 1)
@@ -156,8 +150,8 @@ module Snails
         months_since(t, 12 * n)
       end
 
-      # `years_ago(t, n = 1)` — `n` calendar years (12 months each) earlier at
-      # the same wall-clock time; the negative twin of `years_since`.
+      # `n` calendar years (12 months each) earlier at the same wall-clock time;
+      # the negative twin of `years_since`.
       #
       # @param t [Time] the instant to shift
       # @param n [Integer] the year count (default 1)
@@ -169,8 +163,7 @@ module Snails
         months_since(t, -12 * n)
       end
 
-      # `beginning_of_minute(t)` — the start of `t`'s minute: seconds and
-      # smaller fields are zeroed.
+      # the start of `t`'s minute: seconds and smaller fields are zeroed.
       #
       # @param t [Time] the instant whose minute is measured
       # @return [Time] the minute's start
@@ -181,8 +174,8 @@ module Snails
         local_time(t, t.year, t.month, t.day, t.hour, t.min, 0, 0)
       end
 
-      # `end_of_minute(t)` — the inclusive end of `t`'s minute, on the last
-      # nanosecond (…:59.999999999).
+      # the inclusive end of `t`'s minute, on the last nanosecond
+      # (…:59.999999999).
       #
       # @param t [Time] the instant whose minute is measured
       # @return [Time] the minute's inclusive end
@@ -193,8 +186,7 @@ module Snails
         local_time(t, t.year, t.month, t.day, t.hour, t.min, 59, 999_999_999)
       end
 
-      # `beginning_of_hour(t)` — the start of `t`'s hour: minutes and smaller
-      # fields are zeroed.
+      # the start of `t`'s hour: minutes and smaller fields are zeroed.
       #
       # @param t [Time] the instant whose hour is measured
       # @return [Time] the hour's start
@@ -205,8 +197,8 @@ module Snails
         local_time(t, t.year, t.month, t.day, t.hour, 0, 0, 0)
       end
 
-      # `end_of_hour(t)` — the inclusive end of `t`'s hour, on the last
-      # nanosecond (…:59.999999999).
+      # the inclusive end of `t`'s hour, on the last nanosecond
+      # (…:59.999999999).
       #
       # @param t [Time] the instant whose hour is measured
       # @return [Time] the hour's inclusive end
@@ -217,7 +209,7 @@ module Snails
         local_time(t, t.year, t.month, t.day, t.hour, 59, 59, 999_999_999)
       end
 
-      # `beginning_of_day(t)` — midnight at the start of `t`'s day.
+      # midnight at the start of `t`'s day.
       #
       # @param t [Time] the instant whose day is measured
       # @return [Time] the day's midnight
@@ -228,8 +220,8 @@ module Snails
         local_time(t, t.year, t.month, t.day, 0, 0, 0, 0)
       end
 
-      # `end_of_day(t)` — the inclusive end of `t`'s day, on the last
-      # nanosecond (23:59:59.999999999).
+      # the inclusive end of `t`'s day, on the last nanosecond
+      # (23:59:59.999999999).
       #
       # @param t [Time] the instant whose day is measured
       # @return [Time] the day's inclusive end
@@ -240,7 +232,7 @@ module Snails
         local_time(t, t.year, t.month, t.day, 23, 59, 59, 999_999_999)
       end
 
-      # `noon(t)` — 12:00:00 of `t`'s day.
+      # 12:00:00 of `t`'s day.
       #
       # @param t [Time] the instant whose day is measured
       # @return [Time] the day's midpoint
@@ -251,8 +243,7 @@ module Snails
         local_time(t, t.year, t.month, t.day, 12, 0, 0, 0)
       end
 
-      # `beginning_of_week(t)` — Monday 00:00 of the week containing `t`;
-      # weeks start on Monday.
+      # Monday 00:00 of the week containing `t`; weeks start on Monday.
       #
       # @param t [Time] the instant whose week is measured
       # @return [Time] the week's Monday at midnight
@@ -263,8 +254,7 @@ module Snails
         local_on(t, civil_days(t.year, t.month, t.day) - (t.wday + 6) % 7, 0, 0, 0, 0)
       end
 
-      # `end_of_week(t)` — Sunday 23:59:59.999999999 of the week containing
-      # `t`.
+      # Sunday 23:59:59.999999999 of the week containing `t`.
       #
       # @param t [Time] the instant whose week is measured
       # @return [Time] the week's Sunday at its inclusive end
@@ -275,7 +265,7 @@ module Snails
         end_of_day(days_since(beginning_of_week(t), 6))
       end
 
-      # `next_week(t)` — Monday 00:00 of the week after `t`'s week.
+      # Monday 00:00 of the week after `t`'s week.
       #
       # @param t [Time] the instant whose week is measured
       # @return [Time] the following week's Monday at midnight
@@ -286,7 +276,7 @@ module Snails
         beginning_of_week(days_since(t, 7))
       end
 
-      # `prev_week(t)` — Monday 00:00 of the week before `t`'s week.
+      # Monday 00:00 of the week before `t`'s week.
       #
       # @param t [Time] the instant whose week is measured
       # @return [Time] the previous week's Monday at midnight
@@ -297,7 +287,7 @@ module Snails
         beginning_of_week(days_since(t, -7))
       end
 
-      # `beginning_of_month(t)` — the 1st at 00:00 of `t`'s month.
+      # the 1st at 00:00 of `t`'s month.
       #
       # @param t [Time] the instant whose month is measured
       # @return [Time] the month's first day at midnight
@@ -308,8 +298,7 @@ module Snails
         local_time(t, t.year, t.month, 1, 0, 0, 0, 0)
       end
 
-      # `end_of_month(t)` — the last day of `t`'s month at its inclusive end
-      # (leap years included).
+      # the last day of `t`'s month at its inclusive end (leap years included).
       #
       # @param t [Time] the instant whose month is measured
       # @return [Time] the month's last day at its inclusive end
@@ -320,7 +309,7 @@ module Snails
         local_time(t, t.year, t.month, days_in_month(t.year, t.month), 23, 59, 59, 999_999_999)
       end
 
-      # `beginning_of_year(t)` — January 1st at 00:00 of `t`'s year.
+      # January 1st at 00:00 of `t`'s year.
       #
       # @param t [Time] the instant whose year is measured
       # @return [Time] the year's first day at midnight
@@ -331,7 +320,7 @@ module Snails
         local_time(t, t.year, 1, 1, 0, 0, 0, 0)
       end
 
-      # `end_of_year(t)` — December 31st at its inclusive end of `t`'s year.
+      # December 31st at its inclusive end of `t`'s year.
       #
       # @param t [Time] the instant whose year is measured
       # @return [Time] the year's last day at its inclusive end
@@ -342,7 +331,7 @@ module Snails
         local_time(t, t.year, 12, 31, 23, 59, 59, 999_999_999)
       end
 
-      # `same_day?(a, b)` — both instants fall on the same civil date.
+      # both instants fall on the same civil date.
       #
       # @param a [Time] one instant
       # @param b [Time] the other instant
@@ -354,7 +343,7 @@ module Snails
         a.year == b.year && a.month == b.month && a.day == b.day
       end
 
-      # `today?(t, now)` — `t` falls on `now`'s civil date.
+      # `t` falls on `now`'s civil date.
       #
       # @param t [Time] the instant under test
       # @param now [Time] the clock to compare against
@@ -366,7 +355,7 @@ module Snails
         same_day?(t, now)
       end
 
-      # `yesterday?(t, now)` — `t` falls on the civil date before `now`.
+      # `t` falls on the civil date before `now`.
       #
       # @param t [Time] the instant under test
       # @param now [Time] the clock to compare against
@@ -378,7 +367,7 @@ module Snails
         same_day?(t, days_since(now, -1))
       end
 
-      # `tomorrow?(t, now)` — `t` falls on the civil date after `now`.
+      # `t` falls on the civil date after `now`.
       #
       # @param t [Time] the instant under test
       # @param now [Time] the clock to compare against
@@ -390,7 +379,7 @@ module Snails
         same_day?(t, days_since(now, 1))
       end
 
-      # `past?(t, now)` — `t` is earlier than `now`.
+      # `t` is earlier than `now`.
       #
       # @param t [Time] the instant under test
       # @param now [Time] the clock to compare against
@@ -402,7 +391,7 @@ module Snails
         t < now
       end
 
-      # `future?(t, now)` — `t` is later than `now`.
+      # `t` is later than `now`.
       #
       # @param t [Time] the instant under test
       # @param now [Time] the clock to compare against
@@ -414,7 +403,7 @@ module Snails
         t > now
       end
 
-      # `on_weekend?(t)` — `t` falls on Saturday or Sunday.
+      # `t` falls on Saturday or Sunday.
       #
       # @param t [Time] the instant under test
       # @return [Boolean] true on the weekend
@@ -424,7 +413,7 @@ module Snails
         t.wday == 0 || t.wday == 6
       end
 
-      # `on_weekday?(t)` — `t` falls on Monday through Friday.
+      # `t` falls on Monday through Friday.
       #
       # @param t [Time] the instant under test
       # @return [Boolean] true on a weekday
@@ -434,8 +423,7 @@ module Snails
         !on_weekend?(t)
       end
 
-      # `on_wday?(t, wday)` — `t` falls on the given Sunday-based weekday
-      # (0 Sunday … 6 Saturday).
+      # `t` falls on the given Sunday-based weekday (0 Sunday … 6 Saturday).
       #
       # @param t [Time] the instant under test
       # @param wday [Integer] the Sunday-based weekday, 0 to 6
@@ -446,8 +434,8 @@ module Snails
         t.wday == wday
       end
 
-      # `local_on(t, days, hour, min, sec, nsec)` — the civil date `days`
-      # days from the epoch, rendered through `local_time` in `t`'s zone.
+      # the civil date `days` days from the epoch, rendered through `local_time`
+      # in `t`'s zone.
       def self.local_on(t, days, hour, min, sec, nsec)
         z = days + 719468
         era = z / 146097

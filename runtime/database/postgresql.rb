@@ -308,9 +308,9 @@ module Sqlx
         conn
       end
 
-      # `checkout()` — lease a connection, prove it usable, and answer the lease
-      # token. A failed check discards the connection and retries the checkout
-      # once; the retry is a checkout retry, not a statement retry.
+      # lease a connection, prove it usable, and answer the lease token. A
+      # failed check discards the connection and retries the checkout once; the
+      # retry is a checkout retry, not a statement retry.
       #
       # @return [LeaseToken] the checked-out connection's token
       # @raise [Sqlx::ConnectionTimeout] no connection became free in time
@@ -330,11 +330,11 @@ module Sqlx
         raise Sqlx::ConnectionFailed, "Sqlx::Database: no healthy pooled PostgreSQL connection after " + attempts.to_s + " attempts"
       end
 
-      # `release(idx, conn, finished)` — the shared lease token's release hook.
-      # `finished` is unused here: this adapter has no statement cache to trim.
-      # The position is only returned when it still holds the same connection; a
-      # connection discarded mid-statement has already left the pool, and its
-      # position waits for a later checkout that finds no free connection.
+      # the shared lease token's release hook. `finished` is unused here: this
+      # adapter has no statement cache to trim. The position is only returned
+      # when it still holds the same connection; a connection discarded
+      # mid-statement has already left the pool, and its position waits for a
+      # later checkout that finds no free connection.
       def release(idx, conn, finished)
         @lock.synchronize do
           if idx >= 0 && idx < @conns.length && @conns[idx] == conn
@@ -345,10 +345,10 @@ module Sqlx
         end
       end
 
-      # `discard(conn)` — remove a failed connection. The position stays vacant
-      # and is refilled by a later checkout that finds no free connection; the
-      # current lease's release is a no-op because its connection no longer
-      # occupies the position. Closing happens outside the lock.
+      # remove a failed connection. The position stays vacant and is refilled by
+      # a later checkout that finds no free connection; the current lease's
+      # release is a no-op because its connection no longer occupies the
+      # position. Closing happens outside the lock.
       def discard(conn)
         discarded = false
         @lock.synchronize do
@@ -464,11 +464,11 @@ module Sqlx
     @query_log = nil
     @sql_trace = false
 
-    # `configure(conninfo, pool_size: 8)` — build this adapter's connection pool
-    # and validate that the server is reachable. `DATABASE_POOL_SIZE` overrides
-    # `pool_size` when set, matching the sqlite sibling. The probe connection
-    # opens and closes before the pool goes lazy: a bad conninfo stops boot, and
-    # a prefork child never inherits the parent's socket.
+    # build this adapter's connection pool and validate that the server is
+    # reachable. `DATABASE_POOL_SIZE` overrides `pool_size` when set, matching
+    # the sqlite sibling. The probe connection opens and closes before the pool
+    # goes lazy: a bad conninfo stops boot, and a prefork child never inherits
+    # the parent's socket.
     #
     # @param conninfo [String] a libpq conninfo string (`PG_URL`), not a file
     #   path — the sqlite parameter name survives so both adapters share one
@@ -494,9 +494,8 @@ module Sqlx
       query_cache_clear
     end
 
-    # `configure_default!()` — configure from this adapter's own source:
-    # `PG_URL`, a libpq conninfo string, required. `main.rb` never names an
-    # adapter; it calls this.
+    # configure from this adapter's own source: `PG_URL`, a libpq conninfo
+    # string, required. `main.rb` never names an adapter; it calls this.
     #
     # @return [void]
     # @raise [RuntimeError] `PG_URL` is missing or empty
@@ -518,8 +517,8 @@ module Sqlx
       query_cache_clear
     end
 
-    # `exec(sql)` — run one DDL / INSERT / UPDATE / DELETE statement; no rows
-    # come back. Callers that want the inserted id or the row count read
+    # run one DDL / INSERT / UPDATE / DELETE statement; no rows come back.
+    # Callers that want the inserted id or the row count read
     # `last_insert_rowid` / `changes` next.
     #
     # @param sql [String] the statement, with values inlined — this entry binds
@@ -543,11 +542,10 @@ module Sqlx
       end
     end
 
-    # `exec_read(sql, values)` — run one statement with the caller's
-    # values bound and hand back the rows it produced, keyed by column
-    # name. The binding is this adapter's (the same one `exec_write`
-    # uses); a caller that wants the rows of a statement with values
-    # comes here.
+    # run one statement with the caller's values bound and hand back the rows it
+    # produced, keyed by column name. The binding is this adapter's (the same
+    # one `exec_write` uses); a caller that wants the rows of a statement with
+    # values comes here.
     #
     # Inside a `with_connection` scope, an identical SELECT replays the
     # first result. The cache key is the statement as executed — bind
@@ -593,9 +591,8 @@ module Sqlx
       end
     end
 
-    # `exec_write(sql, values)` — run one statement with the caller's
-    # values bound and hand back what that execution produced: the rows
-    # it returned and the rows it changed.
+    # run one statement with the caller's values bound and hand back what that
+    # execution produced: the rows it returned and the rows it changed.
     #
     # The two answers belong to one execution — the count is final only
     # once the statement is done, and a statement that returns rows is
@@ -667,11 +664,11 @@ module Sqlx
       pool.checkout
     end
 
-    # `last_insert_rowid()` — the id the last INSERT in this session produced. PG
-    # identity columns advance a sequence rather than a rowid, so this reads
-    # `lastval()`: the session's last `nextval()`, the per-connection answer this
-    # adapter keeps. A session that has inserted nothing raises from PG; that
-    # reads back as 0, sqlite's answer too.
+    # the id the last INSERT in this session produced. PG identity columns
+    # advance a sequence rather than a rowid, so this reads `lastval()`: the
+    # session's last `nextval()`, the per-connection answer this adapter keeps.
+    # A session that has inserted nothing raises from PG; that reads back as 0,
+    # sqlite's answer too.
     #
     # @return [Integer] the session's last sequence value, 0 before any INSERT
     # @raise [Sqlx::ConnectionFailed] the lease's connection is gone
@@ -680,11 +677,11 @@ module Sqlx
       v.nil? ? 0 : v
     end
 
-    # `changes()` — the row count of the last non-RETURNING
-    # INSERT/UPDATE/DELETE on this lease's connection. A statement with
-    # RETURNING reports its count through `exec_write`, not here; this
-    # accessor keeps the previous count. SQLite's sqlite3_changes does
-    # update for RETURNING — core never reads it after a RETURNING write.
+    # the row count of the last non-RETURNING INSERT/UPDATE/DELETE on this
+    # lease's connection. A statement with RETURNING reports its count through
+    # `exec_write`, not here; this accessor keeps the previous count. SQLite's
+    # sqlite3_changes does update for RETURNING — core never reads it after a
+    # RETURNING write.
     #
     # @return [Integer] the affected-row count of the last row-changing
     #   statement without RETURNING
@@ -693,27 +690,26 @@ module Sqlx
       current_conn.changes
     end
 
-    # `owns_schema?()` — whether this adapter owns its schema DDL. It answers
-    # false here: the schema belongs to the application's deployment, so this
-    # process applies no DDL (the sqlite sibling answers true). An explicit
-    # loader reads this flag; the server never runs DDL either way.
+    # whether this adapter owns its schema DDL. It answers false here: the
+    # schema belongs to the application's deployment, so this process applies no
+    # DDL (the sqlite sibling answers true). An explicit loader reads this flag;
+    # the server never runs DDL either way.
     #
     # @return [Boolean] false for PostgreSQL
     def self.owns_schema?
       false
     end
 
-    # `adapter_name()` — the dialect name apps branch on; each adapter answers
-    # its own.
+    # the dialect name apps branch on; each adapter answers its own.
     #
     # @return [String] this adapter's dialect name, "PostgreSQL"
     def self.adapter_name
       "PostgreSQL"
     end
 
-    # `quote(value)` — the adapter's SQL literal renderer: NULL, a bare number,
-    # the adapter's boolean spelling, the stored Time form, else a quoted string.
-    # The escape helpers are the implementation; callers go through `Sqlx.quote`.
+    # the adapter's SQL literal renderer: NULL, a bare number, the adapter's
+    # boolean spelling, the stored Time form, else a quoted string. The escape
+    # helpers are the implementation; callers go through `Sqlx.quote`.
     #
     # @return [String] the SQL literal for `value`
     def self.quote(value)
@@ -949,9 +945,9 @@ module Sqlx
       column_int(stmt, idx) != 0
     end
 
-    # `final_sql_for(sql, values)` — the statement as it goes to the server: each
-    # unquoted `?` replaced by its rendered value. The same text is the cache key,
-    # so bound reads are cached by value rather than skipped.
+    # the statement as it goes to the server: each unquoted `?` replaced by its
+    # rendered value. The same text is the cache key, so bound reads are cached
+    # by value rather than skipped.
     #
     # @return [String]
     def self.final_sql_for(sql, values)
@@ -1292,10 +1288,9 @@ module Sqlx
         message.include?("duplicate key value violates unique constraint")
     end
 
-    # `busy_sqlstate?(state)` — whether a SQLSTATE means lock contention rather
-    # than a broken statement. They share one contract with sqlite's
-    # SQLITE_BUSY/LOCKED: the unit did not commit and may be retried as a unit
-    # (`Sqlx::Busy`).
+    # whether a SQLSTATE means lock contention rather than a broken statement.
+    # They share one contract with sqlite's SQLITE_BUSY/LOCKED: the unit did not
+    # commit and may be retried as a unit (`Sqlx::Busy`).
     #
     # @param state [String, nil] the result's five-character SQLSTATE
     # @return [Boolean] true for deadlock, lock-not-available and serialization

@@ -13,14 +13,14 @@ module Snails
   # The exact core revision, full 40-hex when known.
   REV = "unknown"
 
-  # `version()` — the framework version the running core was packaged from.
+  # the framework version the running core was packaged from.
   #
   # @return [String] the release tag or revision, `"unknown"` when unstamped
   def self.version
     VERSION
   end
 
-  # `rev()` — the exact framework revision the running core was packaged from.
+  # the exact framework revision the running core was packaged from.
   #
   # @return [String] the full commit revision, `"unknown"` when unstamped
   def self.rev

@@ -8,11 +8,10 @@ module Sqlx
 
     include Row
 
-    # `table_name` — the table this model reads from: one of the two
-    # declarations the core `find_by` assembles its SELECT from. A
-    # subclass declares it as a literal one-liner (spinel has no
-    # metaprogramming for accessors); the base raises so a model
-    # that forgot the declaration fails loud instead of splicing nil
+    # the table this model reads from: one of the two declarations the core
+    # `find_by` assembles its SELECT from. A subclass declares it as a literal
+    # one-liner (spinel has no metaprogramming for accessors); the base raises
+    # so a model that forgot the declaration fails loud instead of splicing nil
     # into the SQL.
     #
     # @return [String] the table name — code, not input, and not
@@ -26,15 +25,13 @@ module Sqlx
       raise NotImplementedError, "table_name: subclasses must declare"
     end
 
-    # `only_columns` — the columns this model reads: the projection
-    # half of the `find_by` declaration pair, declared as a
-    # column-name array. It is a required declaration, not an
-    # optional filter — core assembles it into the SELECT list
-    # (every identifier quoted, so a reserved-word column like
-    # `order` is safe), and hydration reads the projected names out
-    # of the row, so the list's order binds no read. The base raises
-    # so a model that forgot the declaration fails loud instead of
-    # splicing nil into the SQL.
+    # the columns this model reads: the projection half of the `find_by`
+    # declaration pair, declared as a column-name array. It is a required
+    # declaration, not an optional filter — core assembles it into the SELECT
+    # list (every identifier quoted, so a reserved-word column like `order` is
+    # safe), and hydration reads the projected names out of the row, so the
+    # list's order binds no read. The base raises so a model that forgot the
+    # declaration fails loud instead of splicing nil into the SQL.
     #
     # @return [Array[Symbol, String]] the projected column names —
     #   code, not input, and not validated: an unknown column
@@ -54,15 +51,13 @@ module Sqlx
     # stays legal — hydration passes them by instead of raising.
     TIMESTAMP_COLUMNS = [ "created_at", "updated_at" ]
 
-    # `datetime_columns()` — the projected columns whose stored TEXT is
-    # a time: the type exceptions the default `from_row` below
-    # converts through the stored-time codec. Defaults to the built-in
-    # timestamp pair; the option replaces the list wholesale, so a
-    # model with extra time columns spells the pair plus its extras,
-    # and a model that keeps time columns as raw storage text answers
-    # []. A declared name outside `only_columns` is a declaration
-    # error (the timestamp pair excepted — a table without them is
-    # legal).
+    # the projected columns whose stored TEXT is a time: the type exceptions the
+    # default `from_row` below converts through the stored-time codec. Defaults
+    # to the built-in timestamp pair; the option replaces the list wholesale, so
+    # a model with extra time columns spells the pair plus its extras, and a
+    # model that keeps time columns as raw storage text answers []. A declared
+    # name outside `only_columns` is a declaration error (the timestamp pair
+    # excepted — a table without them is legal).
     #
     # @return [Array[String]] the datetime column names — the
     #   timestamp pair by default
@@ -72,14 +67,13 @@ module Sqlx
       TIMESTAMP_COLUMNS
     end
 
-    # `date_columns()` — the projected columns whose stored TEXT is a
-    # civil date: the type exception the default `from_row` converts
-    # through `String#to_date`. Defaults to none. A model with DATE
-    # columns declares them (the column generator emits the list). The
-    # date codec is opt-in — the generated file loads
-    # `runtime/ext/date` only for an app whose schema has a DATE column,
-    # because requiring the date package costs build time and binary size
-    # even when no value converts.
+    # the projected columns whose stored TEXT is a civil date: the type
+    # exception the default `from_row` converts through `String#to_date`.
+    # Defaults to none. A model with DATE columns declares them (the column
+    # generator emits the list). The date codec is opt-in — the generated file
+    # loads `runtime/ext/date` only for an app whose schema has a DATE column,
+    # because requiring the date package costs build time and binary size even
+    # when no value converts.
     #
     # @return [Array[String]] the date column names; [] when none
     # @example
@@ -88,8 +82,8 @@ module Sqlx
       []
     end
 
-    # `boolean_columns()` — the projected columns whose stored 1/0 is a
-    # boolean: another type exception of the default `from_row`.
+    # the projected columns whose stored 1/0 is a boolean: another type
+    # exception of the default `from_row`.
     #
     # @return [Array[String]] the boolean column names; [] when none
     # @example
@@ -98,17 +92,15 @@ module Sqlx
       []
     end
 
-    # `json_columns()` — the projected columns whose stored TEXT is JSON:
-    # a type exception that travels both ways. The
-    # default `from_row` below decodes each declared column through
-    # `Sqlx::Json`, and the write entries (`create!`·`update!`·
-    # `update_all!`·`upsert_all!`) encode each declared value on the way
-    # in, so a caller hands over the logical value (a Hash) and reads
-    # the logical value back — the codec call never appears in app code.
-    # A value JSON cannot represent raises at the write entry instead of
-    # being `to_s`-ed into the column, the codec's own contract. Defaults
-    # to no json columns: an undeclared column stores and reads exactly
-    # as raw text.
+    # the projected columns whose stored TEXT is JSON: a type exception that
+    # travels both ways. The default `from_row` below decodes each declared
+    # column through `Sqlx::Json`, and the write entries (`create!`·`update!`·
+    # `update_all!`·`upsert_all!`) encode each declared value on the way in, so
+    # a caller hands over the logical value (a Hash) and reads the logical value
+    # back — the codec call never appears in app code. A value JSON cannot
+    # represent raises at the write entry instead of being `to_s`-ed into the
+    # column, the codec's own contract. Defaults to no json columns: an
+    # undeclared column stores and reads exactly as raw text.
     #
     # @return [Array[String]] the json column names; [] when none
     # @raise [ArgumentError] the default `from_row` finds a declared
@@ -119,16 +111,14 @@ module Sqlx
       []
     end
 
-    # `from_row(row)` — the default hydration: one name-keyed row in,
-    # one record out. Every projected column is copied by name and the
-    # declared type exceptions are converted — `datetime_columns`
-    # through the stored-time codec, `date_columns` through
-    # `String#to_date`, `boolean_columns` from the stored 1/0,
-    # `json_columns` through `Sqlx::Json` (the same codec the
-    # write entries encode with, so the column round-trips). A model
-    # whose row needs more than the exceptions (value normalization)
-    # overrides this wholesale; the declaration stubs still make a bare
-    # base call loud.
+    # the default hydration: one name-keyed row in, one record out. Every
+    # projected column is copied by name and the declared type exceptions are
+    # converted — `datetime_columns` through the stored-time codec,
+    # `date_columns` through `String#to_date`, `boolean_columns` from the stored
+    # 1/0, `json_columns` through `Sqlx::Json` (the same codec the write entries
+    # encode with, so the column round-trips). A model whose row needs more than
+    # the exceptions (value normalization) overrides this wholesale; the
+    # declaration stubs still make a bare base call loud.
     #
     # @param row [Hash{String => Object}] one name-keyed row — the
     #   `rows_by_sql` shape: the projected column names as keys, the
@@ -191,11 +181,11 @@ module Sqlx
       new(**attrs)
     end
 
-    # `all` — every row of the model's table, in no implied order.
-    # SPEC-ONLY by decision: core owns the signature and the contract, not the
-    # SQL. Two call sites need it (a model's own `all` and one full-table
-    # read), and a public API is easier to add than to remove, so each model
-    # implements it over its own projection in the shape below.
+    # every row of the model's table, in no implied order. SPEC-ONLY by
+    # decision: core owns the signature and the contract, not the SQL. Two call
+    # sites need it (a model's own `all` and one full-table read), and a public
+    # API is easier to add than to remove, so each model implements it over its
+    # own projection in the shape below.
     #
     # @return [Array] every row of the table — an empty array when
     #   the table has no rows (never nil); which row comes first

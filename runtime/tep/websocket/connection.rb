@@ -9,8 +9,8 @@ module Tep
     class Connection
       attr_accessor :driver, :fd, :idle_timeout_seconds
 
-      # `Connection#initialize(driver, io)` -- bind the connection to its
-      # driver and to the IO wrapper the recv loop parks on.
+      # bind the connection to its driver and to the IO wrapper the recv loop
+      # parks on.
       #
       # @param driver [Driver] the driver built at handshake time; the
       #   connection reads `fd` from it
@@ -28,7 +28,7 @@ module Tep
         @idle_timeout_seconds = seconds
       end
 
-      # `run` -- drive the recv loop until the connection ends.
+      # drive the recv loop until the connection ends.
       #
       # The caller owns the fd lifecycle -- `run` never closes it. Every
       # exit passes through `dispatch_close`, so the broadcast registry

@@ -4,17 +4,15 @@ module Sqlx
   # model class method; the bodies reach the declaration surface
   # (Model) through the same receiver.
   module Query
-    # `find_by_sql(sql, values = nil)` — the escape hatch for a
-    # caller-written SELECT:
-    # this walks the statement and hands back this model's records. It
-    # exists so an association reader on the owning model carries only
-    # its own SQL (column list, join, foreign key) instead of the
-    # prepare/step/finalize dance every reader repeated. The per-column
-    # read stays in the model's `from_row`, which receives one
+    # the escape hatch for a caller-written SELECT: this walks the statement and
+    # hands back this model's records. It exists so an association reader on the
+    # owning model carries only its own SQL (column list, join, foreign key)
+    # instead of the prepare/step/finalize dance every reader repeated. The
+    # per-column read stays in the model's `from_row`, which receives one
     # name-keyed row per statement row — the same shape the raw read
-    # (`rows_by_sql`) answers with — so the caller's column order never
-    # binds hydration: a reordered SELECT still lands every value on
-    # its own attribute.
+    # (`rows_by_sql`) answers with — so the caller's column order never binds
+    # hydration: a reordered SELECT still lands every value on its own
+    # attribute.
     #
     # The walk specializes per concrete receiver — the receiver's
     # `from_row` fixes the element — so a caller may declare
@@ -41,13 +39,12 @@ module Sqlx
       rows_by_sql(sql, values).map { |row| from_row(row) }
     end
 
-    # `row_by_sql(sql, values = nil)` — the single-row half of
-    # `rows_by_sql`: walk the caller's SELECT and hand back the row it
-    # yields first, keyed by column name, or nil when it yields none.
-    # It is the raw counterpart of the model-level single-row read
-    # (`find_by_sql(...).first`): the same query, without the
-    # hydration: the row shape is dynamic (a view, an aggregate, a
-    # computed column), so no model stands behind it.
+    # the single-row half of `rows_by_sql`: walk the caller's SELECT and hand
+    # back the row it yields first, keyed by column name, or nil when it yields
+    # none. It is the raw counterpart of the model-level single-row read
+    # (`find_by_sql(...).first`): the same query, without the hydration: the row
+    # shape is dynamic (a view, an aggregate, a computed column), so no model
+    # stands behind it.
     #
     # @param sql [String] the caller's SELECT, with a `?` for each value
     # @param values [Array, nil] one value per `?` — nil for a
@@ -69,14 +66,12 @@ module Sqlx
       end
     end
 
-    # `rows_by_sql(sql, values = nil)` — the raw-read half of the
-    # read family: walk the caller's SELECT and hand back each row as a
-    # name→value Hash, without hydrating a record. It exists for the
-    # statements no model can stand behind — a view, an aggregate, a
-    # computed column — where the row shape is genuinely dynamic and a
-    # model would be a lie.
-    # `find_by_sql` is the same walk with a model in front of it; this
-    # one keeps the dynamic shape honest, and the shape is shared —
+    # the raw-read half of the read family: walk the caller's SELECT and hand
+    # back each row as a name→value Hash, without hydrating a record. It exists
+    # for the statements no model can stand behind — a view, an aggregate, a
+    # computed column — where the row shape is genuinely dynamic and a model
+    # would be a lie. `find_by_sql` is the same walk with a model in front of
+    # it; this one keeps the dynamic shape honest, and the shape is shared —
     # `from_row` receives exactly these name-keyed rows.
     #
     # A value enters a read the way it enters a write: bound. The
@@ -102,14 +97,13 @@ module Sqlx
       Sqlx::Database.exec_read(sql, bound)
     end
 
-    # `write(sql, values = nil)` — the parameterized-write half of
-    # the raw SQL surface: run the caller's INSERT/UPDATE/DELETE with raw Ruby
-    # values bound to each `?`. The adapter renders each value by its
-    # runtime type, so callers never inline literals. "Write" is the DB-side
-    # counterpart of the read entries (reads SELECT, writes change rows).
-    # A class-level entry so models call it where `find_by_sql` lives;
-    # instance writers name the receiver explicitly. Delegates to
-    # adapter-owned `Sqlx::Database.exec_write`.
+    # the parameterized-write half of the raw SQL surface: run the caller's
+    # INSERT/UPDATE/DELETE with raw Ruby values bound to each `?`. The adapter
+    # renders each value by its runtime type, so callers never inline literals.
+    # "Write" is the DB-side counterpart of the read entries (reads SELECT,
+    # writes change rows). A class-level entry so models call it where
+    # `find_by_sql` lives; instance writers name the receiver explicitly.
+    # Delegates to adapter-owned `Sqlx::Database.exec_write`.
     #
     # The return is what the statement returned — the rows it
     # produced, keyed by column name. A statement that returns
@@ -159,21 +153,18 @@ module Sqlx
       Sqlx::Database.exec_write(sql, bound)["rows"]
     end
 
-    # `where_clause(conditions)` — the WHERE clause body for a
-    # conditions hash: one predicate per column, joined with AND.
-    # The assembly half that `find_by` is built on. Core owns it
-    # because the translation never varies by model (the table
-    # lives in the caller's SELECT) — a hand-rolled private copy
-    # is where a nil condition silently becomes `= ''` and stops
-    # matching `IS NULL` rows. An Array value is membership on the
-    # column (`IN (...)`), so a status-set filter rides the same
-    # conditions contract instead of escaping to raw SQL. An operator
-    # hash value is a predicate bag on the column: a range comparison
-    # (`{ lt: cutoff }`) so a cutoff filter rides the same contract
-    # without a Range object (which this runtime cannot build over a
-    # Time), and the null test (`{ is_not: nil }`) so "this column has
-    # a value" reads as the SQL it renders — `col IS NOT NULL`, the
-    # has-value side of nil's `IS NULL`.
+    # the WHERE clause body for a conditions hash: one predicate per column,
+    # joined with AND. The assembly half that `find_by` is built on. Core owns
+    # it because the translation never varies by model (the table lives in the
+    # caller's SELECT) — a hand-rolled private copy is where a nil condition
+    # silently becomes `= ''` and stops matching `IS NULL` rows. An Array value
+    # is membership on the column (`IN (...)`), so a status-set filter rides the
+    # same conditions contract instead of escaping to raw SQL. An operator hash
+    # value is a predicate bag on the column: a range comparison (`{ lt: cutoff
+    # }`) so a cutoff filter rides the same contract without a Range object
+    # (which this runtime cannot build over a Time), and the null test (`{
+    # is_not: nil }`) so "this column has a value" reads as the SQL it renders —
+    # `col IS NOT NULL`, the has-value side of nil's `IS NULL`.
     #
     # @param conditions [Hash{Symbol => Object}] column Symbol =>
     #   value. nil means `IS NULL` on that column; an Array means
@@ -241,15 +232,14 @@ module Sqlx
       parts.join(" AND ")
     end
 
-    # `projection` — the model's SELECT column list: every declared
-    # column, table-qualified and identifier-quoted, comma-joined.
-    # Core owns this one assembly so `find_by` and a model's own raw
-    # walk build the same spelling — the hand-rolled copy is where
-    # quoting drops off and a reserved-word column breaks the parse.
-    # A join reader calls another model's projection
-    # (`User.projection`) and receives that model's table qualified,
-    # so there is no target-table argument: the receiver is always
-    # the source of both the table and the column list.
+    # the model's SELECT column list: every declared column, table-qualified and
+    # identifier-quoted, comma-joined. Core owns this one assembly so `find_by`
+    # and a model's own raw walk build the same spelling — the hand-rolled copy
+    # is where quoting drops off and a reserved-word column breaks the parse. A
+    # join reader calls another model's projection (`User.projection`) and
+    # receives that model's table qualified, so there is no target-table
+    # argument: the receiver is always the source of both the table and the
+    # column list.
     #
     # @return [String] the qualified column list, ready to splice
     #   after `SELECT`
@@ -265,19 +255,17 @@ module Sqlx
       parts.join(", ")
     end
 
-    # `find_by(conditions, order: nil)` — the single-row lookup by a
-    # conditions hash, assembled from the model's `table_name` and
-    # `only_columns` declarations. Core owns this shape because it
-    # never varies by model (the same
-    # `SELECT <quoted cols> FROM <quoted table> WHERE <clause> LIMIT 1`
-    # every time) — the hand-rolled per-model copy is where the
-    # miss path and the exception message drift. Core quotes the
-    # table and column identifiers as it builds them, so reserved
-    # words are safe; the condition keys stay unquoted (code, not
-    # input — the `where_clause` rule). A model whose lookup needs
-    # more (a default scope, a join) overrides this method; a
-    # forgotten declaration fails loud through the declaration
-    # stubs instead of quietly reading as a miss.
+    # the single-row lookup by a conditions hash, assembled from the model's
+    # `table_name` and `only_columns` declarations. Core owns this shape because
+    # it never varies by model (the same
+    # `SELECT <quoted cols> FROM <quoted table> WHERE <clause> LIMIT 1` every
+    # time) — the hand-rolled per-model copy is where the miss path and the
+    # exception message drift. Core quotes the table and column identifiers as
+    # it builds them, so reserved words are safe; the condition keys stay
+    # unquoted (code, not input — the `where_clause` rule). A model whose lookup
+    # needs more (a default scope, a join) overrides this method; a forgotten
+    # declaration fails loud through the declaration stubs instead of quietly
+    # reading as a miss.
     #
     # The `order:` option decides which matching row arrives instead
     # of leaving it implementation-defined: `:desc` is the match with
@@ -342,12 +330,10 @@ module Sqlx
       one_by_sql(sql + " LIMIT 1")
     end
 
-    # `find_by!(conditions)` — the bang counterpart of `find_by`: no
-    # match RAISES instead of returning nil, so an absent record
-    # becomes a 404 at the call site instead of a nil that fails
-    # somewhere downstream. The message names the declared table —
-    # the one identifier core has — rather than a class name it
-    # cannot see.
+    # the bang counterpart of `find_by`: no match RAISES instead of returning
+    # nil, so an absent record becomes a 404 at the call site instead of a nil
+    # that fails somewhere downstream. The message names the declared table —
+    # the one identifier core has — rather than a class name it cannot see.
     #
     # @param conditions [Hash{Symbol => Object}] the `find_by`
     #   conditions contract, unchanged.
@@ -364,16 +350,14 @@ module Sqlx
       result
     end
 
-    # `fetch_many(conditions, order: nil, limit: nil, offset: nil)` —
-    # the multi-row counterpart of `find_by`: every row matching the
-    # conditions hash, assembled from the model's `table_name` and
-    # `only_columns` declarations. It exists so an association reader or
-    # a scope-shaped class method carries only its own conditions
-    # instead of hand-writing the same `SELECT <projection> FROM <table>
-    # WHERE <clause>` the consumer models repeated per reader — the
-    # assembly never varies by model, and the walk rides `find_by_sql`,
-    # so the cross-class typed `Array[<Model>]` contract holds at the
-    # call site.
+    # the multi-row counterpart of `find_by`: every row matching the conditions
+    # hash, assembled from the model's `table_name` and `only_columns`
+    # declarations. It exists so an association reader or a scope-shaped class
+    # method carries only its own conditions instead of hand-writing the same
+    # `SELECT <projection> FROM <table> WHERE <clause>` the consumer models
+    # repeated per reader — the assembly never varies by model, and the walk
+    # rides `find_by_sql`, so the cross-class typed `Array[<Model>]` contract
+    # holds at the call site.
     #
     # Unlike `find_by`'s `order:` (which picks one row among the
     # matches), the option here sorts the returned rows: `:desc` is
@@ -460,12 +444,11 @@ module Sqlx
       find_by_sql(sql)
     end
 
-    # `find_each(conditions = nil, batch_size: 1000) { |record| ... }` —
     # the whole-table per-record walk. It uses the same keyset walk as
-    # `find_in_batches`, but yields one record at a time: a caller with
-    # a per-row side effect (send, enqueue, call) does not hold a batch
-    # of records while it works. `find_in_batches` is the bulk
-    # counterpart that yields the batch array.
+    # `find_in_batches`, but yields one record at a time: a caller with a
+    # per-row side effect (send, enqueue, call) does not hold a batch of records
+    # while it works. `find_in_batches` is the bulk counterpart that yields the
+    # batch array.
     #
     # The conditions contract is the same as `fetch_many`, but rows
     # arrive in `id` order through keyset pagination — each batch asks
@@ -541,15 +524,13 @@ module Sqlx
       end
     end
 
-    # `find_in_batches(conditions = nil, batch_size: 1000) { |records| ... }`
-    # — the whole-table per-batch walk: the bulk counterpart of
-    # `find_each`. It uses the same keyset walk, but yields each batch's
-    # records as an Array, so a caller that applies one bulk operation
-    # per batch (`update_all!`, `upsert_all!`, a batch API) pays one
-    # block call and one write per batch instead of one per record. It
-    # still hydrates the batch — there is no Relation to hand a bulk
-    # statement to — so the memory bound is the batch size, not the
-    # table.
+    # the whole-table per-batch walk: the bulk counterpart of `find_each`. It
+    # uses the same keyset walk, but yields each batch's records as an Array, so
+    # a caller that applies one bulk operation per batch (`update_all!`,
+    # `upsert_all!`, a batch API) pays one block call and one write per batch
+    # instead of one per record. It still hydrates the batch — there is no
+    # Relation to hand a bulk statement to — so the memory bound is the batch
+    # size, not the table.
     #
     # The conditions, `batch_size`, id cursor, snapshot, and `break`
     # contracts are the same as `find_each`. Empty batches are never
@@ -615,17 +596,15 @@ module Sqlx
       end
     end
 
-    # `find(id)` — the lookup by the `id` column: the matching
-    # record, or `RecordNotFound` — never nil, so a missing row
-    # becomes a 404 at the call site instead of a nil that fails
-    # somewhere downstream. The column is `id` by decision, not by
-    # declaration: every table this entry point serves has an `id`
-    # primary key (a table without one does not use `find`), and a
-    # different key would be its own declaration decision if a
-    # model ever needs it. Built on `find_by`, so the conditions
-    # contract (escaping, loud unknown columns) and the declaration
-    # pair come along — and the message names the table and the id
-    # that missed, which is the diagnostic a 404 log needs.
+    # the lookup by the `id` column: the matching record, or `RecordNotFound` —
+    # never nil, so a missing row becomes a 404 at the call site instead of a
+    # nil that fails somewhere downstream. The column is `id` by decision, not
+    # by declaration: every table this entry point serves has an `id` primary
+    # key (a table without one does not use `find`), and a different key would
+    # be its own declaration decision if a model ever needs it. Built on
+    # `find_by`, so the conditions contract (escaping, loud unknown columns) and
+    # the declaration pair come along — and the message names the table and the
+    # id that missed, which is the diagnostic a 404 log needs.
     #
     # @param id [Integer, String] the `id` column value to match —
     #   treated as a condition value: it is escaped through
@@ -644,16 +623,15 @@ module Sqlx
       record
     end
 
-    # `count(conditions = {})` — how many rows of the model's table
-    # match. One of the declared-query group: the model owns the
-    # table, core owns the assembly, so every model answers with the
-    # same `SELECT COUNT(*) FROM <quoted table>` instead of a
-    # hand-rolled prepare/step/finalize cursor. With no conditions
-    # it is the whole table; with a conditions hash it is the matching
-    # rows — the same conditions contract `find_by`·`fetch_many`·
-    # `delete_all!` use (nil → `IS NULL`, `{ is_not: nil }` →
-    # `IS NOT NULL`, an Array → `IN (...)`, anything else → equality,
-    # keys unvalidated and unknown columns fail loud from the driver).
+    # how many rows of the model's table match. One of the declared-query group:
+    # the model owns the table, core owns the assembly, so every model answers
+    # with the same `SELECT COUNT(*) FROM <quoted table>` instead of a
+    # hand-rolled prepare/step/finalize cursor. With no conditions it is the
+    # whole table; with a conditions hash it is the matching rows — the same
+    # conditions contract `find_by`·`fetch_many`· `delete_all!` use (nil →
+    # `IS NULL`, `{ is_not: nil }` → `IS NOT NULL`, an Array → `IN (...)`,
+    # anything else → equality, keys unvalidated and unknown columns fail loud
+    # from the driver).
     #
     # An empty table answers 0: a count is a number, so there is no
     # miss path to raise on. The projection declaration is not needed
@@ -677,17 +655,15 @@ module Sqlx
       rows.empty? ? 0 : rows[0]["total"].to_i
     end
 
-    # `exists?(conditions = {})` — whether a matching row exists,
-    # answered from `SELECT 1 ... LIMIT 1` without hydrating a
-    # record. Four input forms, one per question: no argument (or
-    # an empty hash) asks whether the table has any row at all —
-    # an empty question here is well-defined, unlike
-    # `find_by({})`'s "which row?"; a conditions hash is the
-    # `find_by` conditions contract through the inherited
-    # `where_clause`; a scalar is shorthand for an `id` lookup —
-    # the same `id` column `find` uses, so an `exists?(user_id)`
-    # call site needs no rewrite; `nil` and `false` answer false
-    # without running a query — there is no row to look for.
+    # whether a matching row exists, answered from `SELECT 1 ... LIMIT 1`
+    # without hydrating a record. Four input forms, one per question: no
+    # argument (or an empty hash) asks whether the table has any row at all — an
+    # empty question here is well-defined, unlike `find_by({})`'s "which row?";
+    # a conditions hash is the `find_by` conditions contract through the
+    # inherited `where_clause`; a scalar is shorthand for an `id` lookup — the
+    # same `id` column `find` uses, so an `exists?(user_id)` call site needs no
+    # rewrite; `nil` and `false` answer false without running a query — there is
+    # no row to look for.
     #
     # @param conditions [Hash{Symbol => Object}, Integer, String,
     #   nil] the conditions as above — a Hash is code-as-input on
@@ -707,24 +683,21 @@ module Sqlx
       exists_by_sql(sql + " LIMIT 1")
     end
 
-    # `create!(attrs)` — insert one row from a column/value hash and
-    # hand back the persisted record. Core owns the mechanical middle
-    # (attrs keys become the INSERT columns, the declared timestamp
-    # columns fill themselves, the row arrives back through `find`)
-    # because it never varies by model; the id comes from the INSERT's
-    # own `RETURNING` row, not a session-scoped last-insert value, so a
-    # concurrent session cannot answer with its own id. Input preparation — type
-    # conversion, association objects reduced to ids, dumps — stays
-    # in the caller. This is a partial INSERT: exactly the columns
-    # the caller passed plus the declared timestamps it left out, so
-    # a table without timestamp columns needs no opt-out. Keys are
-    # code, not input, and are not validated: an unknown column
-    # surfaces as a loud SQL error from the driver. There are no
-    # model validations to run — a schema constraint is the
-    # validation this layer has, and it reaches the caller as an
-    # exception: a UNIQUE violation raises
-    # `Sqlx::RecordNotUnique`, other constraint failures
-    # surface as the adapter's driver error.
+    # insert one row from a column/value hash and hand back the persisted
+    # record. Core owns the mechanical middle (attrs keys become the INSERT
+    # columns, the declared timestamp columns fill themselves, the row arrives
+    # back through `find`) because it never varies by model; the id comes from
+    # the INSERT's own `RETURNING` row, not a session-scoped last-insert value,
+    # so a concurrent session cannot answer with its own id. Input preparation —
+    # type conversion, association objects reduced to ids, dumps — stays in the
+    # caller. This is a partial INSERT: exactly the columns the caller passed
+    # plus the declared timestamps it left out, so a table without timestamp
+    # columns needs no opt-out. Keys are code, not input, and are not validated:
+    # an unknown column surfaces as a loud SQL error from the driver. There are
+    # no model validations to run — a schema constraint is the validation this
+    # layer has, and it reaches the caller as an exception: a UNIQUE violation
+    # raises `Sqlx::RecordNotUnique`, other constraint failures surface as the
+    # adapter's driver error.
     #
     # @param attrs [Hash{Symbol => Object}] column => value. Raw Ruby
     #   values bind through `write` (nil binds NULL). A declared
@@ -776,18 +749,15 @@ module Sqlx
       find(rows[0]["id"])
     end
 
-    # `update!(id, attrs)` — rewrite a row's columns by an id hash
-    # write and hand back the re-read record. The class-level shape
-    # is a decision: this runtime's models write through class-level
-    # SQL (there is no instance `save`), so the entry reads next to
-    # `create!` rather than as an instance method. The re-read is
-    # also the loud half — an unknown id writes nothing (a 0-row
-    # UPDATE is silent) and then `find` raises `RecordNotFound`
-    # instead of returning a record that was never written. The
-    # declared `updated_at` fills itself when the caller left it
-    # out; `created_at` is never touched. Same key rule as
-    # `create!`: code, not input, an unknown column surfaces as a
-    # loud SQL error.
+    # rewrite a row's columns by an id hash write and hand back the re-read
+    # record. The class-level shape is a decision: this runtime's models write
+    # through class-level SQL (there is no instance `save`), so the entry reads
+    # next to `create!` rather than as an instance method. The re-read is also
+    # the loud half — an unknown id writes nothing (a 0-row UPDATE is silent)
+    # and then `find` raises `RecordNotFound` instead of returning a record that
+    # was never written. The declared `updated_at` fills itself when the caller
+    # left it out; `created_at` is never touched. Same key rule as `create!`:
+    # code, not input, an unknown column surfaces as a loud SQL error.
     #
     # @param id [Integer, String] the `id` of the row to rewrite —
     #   the same `id` column `find` looks up
@@ -827,16 +797,14 @@ module Sqlx
       find(id)
     end
 
-    # `update_all!(conditions, attrs)` — rewrite every row matching a
-    # conditions hash and answer how many went: the conditions-side
-    # counterpart of `update!` (which pins one row by id) and the
-    # update-side counterpart of `delete_all!` (the same conditions
-    # contract, the same count return). It exists so a batch fixup
-    # carries only its conditions and values instead of hand-writing
-    # the same `UPDATE <table> SET ... WHERE <clause>` — the assembly
-    # never varies by model: the table comes from the declaration,
-    # the WHERE body from the inherited `where_clause`, the SET half
-    # from the attrs keys.
+    # rewrite every row matching a conditions hash and answer how many went: the
+    # conditions-side counterpart of `update!` (which pins one row by id) and
+    # the update-side counterpart of `delete_all!` (the same conditions
+    # contract, the same count return). It exists so a batch fixup carries only
+    # its conditions and values instead of hand-writing the same
+    # `UPDATE <table> SET ... WHERE <clause>` — the assembly never varies by
+    # model: the table comes from the declaration, the WHERE body from the
+    # inherited `where_clause`, the SET half from the attrs keys.
     #
     # No timestamp is stamped: `update!` stamps because it hands back
     # a re-read record, and here the caller passes `updated_at` when
@@ -891,12 +859,11 @@ module Sqlx
       Sqlx::Database.exec_write(sql, values)["count"]
     end
 
-    # `upsert_all!(rows, unique_by:)` — insert many rows in one
-    # statement, rewriting the row a conflict collides with instead of
-    # failing: the bulk counterpart of `create!` for tables whose identity is
-    # a unique index, not a primary key. It exists so an import batch
-    # carries its rows and its uniqueness rule instead of hand-writing
-    # the same `INSERT ... ON CONFLICT ... DO UPDATE` per row — the
+    # insert many rows in one statement, rewriting the row a conflict collides
+    # with instead of failing: the bulk counterpart of `create!` for tables
+    # whose identity is a unique index, not a primary key. It exists so an
+    # import batch carries its rows and its uniqueness rule instead of
+    # hand-writing the same `INSERT ... ON CONFLICT ... DO UPDATE` per row — the
     # assembly never varies by model.
     #
     # The conflict target is required, not defaulted: this runtime has
@@ -974,19 +941,17 @@ module Sqlx
                                 " ON CONFLICT (" + conflict.join(", ") + ") DO UPDATE SET " + sets, values)["count"]
     end
 
-    # `delete!(id)` — remove the row with this `id`. The low-level
-    # delete half of the write family: no callbacks exist on this
-    # runtime's models, so the delete/destroy split collapses
-    # to one entry — and the bang is family consistency with
-    # `create!`/`update!`, not a promise of raise-on-miss. An unknown
-    # id is silent (0 rows): the caller's lookup already decided
-    # whether a missing record is a 404 before reaching here, so a
-    # second existence check inside the delete would be redundant.
-    # The column is `id` by the same decision `find` pins it: every
-    # table this entry point serves has an `id` primary key. Returns
-    # the deleted-row count — the number a row `delete` answers —
-    # so a caller that needs "did anything go" reads it off the
-    # return instead of a separate peek at the adapter's counter.
+    # remove the row with this `id`. The low-level delete half of the write
+    # family: no callbacks exist on this runtime's models, so the delete/destroy
+    # split collapses to one entry — and the bang is family consistency with
+    # `create!`/`update!`, not a promise of raise-on-miss. An unknown id is
+    # silent (0 rows): the caller's lookup already decided whether a missing
+    # record is a 404 before reaching here, so a second existence check inside
+    # the delete would be redundant. The column is `id` by the same decision
+    # `find` pins it: every table this entry point serves has an `id` primary
+    # key. Returns the deleted-row count — the number a row `delete` answers —
+    # so a caller that needs "did anything go" reads it off the return instead
+    # of a separate peek at the adapter's counter.
     #
     # @param id [Integer, String] the `id` column value to match
     # @return [Integer] the number of rows deleted — 0 when no row
@@ -1007,17 +972,15 @@ module Sqlx
       Sqlx::Database.exec_write('DELETE FROM "' + table_name + '" WHERE "id" = ?', [ id ])["count"]
     end
 
-    # `delete_all!(conditions)` — remove every row matching the
-    # conditions hash: the multi-row counterpart of `delete!`, assembled
-    # from the model's `table_name` and the inherited
-    # `where_clause`. It exists so an association cascade or a
-    # scope-shaped cleanup carries only its conditions instead of
-    # hand-writing the same `DELETE FROM <table> WHERE <clause>` —
-    # the assembly never varies by model. nil conditions mean the
-    # whole table: "every row" is an explicit nil, never an empty
-    # hash — an empty hash is the shape a broken condition builder
-    # leaves behind, so it raises instead of quietly erasing every
-    # row (the same rule `update_all!` keeps).
+    # remove every row matching the conditions hash: the multi-row counterpart
+    # of `delete!`, assembled from the model's `table_name` and the inherited
+    # `where_clause`. It exists so an association cascade or a scope-shaped
+    # cleanup carries only its conditions instead of hand-writing the same
+    # `DELETE FROM <table> WHERE <clause>` — the assembly never varies by model.
+    # nil conditions mean the whole table: "every row" is an explicit nil, never
+    # an empty hash — an empty hash is the shape a broken condition builder
+    # leaves behind, so it raises instead of quietly erasing every row (the same
+    # rule `update_all!` keeps).
     #
     # @param conditions [Hash{Symbol => Object}, nil] the `find_by`
     #   conditions contract, unchanged (a nil VALUE inside a condition
@@ -1049,14 +1012,12 @@ module Sqlx
       Sqlx::Database.exec_write(sql, [])["count"]
     end
 
-    # `one_by_sql(sql, values = nil)` — the single-row half of
-    # `find_by_sql`: walk the caller's SELECT and hand back the row it
-    # yields first, hydrated from the same name-keyed shape, or nil when
-    # it yields none. `find_by` assembles its `... LIMIT 1` statement on
-    # this walk, so the single-row read shares one path with
-    # `find_by_sql` instead of a second cursor. The statement is read
-    # fully, so a caller that wants only the first row of a large set
-    # bounds it with `LIMIT`.
+    # the single-row half of `find_by_sql`: walk the caller's SELECT and hand
+    # back the row it yields first, hydrated from the same name-keyed shape, or
+    # nil when it yields none. `find_by` assembles its `... LIMIT 1` statement
+    # on this walk, so the single-row read shares one path with `find_by_sql`
+    # instead of a second cursor. The statement is read fully, so a caller that
+    # wants only the first row of a large set bounds it with `LIMIT`.
     #
     # A value enters by binding — the same list contract `rows_by_sql`
     # checks.
@@ -1074,12 +1035,11 @@ module Sqlx
       end
     end
 
-    # `exists_by_sql(sql, values = nil)` — the existence half: walk the
-    # caller's SELECT and answer whether any row arrived, without
-    # hydrating a record. `exists?` assembles its `SELECT 1 ... LIMIT 1`
-    # statement on this walk, so the public entry owns the model-side
-    # question and this half owns the walk. The values list is checked
-    # against the statement's `?` placeholders the way `rows_by_sql`
+    # the existence half: walk the caller's SELECT and answer whether any row
+    # arrived, without hydrating a record. `exists?` assembles its
+    # `SELECT 1 ... LIMIT 1` statement on this walk, so the public entry owns
+    # the model-side question and this half owns the walk. The values list is
+    # checked against the statement's `?` placeholders the way `rows_by_sql`
     # checks it.
     #
     # Private on purpose: `exists?` is the supported existence entry and
@@ -1090,19 +1050,17 @@ module Sqlx
       !Sqlx::Database.exec_read(sql, bound).empty?
     end
 
-    # `operator_predicates(column, operators)` — the predicates for one
-    # operator-hash condition value: `column <op> <bound>` per
-    # whitelisted comparison (`lt`/`lte`/`gt`/`gte`), each bound
-    # rendered through `Sqlx.quote` like every other value, plus the
-    # null test (`is_not: nil` → `column IS NOT NULL`). The whitelist
-    # and the bound checks are the entry validation: an unknown
-    # operator raises instead of rendering a predicate nobody meant,
-    # an empty hash raises instead of dropping the condition silently,
-    # a nil or structured comparison bound raises because `quote`
-    # would render it into the comparison as text (`< NULL` matches
-    # nothing; a nested Hash would stringify), and `is_not` with any
-    # bound but nil raises because SQL's `IS NOT` is the null test
-    # here, not a general negation.
+    # the predicates for one operator-hash condition value:
+    # `column <op> <bound>` per whitelisted comparison (`lt`/`lte`/`gt`/`gte`),
+    # each bound rendered through `Sqlx.quote` like every other value, plus the
+    # null test (`is_not: nil` → `column IS NOT NULL`). The whitelist and the
+    # bound checks are the entry validation: an unknown operator raises instead
+    # of rendering a predicate nobody meant, an empty hash raises instead of
+    # dropping the condition silently, a nil or structured comparison bound
+    # raises because `quote` would render it into the comparison as text (`<
+    # NULL` matches nothing; a nested Hash would stringify), and `is_not` with
+    # any bound but nil raises because SQL's `IS NOT` is the null test here, not
+    # a general negation.
     def operator_predicates(column, operators)
       raise ArgumentError, "where_clause: #{column} operator hash must not be empty" if operators.empty?
       predicates = []
@@ -1133,15 +1091,14 @@ module Sqlx
       predicates
     end
 
-    # `bound_value(column, value)` — one column's bound value: a
-    # declared json column serializes through `Sqlx::Json` (nil is SQL
-    # NULL), any other column binds the value unchanged so the adapter
-    # renders it by runtime type. This is why a caller hands a write
-    # entry a logical Hash and never calls the codec itself. A declared
-    # value JSON cannot represent raises here — the codec's contract, so
-    # a Time never reaches the column as text. The declaration walk
-    # normalizes each name the way `from_row` does, so a Symbol list
-    # stays correct rather than silently skipping the column.
+    # one column's bound value: a declared json column serializes through
+    # `Sqlx::Json` (nil is SQL NULL), any other column binds the value unchanged
+    # so the adapter renders it by runtime type. This is why a caller hands a
+    # write entry a logical Hash and never calls the codec itself. A declared
+    # value JSON cannot represent raises here — the codec's contract, so a Time
+    # never reaches the column as text. The declaration walk normalizes each
+    # name the way `from_row` does, so a Symbol list stays correct rather than
+    # silently skipping the column.
     def bound_value(column, value)
       names = json_columns.map { |name| name.to_s }
       if names.include?(column)
@@ -1151,10 +1108,9 @@ module Sqlx
       end
     end
 
-    # `values_for_placeholders(sql, values)` — the caller's value list as an
-    # Array, checked against the statement's `?` count. A missing value
-    # would bind NULL and a surplus one would be dropped, both quiet, so
-    # every entry that takes values checks here.
+    # the caller's value list as an Array, checked against the statement's `?`
+    # count. A missing value would bind NULL and a surplus one would be dropped,
+    # both quiet, so every entry that takes values checks here.
     def values_for_placeholders(sql, values)
       bound = values.nil? ? [] : values
       placeholders = placeholder_count(sql)
@@ -1164,11 +1120,10 @@ module Sqlx
       bound
     end
 
-    # `placeholder_count(sql)` — the statement's placeholder count. It
-    # backs every value-taking entry (`rows_by_sql`, `exists_by_sql`,
-    # `write`) so the values can be checked against them. An app calls
-    # those entries, never this — private on purpose, free to change or
-    # vanish without notice.
+    # the statement's placeholder count. It backs every value-taking entry
+    # (`rows_by_sql`, `exists_by_sql`, `write`) so the values can be checked
+    # against them. An app calls those entries, never this — private on purpose,
+    # free to change or vanish without notice.
     def placeholder_count(sql)
       count = 0
       in_str = false

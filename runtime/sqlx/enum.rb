@@ -6,10 +6,9 @@ module Sqlx
   # object. It owns the mapping's single source, the loud edges around it,
   # and the factory for its column-bound writer.
   class Enum
-    # `initialize(pairs)` — validates the whole mapping at construction
-    # so a sound declaration is the only kind that exists. This body
-    # runs behind `Sqlx::Base.enum`, the entry models use for their
-    # constants.
+    # validates the whole mapping at construction so a sound declaration is the
+    # only kind that exists. This body runs behind `Sqlx::Base.enum`, the entry
+    # models use for their constants.
     #
     # @param pairs [Hash{Symbol => Integer}] label => storage value, in
     #   declaration order — the same contract the factory documents
@@ -34,9 +33,9 @@ module Sqlx
       end
     end
 
-    # `label(value)` — the stored value → label reader, the read half
-    # of the declaration. Answers nil for a value no label names: an
-    # unrecognized raw is a data-shape question and does not raise.
+    # the stored value → label reader, the read half of the declaration. Answers
+    # nil for a value no label names: an unrecognized raw is a data-shape
+    # question and does not raise.
     #
     # @param value [Integer] the slot read from the column
     # @return [String?] the label, or nil when no entry claims the
@@ -53,13 +52,12 @@ module Sqlx
       nil
     end
 
-    # `label?(raw, label)` — the predicate half: answers whether a
-    # stored slot holds the given label's value, for hand-written enum
-    # predicates. The label half is strict like `value`: a name the
-    # declaration does not carry raises, so a renamed or removed
-    # entry surfaces at the first predicate call instead of the
-    # predicate answering false forever. An unknown raw answers false
-    # — `label` stays the reader for data-shape questions.
+    # the predicate half: answers whether a stored slot holds the given label's
+    # value, for hand-written enum predicates. The label half is strict like
+    # `value`: a name the declaration does not carry raises, so a renamed or
+    # removed entry surfaces at the first predicate call instead of the
+    # predicate answering false forever. An unknown raw answers false — `label`
+    # stays the reader for data-shape questions.
     #
     # @param raw [Integer] the slot read from the column
     # @param label [Symbol, String] the declaration label to compare —
@@ -74,11 +72,10 @@ module Sqlx
       value(label) == raw
     end
 
-    # `value(text)` — the label → stored value write half: the
-    # Integer an INSERT or UPDATE stores. An unknown name raises —
-    # the enum type's contract, not a `to_i` fallback that would
-    # silently store 0 — and the standard bang writer reads its slot
-    # through this, so a redeclared or renumbered enum cannot leave a
+    # the label → stored value write half: the Integer an INSERT or UPDATE
+    # stores. An unknown name raises — the enum type's contract, not a `to_i`
+    # fallback that would silently store 0 — and the standard bang writer reads
+    # its slot through this, so a redeclared or renumbered enum cannot leave a
     # writer pinned to a stale literal.
     #
     # @param text [Symbol, String] the label, or its stored-value
@@ -98,14 +95,13 @@ module Sqlx
       raise ArgumentError, "'#{text}' is not a valid enum value"
     end
 
-    # `writer(table:, column:)` — this declaration's writer for one
-    # column: hands the mapping it already owns to a bound writer, so
-    # the call site reads `STATUS.writer(...)` from the same receiver
-    # the readers use instead of passing the declaration back in.
-    # Core owns the UPDATE shape because it never varies by model (the
-    # same `SET <column> = ?, updated_at = ? WHERE id = ?` every time)
-    # — the hand-rolled per-model helper is where the SQL drifts and
-    # where each model invents its own helper name.
+    # this declaration's writer for one column: hands the mapping it already
+    # owns to a bound writer, so the call site reads `STATUS.writer(...)` from
+    # the same receiver the readers use instead of passing the declaration back
+    # in. Core owns the UPDATE shape because it never varies by model (the same
+    # `SET <column> = ?, updated_at = ? WHERE id = ?` every time) — the
+    # hand-rolled per-model helper is where the SQL drifts and where each model
+    # invents its own helper name.
     #
     # @param table [String] the table name — code, not input, and not
     #   validated: an unknown table surfaces as a loud SQL error from
@@ -126,9 +122,8 @@ module Sqlx
   # label -> stored-value conversion stays with the bound declaration, so
   # the write's mapping is single-sourced the way reads are.
   class EnumWriter
-    # `initialize(table:, column:, declaration:)` — binds the writer
-    # to its column. This body runs behind `Enum#writer`, the entry
-    # members use for their bang writers.
+    # binds the writer to its column. This body runs behind `Enum#writer`, the
+    # entry members use for their bang writers.
     #
     # @param table [String] the `Enum#writer` contract, unchanged
     # @param column [String] the `Enum#writer` contract, unchanged
@@ -139,18 +134,16 @@ module Sqlx
       @declaration = declaration
     end
 
-    # `write!(id, label)` — the single-column UPDATE: stores the
-    # label's value on the bound column, stamps `updated_at` with the
-    # current UTC time, and matches the row by primary key. An
-    # unknown label raises through the bound declaration's strict
-    # `value` before any SQL runs, so a redeclared enum cannot leave a
-    # writer pinned to a stale slot. A row the id does not match is a
-    # silent no-op, the way the per-model helpers this replaces
-    # behaved — the bang promises the write attempt, not that a row
-    # existed. The target table carries `updated_at`; one without it
-    # fails loud from the driver. The write entry answers the rows it
-    # returned; this writer answers nil — the bang promises the
-    # attempt, and a non-RETURNING UPDATE returns no row.
+    # the single-column UPDATE: stores the label's value on the bound column,
+    # stamps `updated_at` with the current UTC time, and matches the row by
+    # primary key. An unknown label raises through the bound declaration's
+    # strict `value` before any SQL runs, so a redeclared enum cannot leave a
+    # writer pinned to a stale slot. A row the id does not match is a silent
+    # no-op, the way the per-model helpers this replaces behaved — the bang
+    # promises the write attempt, not that a row existed. The target table
+    # carries `updated_at`; one without it fails loud from the driver. The write
+    # entry answers the rows it returned; this writer answers nil — the bang
+    # promises the attempt, and a non-RETURNING UPDATE returns no row.
     #
     # @param id [Integer] the primary key of the row to update
     # @param label [Symbol, String] the label to store, or its

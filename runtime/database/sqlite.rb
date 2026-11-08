@@ -191,9 +191,9 @@ module Sqlx
         @dbh
       end
 
-      # `prepare_cached(sql)` — the prepared stmt for `sql`, from the cache on a
-      # hit and freshly prepared and cached on a miss. The scan is linear: the
-      # hit rate matters, not the lookup's constant.
+      # the prepared stmt for `sql`, from the cache on a hit and freshly
+      # prepared and cached on a miss. The scan is linear: the hit rate matters,
+      # not the lookup's constant.
       #
       # EVERY prepared stmt goes into @entries, with no cap check — that is what
       # makes `finalize`'s reset-don't-close correct for all of them, since every
@@ -227,10 +227,10 @@ module Sqlx
         st
       end
 
-      # `trim!()` — bring the statement cache back to `CAP`, finalizing what it
-      # drops. Call it at the request boundary (`with_connection`), never
-      # mid-request: a stmt an open cursor still holds must not be closed, and
-      # between requests there are none.
+      # bring the statement cache back to `CAP`, finalizing what it drops. Call
+      # it at the request boundary (`with_connection`), never mid-request: a
+      # stmt an open cursor still holds must not be closed, and between requests
+      # there are none.
       #
       # The CAP most-recent entries survive — the tail, since `prepare_cached`
       # appends, and recency is the best available proxy for reuse.
@@ -252,9 +252,9 @@ module Sqlx
         @entries = keep
       end
 
-      # `step_real(stmt, sql = nil)` — advance one real statement by one row. The
-      # connection owns the driver call so the module's `step?` and the replay
-      # path share one implementation.
+      # advance one real statement by one row. The connection owns the driver
+      # call so the module's `step?` and the replay path share one
+      # implementation.
       #
       # @param sql [String] optional statement text, only to enrich the error
       #   message
@@ -280,12 +280,12 @@ module Sqlx
         raise "Sqlx::Database.step failed (" + rc.to_s + "): " + msg + suffix
       end
 
-      # `unique_violation?(message)` — whether the driver's message reports a
-      # UNIQUE-index violation, so the raise sites can map it to
-      # `Sqlx::RecordNotUnique` — the class apps write their rescues against,
-      # which keeps the raw driver error from reaching the dispatcher as a 500.
-      # The test is sqlite's own engine message rather than a driver exception
-      # class, so one rule needs no per-driver class table.
+      # whether the driver's message reports a UNIQUE-index violation, so the
+      # raise sites can map it to `Sqlx::RecordNotUnique` — the class apps write
+      # their rescues against, which keeps the raw driver error from reaching
+      # the dispatcher as a 500. The test is sqlite's own engine message rather
+      # than a driver exception class, so one rule needs no per-driver class
+      # table.
       #
       # @param message [String] the driver's error message
       # @return [Boolean] true when the message reports a UNIQUE violation
@@ -293,10 +293,10 @@ module Sqlx
         message.include?("UNIQUE constraint failed")
       end
 
-      # `busy_result?(rc)` — whether a driver result code means the lock could
-      # not be taken: another writer is committing, or a reader holds the file
-      # exclusively. Both map to `Sqlx::Busy` at every raise site, so a caller
-      # can retry a unit instead of matching the "... is locked" message text.
+      # whether a driver result code means the lock could not be taken: another
+      # writer is committing, or a reader holds the file exclusively. Both map
+      # to `Sqlx::Busy` at every raise site, so a caller can retry a unit
+      # instead of matching the "... is locked" message text.
       #
       # @param rc [Integer] the driver's result code
       # @return [Boolean] true for SQLITE_BUSY and SQLITE_LOCKED
@@ -304,8 +304,8 @@ module Sqlx
         rc == SQLite3::BUSY || rc == SQLite3::LOCKED
       end
 
-      # `finalize_all()` — really finalize every cached statement, releasing its
-      # handle. Pool-shutdown path only.
+      # really finalize every cached statement, releasing its handle.
+      # Pool-shutdown path only.
       #
       # @return [void]
       def finalize_all
@@ -362,11 +362,11 @@ module Sqlx
         @opened    = false
       end
 
-      # `ensure_open()` — open this pool's connections once, on first use. The
-      # prefork parent calls `configure` and forks before any database access,
-      # so the child inherits an unopened pool object and opens its own
-      # handles here. The open lock serializes simultaneous first requests so
-      # the pool is not built twice.
+      # open this pool's connections once, on first use. The prefork parent
+      # calls `configure` and forks before any database access, so the child
+      # inherits an unopened pool object and opens its own handles here. The
+      # open lock serializes simultaneous first requests so the pool is not
+      # built twice.
       #
       # @return [void]
       def ensure_open
@@ -440,8 +440,8 @@ module Sqlx
         n
       end
 
-      # `lease()` — a free connection index (LIFO), parking this thread while the
-      # pool is empty; `release` signals it.
+      # a free connection index (LIFO), parking this thread while the pool is
+      # empty; `release` signals it.
       #
       # @return [Integer] the leased index, to hand to `conn` and `release`
       def lease
@@ -456,10 +456,9 @@ module Sqlx
         idx
       end
 
-      # `release(idx, conn, finished)` — return one connection to the free list
-      # and wake a waiter. A completed request trims the connection's statement
-      # cache first; the release sits in an `ensure` so a raise while trimming
-      # cannot leak the slot.
+      # return one connection to the free list and wake a waiter. A completed
+      # request trims the connection's statement cache first; the release sits
+      # in an `ensure` so a raise while trimming cannot leak the slot.
       #
       # @param idx [Integer] the freed slot
       # @param conn [DatabaseConnection] the connection in that slot
@@ -485,9 +484,9 @@ module Sqlx
         @conns[0]
       end
 
-      # `close_all()` — finalize every cached statement on every connection, then
-      # close its handle. A pool that never opened (the prefork parent before
-      # the fork) has nothing to close.
+      # finalize every cached statement on every connection, then close its
+      # handle. A pool that never opened (the prefork parent before the fork)
+      # has nothing to close.
       #
       # @return [void]
       def close_all
@@ -524,11 +523,10 @@ module Sqlx
     # real round trip as `  SQL ...`, a request-cache replay as `  CACHE ...`.
     @sql_trace = false
 
-    # `configure(path, pool_size: 8, busy_timeout_ms: 5000)` — configure the
-    # database and build its connection pools: `pool_size` FFI handles to
-    # `path`, opened on first use. Nothing is opened here, so a prefork parent
-    # may call this before fork; the parent must not touch the database before
-    # forking, or the child would inherit the parent's handles.
+    # configure the database and build its connection pools: `pool_size` FFI
+    # handles to `path`, opened on first use. Nothing is opened here, so a
+    # prefork parent may call this before fork; the parent must not touch the
+    # database before forking, or the child would inherit the parent's handles.
     #
     # Every connection gets the fair busy handler (`busy_wait`) with the same
     # timeout. `DATABASE_BUSY_TIMEOUT_MS` overrides `busy_timeout_ms` when set.
@@ -576,9 +574,8 @@ module Sqlx
       @next_pool = 0
     end
 
-    # `busy_wait(user_data, count)` — the per-connection busy handler: wait one
-    # millisecond and retry, and give up when the wait has reached
-    # `busy_timeout_ms`.
+    # the per-connection busy handler: wait one millisecond and retry, and give
+    # up when the wait has reached `busy_timeout_ms`.
     #
     # SQLite calls it with `count` 0 on the first busy event of one lock wait and
     # an increasing count after that. The timeout is wall-clock, so a waiter that
@@ -614,9 +611,8 @@ module Sqlx
       1
     end
 
-    # `configure_default!()` — configure from this adapter's own source, so
-    # `main.rb` never names an adapter: `DATABASE_PATH`, else
-    # `storage/development.sqlite3`.
+    # configure from this adapter's own source, so `main.rb` never names an
+    # adapter: `DATABASE_PATH`, else `storage/development.sqlite3`.
     #
     # @return [void]
     def self.configure_default!
@@ -635,8 +631,8 @@ module Sqlx
       @pools = nil
     end
 
-    # `exec(sql)` — run one DDL / INSERT / UPDATE / DELETE statement; no rows
-    # come back. Callers that want the inserted id or the row count read
+    # run one DDL / INSERT / UPDATE / DELETE statement; no rows come back.
+    # Callers that want the inserted id or the row count read
     # `last_insert_rowid` / `changes` immediately after.
     #
     # @param sql [String] the statement, with values inlined — this entry binds
@@ -665,11 +661,10 @@ module Sqlx
       end
     end
 
-    # `exec_read(sql, values)` — run one statement with the caller's
-    # values bound and hand back the rows it produced, keyed by column
-    # name. The binding is this adapter's (the same one `exec_write`
-    # uses); a caller that wants the rows of a statement with values
-    # comes here.
+    # run one statement with the caller's values bound and hand back the rows it
+    # produced, keyed by column name. The binding is this adapter's (the same
+    # one `exec_write` uses); a caller that wants the rows of a statement with
+    # values comes here.
     #
     # Inside a `with_connection` scope, an identical SELECT replays the
     # first result. The cache key covers the statement and its bind values
@@ -714,9 +709,8 @@ module Sqlx
       end
     end
 
-    # `exec_write(sql, values)` — run one statement with the caller's
-    # values bound and hand back what that execution produced: the rows
-    # it returned and the rows it changed.
+    # run one statement with the caller's values bound and hand back what that
+    # execution produced: the rows it returned and the rows it changed.
     #
     # The two answers belong to one execution — the count is final only
     # once the statement is done, and a statement that returns rows is
@@ -785,10 +779,10 @@ module Sqlx
       SQLite3.sqlite3_changes(current_conn.dbh)
     end
 
-    # `owns_schema?()` — whether this adapter owns its schema DDL. It answers
-    # true here; the PostgreSQL sibling answers false (there the schema belongs
-    # to the application's deployment). The server never runs DDL either way —
-    # an explicit loader (a harness or test setup step) reads this to decide
+    # whether this adapter owns its schema DDL. It answers true here; the
+    # PostgreSQL sibling answers false (there the schema belongs to the
+    # application's deployment). The server never runs DDL either way — an
+    # explicit loader (a harness or test setup step) reads this to decide
     # whether to apply the app's schema.
     #
     # @return [Boolean] true for this adapter
@@ -796,17 +790,16 @@ module Sqlx
       true
     end
 
-    # `adapter_name()` — the dialect name apps branch on; each adapter answers
-    # its own.
+    # the dialect name apps branch on; each adapter answers its own.
     #
     # @return [String] this adapter's dialect name, "SQLite"
     def self.adapter_name
       "SQLite"
     end
 
-    # `quote(value)` — the adapter's SQL literal renderer: NULL, a bare number,
-    # the adapter's boolean spelling, the stored Time form, else a quoted string.
-    # The escape helpers are the implementation; callers go through `Sqlx.quote`.
+    # the adapter's SQL literal renderer: NULL, a bare number, the adapter's
+    # boolean spelling, the stored Time form, else a quoted string. The escape
+    # helpers are the implementation; callers go through `Sqlx.quote`.
     #
     # @return [String] the SQL literal for `value`
     def self.quote(value)
@@ -1077,12 +1070,12 @@ module Sqlx
       end
     end
 
-    # `cache_key_for(sql, values)` — the cache key for a statement with the
-    # caller's values: the SQL text plus each value rendered by runtime type as
-    # a length-prefixed token. Two different bind sets must be two different
-    # keys (the prefix keeps one value's own punctuation from colliding with a
-    # neighbour's); the rendering is the key's, nothing else's — the statement
-    # still executes with real binds.
+    # the cache key for a statement with the caller's values: the SQL text plus
+    # each value rendered by runtime type as a length-prefixed token. Two
+    # different bind sets must be two different keys (the prefix keeps one
+    # value's own punctuation from colliding with a neighbour's); the rendering
+    # is the key's, nothing else's — the statement still executes with real
+    # binds.
     def self.cache_key_for(sql, values)
       return sql if values.empty?
       key = sql

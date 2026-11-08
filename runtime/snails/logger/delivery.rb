@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# `Snails::Logger::Delivery` — the external half of logging: hold the optional
-# transport, buffer records into batches, and hand a batch over without letting
-# a transport failure become an app failure. The logger owns local rendering
-# and the one-line failure report; this object owns the transport slot, the
-# bounded buffer, and the periodic flush registration.
+# the external half of logging: hold the optional transport, buffer records into
+# batches, and hand a batch over without letting a transport failure become an
+# app failure. The logger owns local rendering and the one-line failure report;
+# this object owns the transport slot, the bounded buffer, and the periodic
+# flush registration.
 #
 # A batch is flushed when it reaches `MAX_RECORDS` or when the scheduler runs
 # `flush` once per `FLUSH_INTERVAL_SECONDS`. The transport it calls is the
@@ -29,14 +29,14 @@ module Snails
           super("dropped " + count.to_s + " " + noun + ": " + cause.class.to_s + ": " + cause.message)
         end
 
-        # `count()` — how many records were in the dropped batch.
+        # how many records were in the dropped batch.
         #
         # @return [Integer]
         def count
           @count
         end
 
-        # `severity()` — how the local line reports the loss: records are gone.
+        # how the local line reports the loss: records are gone.
         #
         # @return [Symbol] `:error`
         def severity
@@ -54,14 +54,14 @@ module Snails
           super("transport busy — kept " + count.to_s + " " + noun + " for the next flush")
         end
 
-        # `count()` — how many records are waiting for the next flush.
+        # how many records are waiting for the next flush.
         #
         # @return [Integer]
         def count
           @count
         end
 
-        # `severity()` — how the local line reports the wait: nothing was lost.
+        # how the local line reports the wait: nothing was lost.
         #
         # @return [Symbol] `:warn`
         def severity
@@ -80,17 +80,17 @@ module Snails
         @blocked = false
       end
 
-      # `transport()` — the object that receives structured records.
+      # the object that receives structured records.
       #
       # @return [untyped] the current transport, nil when delivery is local-only
       def transport
         @transport
       end
 
-      # `transport=(value)` — replace the record destination. The contract is
-      # `deliver(records)` with an Array of `Record`; nil disables remote
-      # delivery. The buffer belongs to the process, not the transport, so a
-      # swap does not discard records already waiting.
+      # replace the record destination. The contract is `deliver(records)` with
+      # an Array of `Record`; nil disables remote delivery. The buffer belongs
+      # to the process, not the transport, so a swap does not discard records
+      # already waiting.
       #
       # @param value [untyped] an object answering `deliver`, or nil
       # @raise [ArgumentError] value is neither nil nor transport-like
@@ -103,11 +103,10 @@ module Snails
         @transport = value
       end
 
-      # `after_fork()` — make this process's buffer its own: records buffered
-      # by the parent would otherwise be sent by every child, and the
-      # inherited lock may be held by a thread that does not exist here. The
-      # prefork servers call it as the child's first statement, before the
-      # first record.
+      # make this process's buffer its own: records buffered by the parent would
+      # otherwise be sent by every child, and the inherited lock may be held by
+      # a thread that does not exist here. The prefork servers call it as the
+      # child's first statement, before the first record.
       #
       # @return [void]
       def after_fork
@@ -120,11 +119,11 @@ module Snails
         end
       end
 
-      # `register_flush()` — put the periodic flush beat on this process's
-      # scheduler. `ActiveJob::Launcher.start` calls it once, before it
-      # spawns the loops, so the registry is never written while the scheduler
-      # iterates it. The flag makes a second call a no-op: a forked child
-      # inherits the beat and the flag together, or neither.
+      # put the periodic flush beat on this process's scheduler.
+      # `ActiveJob::Launcher.start` calls it once, before it spawns the loops,
+      # so the registry is never written while the scheduler iterates it. The
+      # flag makes a second call a no-op: a forked child inherits the beat and
+      # the flag together, or neither.
       #
       # @return [void]
       def register_flush
@@ -134,8 +133,7 @@ module Snails
         ActiveJob::Scheduler.register_periodic(FLUSH_INTERVAL_SECONDS, -> { Snails.logger.flush })
       end
 
-      # `deliver(record)` — append one record to the buffer and hand the batch
-      # off when it is full.
+      # append one record to the buffer and hand the batch off when it is full.
       #
       # A non-fatal transport failure is returned for the logger to report
       # locally. A busy database keeps the batch for the next flush (a warning,
@@ -162,8 +160,8 @@ module Snails
         hand_off(batch)
       end
 
-      # `flush()` — hand the current buffer over now, even when it is not full.
-      # The scheduler calls it every `FLUSH_INTERVAL_SECONDS`; a shutting-down
+      # hand the current buffer over now, even when it is not full. The
+      # scheduler calls it every `FLUSH_INTERVAL_SECONDS`; a shutting-down
       # process may call it once more. With no transport the buffer is dropped:
       # the local lines already exist, and keeping the records would send them
       # to a transport configured later.

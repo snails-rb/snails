@@ -8,12 +8,11 @@
 require "date"
 
 class String
-  # `to_date()` — `"2024-01-02"` → the civil date a stored DATE column
-  # holds. The parse is the stored form's fixed width, not a general date
-  # parser: the first ten characters are the date and shorter text reads
-  # nil, so a datetime text and a date text do not answer through one
-  # parser. A well-width text that is not a real calendar date raises
-  # through `Date.new` instead of turning into nil.
+  # `"2024-01-02"` → the civil date a stored DATE column holds. The parse is the
+  # stored form's fixed width, not a general date parser: the first ten
+  # characters are the date and shorter text reads nil, so a datetime text and a
+  # date text do not answer through one parser. A well-width text that is not a
+  # real calendar date raises through `Date.new` instead of turning into nil.
   #
   # @return [Date?] the parsed date, or nil when the text is shorter than
   #   the stored form

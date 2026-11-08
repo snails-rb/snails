@@ -9,8 +9,8 @@ module ActionController
   # The narrowing is `is_a?` in narrowing position (the branch answers the
   # narrowed value), the shape the compiler already handles.
   module Params
-    # `sub(params, key)` — the nested resource hash the params carry under
-    # `key` (`{"article" => {"title" => …}}`).
+    # the nested resource hash the params carry under `key` (`{"article" =>
+    # {"title" => …}}`).
     #
     # @param params [Hash] the request's params
     # @param key [String] the resource key
@@ -27,8 +27,8 @@ module ActionController
       end
     end
 
-    # `str(sub, key, fallback)` — the scalar under `key`, or `fallback` when
-    # the key is absent or holds a nested hash or array.
+    # the scalar under `key`, or `fallback` when the key is absent or holds a
+    # nested hash or array.
     #
     # @param sub [Hash] the params, or a resource hash under one
     # @param key [String] the field key
@@ -45,9 +45,9 @@ module ActionController
       end
     end
 
-    # `require_key(params, key)` — the value the request carried for `key`,
-    # turning a missing or blank parameter into a 400 instead of a nil that
-    # fails somewhere later. `sub` is the forgiving counterpart (absent yields `{}`).
+    # the value the request carried for `key`, turning a missing or blank
+    # parameter into a 400 instead of a nil that fails somewhere later. `sub` is
+    # the forgiving counterpart (absent yields `{}`).
     #
     # @param params [Hash] the request's params
     # @param key [String] the required key
@@ -67,9 +67,9 @@ module ActionController
       value
     end
 
-    # `permitted(acc, params, key, name)` — one key of a permitted set: the
-    # scalar the request carried for `key` is added to `acc` under `name`,
-    # and left out otherwise, so a model write leaves that attribute alone.
+    # one key of a permitted set: the scalar the request carried for `key` is
+    # added to `acc` under `name`, and left out otherwise, so a model write
+    # leaves that attribute alone.
     #
     # @param acc [Hash] the accumulating permitted set
     # @param params [Hash] the request's params
@@ -85,10 +85,9 @@ module ActionController
       acc
     end
 
-    # `provided(sub, key)` — did the request carry a usable value for `key`?
-    # A blank string counts as provided (`permit` keeps a blank, `compact`
-    # drops only an explicit nil); an absent key, a
-    # JSON null, and a non-scalar do not.
+    # did the request carry a usable value for `key`? A blank string counts as
+    # provided (`permit` keeps a blank, `compact` drops only an explicit nil);
+    # an absent key, a JSON null, and a non-scalar do not.
     #
     # Named without a `?` on purpose — this is generated code, so
     # portability beats the Ruby idiom.
@@ -109,9 +108,8 @@ module ActionController
       !narrowed.nil?
     end
 
-    # `permit(source, filters)` — the strong-parameters filter over the
-    # plain request-params Hash: only the named keys survive, each value
-    # shaped by its filter.
+    # the strong-parameters filter over the plain request-params Hash: only the
+    # named keys survive, each value shaped by its filter.
     #
     # A Symbol names a scalar key and keeps its value when truthy; `{}`
     # keeps a nested Hash as-is (JSON leaves are already permitted); an

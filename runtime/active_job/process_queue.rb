@@ -43,13 +43,12 @@ module ActiveJob
     # on restart and is not a cross-process correlation key.
     NEXT_ID = [ 0 ]
 
-    # `enqueue(job_name, work, payload)` — put a job on the queue, due
-    # now. The name and payload are part of the adapter interface —
-    # `enqueue` passes all three to whichever adapter is selected — but
-    # this adapter keeps only the name (for the run's record); the proc
-    # IS the job, closed over its arguments. A full queue refuses the
-    # new job instead of growing without bound; the refusal is reported
-    # locally once per overflow episode.
+    # put a job on the queue, due now. The name and payload are part of the
+    # adapter interface — `enqueue` passes all three to whichever adapter is
+    # selected — but this adapter keeps only the name (for the run's record);
+    # the proc IS the job, closed over its arguments. A full queue refuses the
+    # new job instead of growing without bound; the refusal is reported locally
+    # once per overflow episode.
     #
     # @param job_name [String] the job's class name, kept for the run's record
     # @param work [Proc] the job, closed over its arguments
@@ -59,15 +58,13 @@ module ActiveJob
       add_pending(job_name, work, 0)
     end
 
-    # `enqueue_at(job_name, work, payload, scheduled_at)` — put a job on
-    # the queue with a run time: the drain leaves it unrun until the
-    # clock (`Time.now`) passes `scheduled_at`. A store-backed adapter
-    # stores the same value in its row instead; the time is the whole
-    # difference from `enqueue` here. The Time slot
-    # refuses a non-Time argument at the build or the call boundary
-    # (ext/time.rb), so no in-body guard stands here. The same bound and
-    # refusal rule as `enqueue` applies: a scheduled job waiting for its
-    # time counts against the queue.
+    # put a job on the queue with a run time: the drain leaves it unrun until
+    # the clock (`Time.now`) passes `scheduled_at`. A store-backed adapter
+    # stores the same value in its row instead; the time is the whole difference
+    # from `enqueue` here. The Time slot refuses a non-Time argument at the
+    # build or the call boundary (ext/time.rb), so no in-body guard stands here.
+    # The same bound and refusal rule as `enqueue` applies: a scheduled job
+    # waiting for its time counts against the queue.
     #
     # @param job_name [String] the job's class name, kept for the run's record
     # @param work [Proc] the job, closed over its arguments
@@ -78,10 +75,9 @@ module ActiveJob
       add_pending(job_name, work, scheduled_at.to_i)
     end
 
-    # `enqueue_once(name, work, payload, scheduled_at)` — the recurring
-    # half of the adapter interface: this adapter is process-local, so the
-    # run's scheduled time has no cross-process work to do — the call runs
-    # the `enqueue` path. A store-backed adapter keys its row by
+    # the recurring half of the adapter interface: this adapter is
+    # process-local, so the run's scheduled time has no cross-process work to do
+    # — the call runs the `enqueue` path. A store-backed adapter keys its row by
     # (name, scheduled_at) under a unique constraint instead.
     #
     # It answers whether THIS call enqueued the job: the process-local
@@ -94,16 +90,15 @@ module ActiveJob
       add_pending(name, work, 0)
     end
 
-    # `drain()` — run every due job, in queue order, and answer how many
-    # ran. A job scheduled for a later time stays queued (`due_at` gates
-    # it); a job that enqueues another is reached by the same drain. The
-    # worker loop calls it (inside the loop's Sqlx::Database lease); the
-    # contract tests call it directly. A unit failure — anything the
-    # boundary does not re-raise — is one lost job, never a lost drain:
-    # `job.failed` records it and the queue moves on (an unhandled job
-    # error must not take the other jobs, or the process, with it).
-    # Control and fatal exceptions propagate. Each run sets the job values
-    # `Context` carries, so the records name the job.
+    # run every due job, in queue order, and answer how many ran. A job
+    # scheduled for a later time stays queued (`due_at` gates it); a job that
+    # enqueues another is reached by the same drain. The worker loop calls it
+    # (inside the loop's Sqlx::Database lease); the contract tests call it
+    # directly. A unit failure — anything the boundary does not re-raise — is
+    # one lost job, never a lost drain: `job.failed` records it and the queue
+    # moves on (an unhandled job error must not take the other jobs, or the
+    # process, with it). Control and fatal exceptions propagate. Each run sets
+    # the job values `Context` carries, so the records name the job.
     #
     # @return [Integer] the number of jobs that ran
     def self.drain
@@ -187,9 +182,9 @@ module ActiveJob
       (Time.now - started) * 1000.0
     end
 
-    # `pending_count()` — how many jobs are waiting (a scheduled job
-    # counts as waiting until its time passes). The contract tests read
-    # it; the worker loop's due check goes through `drain_due?`.
+    # how many jobs are waiting (a scheduled job counts as waiting until its
+    # time passes). The contract tests read it; the worker loop's due check goes
+    # through `drain_due?`.
     #
     # @return [Integer] the number of queued jobs
     def self.pending_count
@@ -200,9 +195,9 @@ module ActiveJob
       n
     end
 
-    # `drain_due?()` — whether a drain should run now: at least one
-    # entry's time has passed. A queue that holds only future jobs
-    # answers false until the clock reaches them.
+    # whether a drain should run now: at least one entry's time has passed. A
+    # queue that holds only future jobs answers false until the clock reaches
+    # them.
     #
     # @return [Boolean] true when any queued job is due
     def self.drain_due?

@@ -4,12 +4,12 @@ module Sqlx
   # factory it walks with, and the enum factory. Extended onto Base
   # so each arrives as a model class method.
   module Model
-    # `enum(pairs)` — the hand-written enum declaration for table-oriented
-    # models: one validated object per enum, held in a model constant. It
-    # replaces the two parallel constants a model would otherwise write by
-    # hand, whose pair can drift silently. The name follows the mental model,
-    # but it generates no methods (spinel has no metaprogramming); the members
-    # are the literal shape the @example spells out.
+    # the hand-written enum declaration for table-oriented models: one validated
+    # object per enum, held in a model constant. It replaces the two parallel
+    # constants a model would otherwise write by hand, whose pair can drift
+    # silently. The name follows the mental model, but it generates no methods
+    # (spinel has no metaprogramming); the members are the literal shape
+    # spelled out in the `@example` below.
     #
     # @param pairs [Hash{Symbol => Integer}] label => storage value, in
     #   declaration order. Non-empty, Symbol keys, Integer values, and

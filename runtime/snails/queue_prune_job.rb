@@ -17,10 +17,10 @@ module Snails
     # lock for its whole drain.
     PRUNE_BATCH_SIZE = 1000
 
-    # `perform(data)` — one prune run: both tables share the window, so
-    # a queue and its ledger never disagree about what is old. Each
-    # table repeats its bounded delete until a short batch says the
-    # backlog is gone. Carries no payload (the beat passes nil).
+    # one prune run: both tables share the window, so a queue and its ledger
+    # never disagree about what is old. Each table repeats its bounded delete
+    # until a short batch says the backlog is gone. Carries no payload (the beat
+    # passes nil).
     #
     # @param data [Object, nil] unused — a recurring beat carries none
     # @return [void]

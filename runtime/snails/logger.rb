@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# `Snails.logger` — the one write path: every call writes a local line and,
-# when a transport is configured, hands the same event over as a structured
+# the one write path: every call writes a local line and, when a transport is
+# configured, hands the same event over as a structured
 # `Snails::Logger::Record`. The line is for a human reading a terminal; the
 # record is the contract a remote destination or a JSON sink consumes.
 #
@@ -31,18 +31,16 @@
 # every mode. There is no level environment variable — the mode comes
 # from SNAILS_ENV and the rest is the app's environment file.
 module Snails
-  # `Snails.logger()` — the process-wide logger. Memoized so the slots
-  # set in config/environment.rb land on the same object every call
-  # writes through.
+  # the process-wide logger. Memoized so the slots set in config/environment.rb
+  # land on the same object every call writes through.
   #
   # @return [Logger] the shared logger
   def self.logger
     @logger ||= Logger.new
   end
 
-  # `Snails.logger` — the runtime's one logger. Apps call the five level
-  # methods — with `event:` when the call is a structured event — and
-  # configure the slots above.
+  # the runtime's one logger. Apps call the five level methods — with `event:`
+  # when the call is a structured event — and configure the slots above.
   class Logger
     def initialize
       @level = nil
@@ -59,9 +57,9 @@ module Snails
       @write_lock = Mutex.new
     end
 
-    # `level()` — the minimum severity written, as a Symbol. Without an
-    # explicit level it follows the mode (development `:debug`, every
-    # other mode `:info`), so an in-process `Snails.env=` still moves it.
+    # the minimum severity written, as a Symbol. Without an explicit level it
+    # follows the mode (development `:debug`, every other mode `:info`), so an
+    # in-process `Snails.env=` still moves it.
     #
     # @return [Symbol] one of `:debug`, `:info`, `:warn`, `:error`, `:fatal`
     def level
@@ -70,7 +68,7 @@ module Snails
       Snails.env.development? ? :debug : :info
     end
 
-    # `level=(name)` — pin the level, overriding the mode's default.
+    # pin the level, overriding the mode's default.
     #
     # @param name [Symbol] one of `:debug`, `:info`, `:warn`, `:error`, `:fatal`
     # @raise [ArgumentError] name is not a known severity
@@ -81,52 +79,51 @@ module Snails
       name
     end
 
-    # `debug?()` — whether a line at this severity would be written now.
+    # whether a line at this severity would be written now.
     #
     # @return [Boolean]
     def debug?
       writes?(:debug)
     end
 
-    # `info?()` — whether an info line would be written now.
+    # whether an info line would be written now.
     #
     # @return [Boolean] see `debug?`
     def info?
       writes?(:info)
     end
 
-    # `warn?()` — whether a warning line would be written now.
+    # whether a warning line would be written now.
     #
     # @return [Boolean] see `debug?`
     def warn?
       writes?(:warn)
     end
 
-    # `error?()` — whether an error line would be written now.
+    # whether an error line would be written now.
     #
     # @return [Boolean] see `debug?`
     def error?
       writes?(:error)
     end
 
-    # `fatal?()` — whether a fatal line would be written now.
+    # whether a fatal line would be written now.
     #
     # @return [Boolean] see `debug?`
     def fatal?
       writes?(:fatal)
     end
 
-    # `output()` — the IO log lines are written to. An unset output answers
-    # `$stderr` at write time, so an in-process redirection still applies.
+    # the IO log lines are written to. An unset output answers `$stderr` at
+    # write time, so an in-process redirection still applies.
     #
     # @return [IO] the current destination
     def output
       @output.nil? ? $stderr : @output
     end
 
-    # `output=(io)` — send log lines somewhere else. A String path is
-    # rejected: open the file first and pass the IO, or the typo would
-    # silently log nowhere.
+    # send log lines somewhere else. A String path is rejected: open the file
+    # first and pass the IO, or the typo would silently log nowhere.
     #
     # @param io [IO, nil] an object answering `write`; nil restores stderr
     # @raise [ArgumentError] io is neither nil nor IO-like
@@ -140,17 +137,17 @@ module Snails
       io
     end
 
-    # `formatter()` — the object that renders the five string calls.
+    # the object that renders the five string calls.
     #
     # @return [untyped] the current formatter
     def formatter
       @formatter
     end
 
-    # `formatter=(value)` — replace the rendering for string calls. The
-    # contract is `call(severity, time, progname, message) -> String`; the
-    # returned string is written as-is, so it must end with a newline.
-    # Structured records use `record_formatter` instead.
+    # replace the rendering for string calls. The contract is
+    # `call(severity, time, progname, message) -> String`; the returned string
+    # is written as-is, so it must end with a newline. Structured records use
+    # `record_formatter` instead.
     #
     # @param value [untyped] an object answering `call`
     # @raise [ArgumentError] value does not answer `call`
@@ -164,18 +161,17 @@ module Snails
       value
     end
 
-    # `record_formatter()` — the object that renders level calls carrying an
-    # `event:` name.
+    # the object that renders level calls carrying an `event:` name.
     #
     # @return [untyped] the current record formatter
     def record_formatter
       @record_formatter
     end
 
-    # `record_formatter=(value)` — replace the rendering for structured
-    # records. The contract is `call(record, progname) -> String`; the
-    # returned string is written as-is, so it must end with a newline. Level
-    # calls without an `event:` name still use `formatter`.
+    # replace the rendering for structured records. The contract is
+    # `call(record, progname) -> String`; the returned string is written as-is,
+    # so it must end with a newline. Level calls without an `event:` name still
+    # use `formatter`.
     #
     # @param value [untyped] an object answering `call`
     # @raise [ArgumentError] value does not answer `call`
@@ -189,20 +185,20 @@ module Snails
       value
     end
 
-    # `transport()` — the object that receives structured records, or nil
-    # when the logger only writes locally. The slot is owned by
-    # `Snails::Logger::Delivery`, which also isolates a unit delivery failure.
+    # the object that receives structured records, or nil when the logger only
+    # writes locally. The slot is owned by `Snails::Logger::Delivery`, which
+    # also isolates a unit delivery failure.
     #
     # @return [untyped] the current transport
     def transport
       @delivery.transport
     end
 
-    # `transport=(value)` — replace the record destination. The contract is
-    # `deliver(records)` with an Array of `Record`; nil disables remote
-    # delivery. A unit delivery failure is reported locally and does not stop
-    # the app; control and fatal exceptions still propagate. Validation and
-    # the hand-off live in `Delivery`.
+    # replace the record destination. The contract is `deliver(records)` with an
+    # Array of `Record`; nil disables remote delivery. A unit delivery failure
+    # is reported locally and does not stop the app; control and fatal
+    # exceptions still propagate. Validation and the hand-off live in
+    # `Delivery`.
     #
     # @param value [untyped] an object answering `deliver`, or nil
     # @raise [ArgumentError] value is neither nil nor transport-like
@@ -211,17 +207,15 @@ module Snails
       @delivery.transport = value
     end
 
-    # `progname()` — the service name between `--` and `:` in the default
-    # line. Empty by default; an app sharing a log stream with other
-    # processes sets its own.
+    # the service name between `--` and `:` in the default line. Empty by
+    # default; an app sharing a log stream with other processes sets its own.
     #
     # @return [String] the current progname
     def progname
       @progname
     end
 
-    # `progname=(name)` — set the service name rendered by the default
-    # formatter.
+    # set the service name rendered by the default formatter.
     #
     # @param name [String] the service name
     # @raise [ArgumentError] name is not a String
@@ -234,9 +228,9 @@ module Snails
       @progname = name
     end
 
-    # `host_name()` — the host that names the process in resource attributes.
-    # An unset slot answers `ENV["HOSTNAME"]` at read time, so a deployment
-    # can set the environment variable without touching the app config.
+    # the host that names the process in resource attributes. An unset slot
+    # answers `ENV["HOSTNAME"]` at read time, so a deployment can set the
+    # environment variable without touching the app config.
     #
     # @return [String] the configured host name, possibly empty
     def host_name
@@ -245,8 +239,8 @@ module Snails
       ENV["HOSTNAME"].to_s
     end
 
-    # `host_name=(name)` — set the host that every record's resource carries.
-    # An empty string omits the attribute rather than sending an empty host.
+    # set the host that every record's resource carries. An empty string omits
+    # the attribute rather than sending an empty host.
     #
     # @param name [String] the host name
     # @raise [ArgumentError] name is not a String
@@ -259,11 +253,11 @@ module Snails
       @host_name = name
     end
 
-    # `after_fork()` — make this process's logger its own: a forked child
-    # may have inherited a write lock another thread held, and the parent's
-    # buffered records would otherwise be sent by every child. The prefork
-    # servers call it as the child's first statement, before the first
-    # record; a process that never forked has nothing to reset.
+    # make this process's logger its own: a forked child may have inherited a
+    # write lock another thread held, and the parent's buffered records would
+    # otherwise be sent by every child. The prefork servers call it as the
+    # child's first statement, before the first record; a process that never
+    # forked has nothing to reset.
     #
     # @return [void]
     def after_fork
@@ -272,31 +266,28 @@ module Snails
       @delivery.after_fork
     end
 
-    # `register_flush()` — put the periodic buffer flush on the scheduler
-    # this process is about to run. `ActiveJob::Launcher.start` calls it once
-    # per server process before it spawns the loops; a second call in the
-    # same process does nothing.
+    # put the periodic buffer flush on the scheduler this process is about to
+    # run. `ActiveJob::Launcher.start` calls it once per server process before
+    # it spawns the loops; a second call in the same process does nothing.
     #
     # @return [void]
     def register_flush
       @delivery.register_flush
     end
 
-    # `flush()` — hand every buffered record to the transport now. The
-    # periodic scheduler calls it; a process shutting down can call it too.
-    # A non-fatal delivery outcome is written locally; the caller cannot act
-    # on it. Callers here hold no write lock, so the line goes through
-    # `report_local`, which takes it.
+    # hand every buffered record to the transport now. The periodic scheduler
+    # calls it; a process shutting down can call it too. A non-fatal delivery
+    # outcome is written locally; the caller cannot act on it. Callers here hold
+    # no write lock, so the line goes through `report_local`, which takes it.
     #
     # @return [void]
     def flush
       report_outcome(@delivery.flush)
     end
 
-    # `report_local(severity, message)` — write one line locally without
-    # creating a record or calling the transport. The transport and its
-    # delivery job use it for their own failures, so a broken destination
-    # cannot make logging recurse into itself.
+    # write one line locally without creating a record or calling the transport.
+    # The transport and its delivery job use it for their own failures, so a
+    # broken destination cannot make logging recurse into itself.
     #
     # @param severity [Symbol] one of `:debug`, `:info`, `:warn`, `:error`, `:fatal`
     # @param message [untyped] rendered with `to_s`
@@ -307,9 +298,8 @@ module Snails
       @write_lock.synchronize { write_local_line(severity, message.to_s) }
     end
 
-    # `debug(message, event: nil, fields: {}, exception: nil)` — write at
-    # DEBUG when the level allows it. Without `event:` the call is a plain
-    # line; with `event:` it is a named record.
+    # write at DEBUG when the level allows it. Without `event:` the call is a
+    # plain line; with `event:` it is a named record.
     #
     # @param message [untyped] rendered with `to_s`
     # @param event [String, nil] the stable event name, e.g. `request.completed`
@@ -321,9 +311,8 @@ module Snails
       write_level(:debug, message, event, fields, exception)
     end
 
-    # `info(message, event: nil, fields: {}, exception: nil)` — write at INFO
-    # when the level allows it. Without `event:` the call is a plain line;
-    # with `event:` it is a named record.
+    # write at INFO when the level allows it. Without `event:` the call is a
+    # plain line; with `event:` it is a named record.
     #
     # @param message [untyped] rendered with `to_s`
     # @param event [String, nil] the stable event name, e.g. `request.completed`
@@ -335,9 +324,8 @@ module Snails
       write_level(:info, message, event, fields, exception)
     end
 
-    # `warn(message, event: nil, fields: {}, exception: nil)` — write at WARN
-    # when the level allows it. Without `event:` the call is a plain line;
-    # with `event:` it is a named record.
+    # write at WARN when the level allows it. Without `event:` the call is a
+    # plain line; with `event:` it is a named record.
     #
     # @param message [untyped] rendered with `to_s`
     # @param event [String, nil] the stable event name, e.g. `request.completed`
@@ -349,9 +337,8 @@ module Snails
       write_level(:warn, message, event, fields, exception)
     end
 
-    # `error(message, event: nil, fields: {}, exception: nil)` — write at
-    # ERROR when the level allows it. Without `event:` the call is a plain
-    # line; with `event:` it is a named record.
+    # write at ERROR when the level allows it. Without `event:` the call is a
+    # plain line; with `event:` it is a named record.
     #
     # @param message [untyped] rendered with `to_s`
     # @param event [String, nil] the stable event name, e.g. `job.failed`
@@ -363,9 +350,8 @@ module Snails
       write_level(:error, message, event, fields, exception)
     end
 
-    # `fatal(message, event: nil, fields: {}, exception: nil)` — write at
-    # FATAL when the level allows it. Without `event:` the call is a plain
-    # line; with `event:` it is a named record.
+    # write at FATAL when the level allows it. Without `event:` the call is a
+    # plain line; with `event:` it is a named record.
     #
     # @param message [untyped] rendered with `to_s`
     # @param event [String, nil] the stable event name, e.g. `job.failed`

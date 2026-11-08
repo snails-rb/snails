@@ -40,18 +40,17 @@ module ActionDispatch
         @data.bytesize
       end
 
-      # `to_s` — the uploaded name, which is what a params hash carrying
-      # this file stringifies to.
+      # the uploaded name, which is what a params hash carrying this file
+      # stringifies to.
       #
       # @return [String] the uploaded file name
       def to_s
         @original_filename
       end
 
-      # `from_params(sub, key)` — the file under `key` in a params
-      # sub-hash, or nil when the request carried no file there (absent,
-      # or a text field — the bare filename a urlencoded form posts for a
-      # file input is a String, not a file).
+      # the file under `key` in a params sub-hash, or nil when the request
+      # carried no file there (absent, or a text field — the bare filename a
+      # urlencoded form posts for a file input is a String, not a file).
       #
       # @param sub [Hash{String => Object}] the params sub-hash to look in
       # @param key [String] the field name to read
@@ -65,8 +64,8 @@ module ActionDispatch
         end
       end
 
-      # `provided(sub, key)` — did the request carry a file under `key`?
-      # The file counterpart of `ActionController::Params.provided`.
+      # did the request carry a file under `key`? The file counterpart of
+      # `ActionController::Params.provided`.
       #
       # @param sub [Hash{String => Object}] the params sub-hash to look in
       # @param key [String] the field name to read
@@ -75,8 +74,7 @@ module ActionDispatch
         !from_params(sub, key).nil?
       end
 
-      # `name_of(file)` — the uploaded name for a params record's `to_h`,
-      # or "" for none.
+      # the uploaded name for a params record's `to_h`, or "" for none.
       #
       # @param file [UploadedFile, nil] the file to read, or nil
       # @return [String] the uploaded name, "" when there is no file
@@ -106,8 +104,8 @@ module ActionDispatch
         end
       end
 
-      # `boundary(content_type)` — the boundary parameter of a
-      # `multipart/form-data; boundary=…` header, unquoted.
+      # the boundary parameter of a `multipart/form-data; boundary=…` header,
+      # unquoted.
       #
       # @param content_type [String] the request's Content-Type header value
       # @return [String] the boundary, or "" when the header has none
@@ -124,8 +122,7 @@ module ActionDispatch
         rest
       end
 
-      # `disposition_param(header, attr)` — the value of `<attr>="…"`
-      # inside a Content-Disposition header.
+      # the value of `<attr>="…"` inside a Content-Disposition header.
       #
       # @param header [String] the Content-Disposition header value
       # @param attr [String] the parameter name to read
@@ -140,13 +137,12 @@ module ActionDispatch
         header[from, close - from].to_s
       end
 
-      # `parse(body, content_type)` — the parts of one multipart body,
-      # split into `Form#fields` (text) and `Form#files`. A body that does
-      # not parse answers nil instead of the parts found before it stopped:
-      # a missing boundary, a lost delimiter, or a truncated part means the
-      # payload never arrived whole, and the fields before the break are
-      # not the request the client meant. The caller turns nil into a
-      # request failure rather than serving half a form.
+      # the parts of one multipart body, split into `Form#fields` (text) and
+      # `Form#files`. A body that does not parse answers nil instead of the
+      # parts found before it stopped: a missing boundary, a lost delimiter, or
+      # a truncated part means the payload never arrived whole, and the fields
+      # before the break are not the request the client meant. The caller turns
+      # nil into a request failure rather than serving half a form.
       #
       # @param body [String] the raw request body
       # @param content_type [String] the Content-Type header, boundary included
@@ -180,9 +176,8 @@ module ActionDispatch
         nil
       end
 
-      # `add_part(form, headers, content)` — register one part: its name,
-      # whether it is a file, and its bytes. The header block is small and
-      # ASCII, so character ops are byte ops there.
+      # register one part: its name, whether it is a file, and its bytes. The
+      # header block is small and ASCII, so character ops are byte ops there.
       #
       # @param form [Form] the parsed form to add the part to
       # @param headers [String] the part's header block, CRLF-separated

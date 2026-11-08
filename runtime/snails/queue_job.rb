@@ -37,9 +37,8 @@ module Snails
     # decodes, and callers only ever see the logical value.
     def self.json_columns = %w[payload]
 
-    # `enqueue!(name, payload, scheduled_at, now)` — write one pending
-    # row. The payload is the logical value — the write entry encodes
-    # the declared JSON column before it reaches the database.
+    # write one pending row. The payload is the logical value — the write entry
+    # encodes the declared JSON column before it reaches the database.
     #
     # @param name [String] the job's name — the stored constant path
     # @param payload [Object, nil] the serializable arguments (nil for
@@ -54,16 +53,14 @@ module Snails
                 scheduled_at: scheduled_at, created_at: now, updated_at: now })
     end
 
-    # `claim_due(now)` — atomically claim the oldest pending row whose
-    # time has come: the pick and the state change are one UPDATE (with
-    # RETURNING), so two workers can never carry the same row, and a
-    # row scheduled for later stays untouched. The outer `status =
-    # 'pending'` guard is what makes the claim atomic under READ
-    # COMMITTED: a second claim that waited on the row lock re-evaluates
-    # the outer condition and sees `running` instead of claiming again.
-    # The returned instance carries the projected id, name, payload, and
-    # attempts — what a drain needs to run the job and name that run in
-    # its log.
+    # atomically claim the oldest pending row whose time has come: the pick and
+    # the state change are one UPDATE (with RETURNING), so two workers can never
+    # carry the same row, and a row scheduled for later stays untouched. The
+    # outer `status = 'pending'` guard is what makes the claim atomic under READ
+    # COMMITTED: a second claim that waited on the row lock re-evaluates the
+    # outer condition and sees `running` instead of claiming again. The returned
+    # instance carries the projected id, name, payload, and attempts — what a
+    # drain needs to run the job and name that run in its log.
     #
     # @param now [Time] the claim clock — rows scheduled after it stay
     # @return [Snails::QueueJob, nil] the claimed row, nil when nothing
@@ -82,10 +79,9 @@ module Snails
       from_row(rows[0])
     end
 
-    # `release_orphaned!(started_before, now)` — return rows claimed by
-    # a dead process to pending: a claim older than the cutoff is the
-    # only evidence needed (at-least-once — the attempts counter keeps
-    # the lost run).
+    # return rows claimed by a dead process to pending: a claim older than the
+    # cutoff is the only evidence needed (at-least-once — the attempts counter
+    # keeps the lost run).
     #
     # @param started_before [Time] the claim-age cutoff
     # @param now [Time] the updated stamp for the released rows
@@ -95,9 +91,8 @@ module Snails
                   { status: "pending", updated_at: now })
     end
 
-    # `mark_succeeded!(id, now)` — record a finished run on its row:
-    # the status and the finish stamp make the row the
-    # execution history.
+    # record a finished run on its row: the status and the finish stamp make the
+    # row the execution history.
     #
     # @param id [Integer] the row's id
     # @param now [Time] the finish stamp
@@ -106,9 +101,9 @@ module Snails
       update!(id, { status: "succeeded", finished_at: now, updated_at: now })
     end
 
-    # `mark_failed!(id, error, now)` — record a failed run on its row,
-    # with the error message: an unresolvable name and a raising body
-    # both land here, so a failure never passes silently.
+    # record a failed run on its row, with the error message: an unresolvable
+    # name and a raising body both land here, so a failure never passes
+    # silently.
     #
     # @param id [Integer] the row's id
     # @param error [String] the failure message
@@ -118,12 +113,11 @@ module Snails
       update!(id, { status: "failed", finished_at: now, updated_at: now, last_error: error })
     end
 
-    # `prune_finished!(finished_before, limit:)` — retention delete in
-    # bounded batches: finished rows (`succeeded`/`failed`) past the
-    # window go, pending rows and recent history stay. One call removes
-    # at most `limit` rows, so a large backlog never holds the write
-    # lock for its whole drain — the caller repeats until a short batch
-    # says the backlog is gone (`Snails::QueuePruneJob` owns the loop).
+    # retention delete in bounded batches: finished rows (`succeeded`/`failed`)
+    # past the window go, pending rows and recent history stay. One call removes
+    # at most `limit` rows, so a large backlog never holds the write lock for
+    # its whole drain — the caller repeats until a short batch says the backlog
+    # is gone (`Snails::QueuePruneJob` owns the loop).
     #
     # The statement is raw SQL because SQLite has no portable
     # `DELETE ... LIMIT` (the bundled build omits the compile option),

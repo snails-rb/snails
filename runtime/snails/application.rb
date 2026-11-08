@@ -1,13 +1,12 @@
 # frozen_string_literal: true
 
-# `Snails.app` — the app-owned settings object. Values only: the app
-# reopens `Application` in config/application.rb; environment-dependent
-# wiring stays in config/environment.rb.
+# the app-owned settings object. Values only: the app reopens `Application` in
+# config/application.rb; environment-dependent wiring stays in
+# config/environment.rb.
 module Snails
-  # `Snails.app()` — the app's settings object, built once. The
-  # readers live on the app's `Snails::Application` reopen (config/
-  # application.rb); memoizing makes it the one read channel rather than a
-  # per-call view.
+  # the app's settings object, built once. The readers live on the app's
+  # `Snails::Application` reopen (config/ application.rb); memoizing makes it
+  # the one read channel rather than a per-call view.
   #
   # @return [Application] the process-wide settings object
   def self.app
@@ -20,8 +19,7 @@ module Snails
   # reopening this class in config/application.rb; these defaults stand in
   # when it declares none.
   class Application
-    # `app_name()` — the app's own name; the server announces itself
-    # with it.
+    # the app's own name; the server announces itself with it.
     #
     # The default is generic so a tree whose config/application.rb declares
     # none still starts with a usable name.
@@ -31,10 +29,10 @@ module Snails
       "app"
     end
 
-    # `secret_key_base()` — the standard read channel for the app's signing
-    # key. The source is the deployment's `SECRET_KEY_BASE`; a missing or
-    # empty value raises here, because a token signed with a guessable key
-    # validates for anyone who guesses it.
+    # the standard read channel for the app's signing key. The source is the
+    # deployment's `SECRET_KEY_BASE`; a missing or empty value raises here,
+    # because a token signed with a guessable key validates for anyone who
+    # guesses it.
     #
     # The runtime neither generates nor stores a key. An app that sources
     # its key differently (a secret manager, for example) reopens
@@ -50,8 +48,8 @@ module Snails
       key
     end
 
-    # `time_zone()` — the process zone every local time is presented in, as
-    # an IANA identifier. Read-only: config/environment.rb owns the slot with
+    # the process zone every local time is presented in, as an IANA identifier.
+    # Read-only: config/environment.rb owns the slot with
     # `Snails.time_zone = "<zone>"`, which resolves and validates the name.
     #
     # @return [String] the IANA identifier
@@ -59,7 +57,7 @@ module Snails
       Snails.time_zone
     end
 
-    # `version()` — the app's own version, when it declares one.
+    # the app's own version, when it declares one.
     #
     # There is no default: the framework version and the app version are
     # different facts, so an app that wants one reopens this class in
@@ -71,7 +69,7 @@ module Snails
       nil
     end
 
-    # `revision()` — the deployment identifier of the app code.
+    # the deployment identifier of the app code.
     #
     # `ENV["REVISION"]` wins, then a `REVISION` file at the app root. The
     # value is memoized because it describes this process's deployment, not a

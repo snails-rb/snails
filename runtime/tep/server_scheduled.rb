@@ -18,12 +18,11 @@ module Tep
       # Idle keep-alive timeout between requests on one connection, in seconds.
       KEEPALIVE_TIMEOUT = 30
 
-      # `run(port, workers, quiet)` — listen and serve, one fiber per
-      # connection on the cooperative scheduler. A port already in use
-      # stops the process with exit(1); `workers` above one preforks that
-      # many servers of the same shape; `quiet` only suppresses the
-      # banner. Nothing in the app entry calls this: a measurement run
-      # constructs the server and invokes it directly.
+      # listen and serve, one fiber per connection on the cooperative scheduler.
+      # A port already in use stops the process with exit(1); `workers` above
+      # one preforks that many servers of the same shape; `quiet` only
+      # suppresses the banner. Nothing in the app entry calls this: a
+      # measurement run constructs the server and invokes it directly.
       #
       # @param port [Integer] the port to bind
       # @param workers [Integer] server process count; above one, prefork

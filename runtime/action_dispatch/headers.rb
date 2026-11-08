@@ -21,8 +21,8 @@ module ActionDispatch
       # The sentinel that tells `fetch` "no default was given".
       DEFAULT = Object.new
 
-      # `Headers.new(env)` — wrap the request's env hash. The hash is read
-      # live, so a view created once sees the request's current headers.
+      # wrap the request's env hash. The hash is read live, so a view created
+      # once sees the request's current headers.
       #
       # @param env [Hash{String => untyped}] the request's internal env hash
       # @return [Headers] the header view
@@ -30,9 +30,8 @@ module ActionDispatch
         @env = env
       end
 
-      # `[](key)` — the header value, or nil when absent. Accepts both an
-      # HTTP header name (`Authorization`) and an env key
-      # (`HTTP_AUTHORIZATION`, `CONTENT_TYPE`).
+      # the header value, or nil when absent. Accepts both an HTTP header name
+      # (`Authorization`) and an env key (`HTTP_AUTHORIZATION`, `CONTENT_TYPE`).
       #
       # @param key [String] the header name or env key
       # @return [untyped] the header value, nil when absent
@@ -44,9 +43,8 @@ module ActionDispatch
         @env[name]
       end
 
-      # `fetch(key, default = DEFAULT)` — the header value; without a default,
-      # raises KeyError when absent. An empty header value is present, so it
-      # answers "" rather than the default.
+      # the header value; without a default, raises KeyError when absent. An
+      # empty header value is present, so it answers "" rather than the default.
       #
       # @param key [String] the header name or env key
       # @param default [untyped] the value to answer when the header is absent
@@ -61,8 +59,8 @@ module ActionDispatch
         end
       end
 
-      # `has_key?(key)` — whether the header is present. An empty value is
-      # present; only an absent key answers false.
+      # whether the header is present. An empty value is present; only an absent
+      # key answers false.
       #
       # @param key [String] the header name or env key
       # @return [Boolean] true when the header key exists
@@ -70,10 +68,9 @@ module ActionDispatch
         @env.key?(env_name(key))
       end
 
-      # `each_header` — yield each request header as a name and value. Names
-      # are normalized to lowercase with dashes (`authorization`,
-      # `content-type`). Only header keys are yielded; env scratch keys are
-      # skipped.
+      # yield each request header as a name and value. Names are normalized to
+      # lowercase with dashes (`authorization`, `content-type`). Only header
+      # keys are yielded; env scratch keys are skipped.
       #
       # @yieldparam name [String] the normalized header name
       # @yieldparam value [untyped] the header value
@@ -85,7 +82,7 @@ module ActionDispatch
         end
       end
 
-      # `to_h` — every request header as a Hash keyed by normalized name.
+      # every request header as a Hash keyed by normalized name.
       #
       # @return [Hash{String => untyped}] the header names and values
       def to_h
@@ -97,8 +94,8 @@ module ActionDispatch
         out
       end
 
-      # `env_key(name)` — the env key for a wire header name. The dispatcher
-      # uses this when copying parsed headers into the request's env hash.
+      # the env key for a wire header name. The dispatcher uses this when
+      # copying parsed headers into the request's env hash.
       #
       # @param name [String] the wire header name
       # @return [String] the Rack-style env key
@@ -108,8 +105,8 @@ module ActionDispatch
         "HTTP_" + key
       end
 
-      # `env_name(key)` — the env key for a lookup. An underscore in the key
-      # means the caller already named an env key, so it passes through.
+      # the env key for a lookup. An underscore in the key means the caller
+      # already named an env key, so it passes through.
       def env_name(key)
         key = key.to_s
         if HTTP_HEADER.match?(key)
@@ -119,8 +116,8 @@ module ActionDispatch
         end
       end
 
-      # `header_name(env_key)` — the inverse for iteration: `HTTP_X_FOO` →
-      # `x-foo`, `CONTENT_TYPE` → `content-type`, anything else nil.
+      # the inverse for iteration: `HTTP_X_FOO` → `x-foo`, `CONTENT_TYPE` →
+      # `content-type`, anything else nil.
       def header_name(key)
         if key.start_with?("HTTP_")
           key[5, key.length - 5].to_s.downcase.tr("_", "-")

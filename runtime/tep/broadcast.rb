@@ -15,8 +15,7 @@
 # cross-worker backend.
 module Tep
   module Broadcast
-    # `subscribe(topic, fd)` — register `fd` for raw-bytes delivery on
-    # `topic`.
+    # register `fd` for raw-bytes delivery on `topic`.
     #
     # @return [Integer] the subscription's index at the time of the push,
     #   for `unsubscribe`; the WS path unsubscribes by fd on close instead
@@ -32,8 +31,8 @@ module Tep
       n
     end
 
-    # `subscribe_ws(topic, ws)` — register a WebSocket connection on
-    # `topic`; payloads go out as TEXT frames through its driver.
+    # register a WebSocket connection on `topic`; payloads go out as TEXT frames
+    # through its driver.
     #
     # @param ws [Tep::WebSocket::Driver] the connection's driver
     # @return [Integer] the subscription's index at the time of the push
@@ -49,8 +48,7 @@ module Tep
       n
     end
 
-    # `unsubscribe(sub_id)` — drop the subscription at `sub_id`; an
-    # out-of-range index is a no-op.
+    # drop the subscription at `sub_id`; an out-of-range index is a no-op.
     #
     # @param sub_id [Integer] the index `subscribe` returned
     # @return [void]
@@ -63,9 +61,8 @@ module Tep
       end
     end
 
-    # `unsubscribe_topic_fd(topic, fd)` — drop every subscription of `fd`
-    # to `topic`; the walk runs back to front so a `delete_at` index
-    # stays valid mid-loop.
+    # drop every subscription of `fd` to `topic`; the walk runs back to front so
+    # a `delete_at` index stays valid mid-loop.
     #
     # @return [Integer] the number of subscriptions dropped
     def self.unsubscribe_topic_fd(topic, fd)
@@ -86,7 +83,7 @@ module Tep
       dropped
     end
 
-    # `unsubscribe_fd(fd)` — drop every subscription whose fd matches.
+    # drop every subscription whose fd matches.
     #
     # The WebSocket on-close path calls it before the fd is closed, while
     # its number still names only that connection.
@@ -108,8 +105,7 @@ module Tep
       dropped
     end
 
-    # `publish(topic, payload)` — write `payload` to every fd subscribed
-    # to `topic`.
+    # write `payload` to every fd subscribed to `topic`.
     #
     # @return [Integer] the number of subscriptions matched, not the
     #   number of successful writes: a closed fd still counts as matched
@@ -119,7 +115,7 @@ module Tep
       publish_local_only(topic, payload)
     end
 
-    # `subscriber_count()` — how many subscriptions the registry holds.
+    # how many subscriptions the registry holds.
     #
     # @return [Integer] the total across all topics, for diagnostics
     def self.subscriber_count
@@ -130,8 +126,8 @@ module Tep
       n
     end
 
-    # `subscribers_for(topic)` — count the subscriptions on one topic;
-    # an O(n) walk over a registry that stays small in practice.
+    # count the subscriptions on one topic; an O(n) walk over a registry that
+    # stays small in practice.
     #
     # @return [Integer] the number of subscriptions on `topic`
     def self.subscribers_for(topic)
@@ -149,8 +145,8 @@ module Tep
       n
     end
 
-    # `clear()` — drop every subscription, for resetting between test
-    # cases and for an app that needs a full reset (graceful shutdown).
+    # drop every subscription, for resetting between test cases and for an app
+    # that needs a full reset (graceful shutdown).
     #
     # @return [Integer] the number of subscriptions dropped
     def self.clear

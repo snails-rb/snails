@@ -13,106 +13,106 @@
 class Time
   # ---- boundaries ----
 
-  # `beginning_of_minute()` — seconds and sub-seconds zeroed.
+  # seconds and sub-seconds zeroed.
   #
   # @return [Time] this instant at the start of its minute
   def beginning_of_minute
     Snails::DateAndTime::Calculations.beginning_of_minute(self)
   end
 
-  # `end_of_minute()` — 59.999999999 seconds, the inclusive end.
+  # 59.999999999 seconds, the inclusive end.
   #
   # @return [Time] this minute's inclusive end
   def end_of_minute
     Snails::DateAndTime::Calculations.end_of_minute(self)
   end
 
-  # `beginning_of_hour()` — minutes and below zeroed.
+  # minutes and below zeroed.
   #
   # @return [Time] this instant at the start of its hour
   def beginning_of_hour
     Snails::DateAndTime::Calculations.beginning_of_hour(self)
   end
 
-  # `end_of_hour()` — 59:59.999999999, the inclusive end.
+  # 59:59.999999999, the inclusive end.
   #
   # @return [Time] this hour's inclusive end
   def end_of_hour
     Snails::DateAndTime::Calculations.end_of_hour(self)
   end
 
-  # `beginning_of_day()` — midnight in the receiver's zone; a UTC receiver
-  # stays UTC and a fixed-offset receiver keeps that offset.
+  # midnight in the receiver's zone; a UTC receiver stays UTC and a fixed-offset
+  # receiver keeps that offset.
   #
   # @return [Time] this instant's day at midnight
   def beginning_of_day
     Snails::DateAndTime::Calculations.beginning_of_day(self)
   end
 
-  # `end_of_day()` — 23:59:59.999999999, the inclusive end.
+  # 23:59:59.999999999, the inclusive end.
   #
   # @return [Time] this day's inclusive end
   def end_of_day
     Snails::DateAndTime::Calculations.end_of_day(self)
   end
 
-  # `noon()` — 12:00:00 of the receiver's day.
+  # 12:00:00 of the receiver's day.
   #
   # @return [Time] this instant's day at 12:00:00
   def noon
     Snails::DateAndTime::Calculations.noon(self)
   end
 
-  # `beginning_of_week()` — Monday, not Sunday (the calendar's week start).
+  # Monday, not Sunday (the calendar's week start).
   #
   # @return [Time] the week's Monday
   def beginning_of_week
     Snails::DateAndTime::Calculations.beginning_of_week(self)
   end
 
-  # `end_of_week()` — the following Sunday's inclusive end.
+  # the following Sunday's inclusive end.
   #
   # @return [Time] the following Sunday's inclusive end
   def end_of_week
     Snails::DateAndTime::Calculations.end_of_week(self)
   end
 
-  # `next_week()` — the next week's Monday, not the receiver plus 7 days.
+  # the next week's Monday, not the receiver plus 7 days.
   #
   # @return [Time] the next week's Monday
   def next_week
     Snails::DateAndTime::Calculations.next_week(self)
   end
 
-  # `prev_week()` — the previous week's Monday.
+  # the previous week's Monday.
   #
   # @return [Time] the previous week's Monday
   def prev_week
     Snails::DateAndTime::Calculations.prev_week(self)
   end
 
-  # `beginning_of_month()` — the 1st at midnight.
+  # the 1st at midnight.
   #
   # @return [Time] the 1st of this instant's month at midnight
   def beginning_of_month
     Snails::DateAndTime::Calculations.beginning_of_month(self)
   end
 
-  # `end_of_month()` — the last day's inclusive end (leap years included).
+  # the last day's inclusive end (leap years included).
   #
   # @return [Time] this month's last day at its inclusive end
   def end_of_month
     Snails::DateAndTime::Calculations.end_of_month(self)
   end
 
-  # `beginning_of_year()` — January 1st at midnight.
+  # January 1st at midnight.
   #
   # @return [Time] January 1st of this instant's year at midnight
   def beginning_of_year
     Snails::DateAndTime::Calculations.beginning_of_year(self)
   end
 
-  # `end_of_year()` — December 31st's inclusive end.
+  # December 31st's inclusive end.
   #
   # @return [Time] December 31st's inclusive end
   def end_of_year
@@ -121,72 +121,72 @@ class Time
 
   # ---- shifts ----
 
-  # `days_since(n = 1)` — `n` civil days later at the same clock time.
+  # `n` civil days later at the same clock time.
   #
   # @return [Time] this instant `n` civil days later
   def days_since(n = 1)
     Snails::DateAndTime::Calculations.days_since(self, n)
   end
 
-  # `days_ago(n = 1)` — `n` civil days earlier at the same clock time.
+  # `n` civil days earlier at the same clock time.
   #
   # @return [Time] this instant `n` civil days earlier
   def days_ago(n = 1)
     Snails::DateAndTime::Calculations.days_ago(self, n)
   end
 
-  # `yesterday()` — one civil day back.
+  # one civil day back.
   #
   # @return [Time] this instant one civil day back
   def yesterday
     Snails::DateAndTime::Calculations.yesterday(self)
   end
 
-  # `tomorrow()` — one civil day forward.
+  # one civil day forward.
   #
   # @return [Time] this instant one civil day forward
   def tomorrow
     Snails::DateAndTime::Calculations.tomorrow(self)
   end
 
-  # `weeks_since(n = 1)` — `n` seven-day steps forward.
+  # `n` seven-day steps forward.
   #
   # @return [Time] this instant `n` seven-day steps forward
   def weeks_since(n = 1)
     Snails::DateAndTime::Calculations.weeks_since(self, n)
   end
 
-  # `weeks_ago(n = 1)` — `n` seven-day steps back.
+  # `n` seven-day steps back.
   #
   # @return [Time] this instant `n` seven-day steps back
   def weeks_ago(n = 1)
     Snails::DateAndTime::Calculations.weeks_ago(self, n)
   end
 
-  # `months_since(n = 1)` — `n` calendar months forward, clamped to the
-  # target month's last day (Jan 31 + 1 month is Feb 28).
+  # `n` calendar months forward, clamped to the target month's last day (Jan 31
+  # + 1 month is Feb 28).
   #
   # @return [Time] this instant `n` calendar months forward
   def months_since(n = 1)
     Snails::DateAndTime::Calculations.months_since(self, n)
   end
 
-  # `months_ago(n = 1)` — the calendar-month step back.
+  # the calendar-month step back.
   #
   # @return [Time] this instant `n` calendar months back
   def months_ago(n = 1)
     Snails::DateAndTime::Calculations.months_ago(self, n)
   end
 
-  # `years_since(n = 1)` — `n` calendar years forward, clamped like a
-  # month step (Feb 29 in a leap year lands on Feb 28).
+  # `n` calendar years forward, clamped like a month step (Feb 29 in a leap year
+  # lands on Feb 28).
   #
   # @return [Time] this instant `n` calendar years forward
   def years_since(n = 1)
     Snails::DateAndTime::Calculations.years_since(self, n)
   end
 
-  # `years_ago(n = 1)` — the calendar-year step back.
+  # the calendar-year step back.
   #
   # @return [Time] this instant `n` calendar years back
   def years_ago(n = 1)
@@ -195,64 +195,63 @@ class Time
 
   # ---- predicates ----
 
-  # `same_day?(other)` — both fall on the same civil day, clock time
-  # irrelevant.
+  # both fall on the same civil day, clock time irrelevant.
   #
   # @return [Boolean] true when the two instants share a civil day
   def same_day?(other)
     Snails::DateAndTime::Calculations.same_day?(self, other)
   end
 
-  # `today?()` — same civil day as now.
+  # same civil day as now.
   #
   # @return [Boolean] true when the receiver falls on today's civil day
   def today?
     Snails::DateAndTime::Calculations.today?(self, Time.now)
   end
 
-  # `yesterday?()` — same civil day as one day back from now.
+  # same civil day as one day back from now.
   #
   # @return [Boolean] true when the receiver falls on yesterday's civil day
   def yesterday?
     Snails::DateAndTime::Calculations.yesterday?(self, Time.now)
   end
 
-  # `tomorrow?()` — same civil day as one day forward from now.
+  # same civil day as one day forward from now.
   #
   # @return [Boolean] true when the receiver falls on tomorrow's civil day
   def tomorrow?
     Snails::DateAndTime::Calculations.tomorrow?(self, Time.now)
   end
 
-  # `past?()` — before now.
+  # before now.
   #
   # @return [Boolean] true when the receiver is before now
   def past?
     Snails::DateAndTime::Calculations.past?(self, Time.now)
   end
 
-  # `future?()` — after now.
+  # after now.
   #
   # @return [Boolean] true when the receiver is after now
   def future?
     Snails::DateAndTime::Calculations.future?(self, Time.now)
   end
 
-  # `on_weekend?()` — Saturday or Sunday.
+  # Saturday or Sunday.
   #
   # @return [Boolean] true when the receiver falls on Saturday or Sunday
   def on_weekend?
     Snails::DateAndTime::Calculations.on_weekend?(self)
   end
 
-  # `on_weekday?()` — the negation of `on_weekend?`.
+  # the negation of `on_weekend?`.
   #
   # @return [Boolean] true on any day but Saturday and Sunday
   def on_weekday?
     Snails::DateAndTime::Calculations.on_weekday?(self)
   end
 
-  # `on_wday?(wday)` — the weekday number matches (0 = Sunday).
+  # the weekday number matches (0 = Sunday).
   #
   # @return [Boolean] true when the receiver falls on that weekday
   def on_wday?(wday)
@@ -261,19 +260,18 @@ class Time
 
   # ---- zone rendering ----
 
-  # `in_time_zone(zone)` — the same instant rendered in `zone` (a name from
-  # the runtime's zone vocabulary, `Snails::TimeZone::ZONE_NAMES`, or an
-  # IANA identifier); nil renders in the current zone.
+  # the same instant rendered in `zone` (a name from the runtime's zone
+  # vocabulary, `Snails::TimeZone::ZONE_NAMES`, or an IANA identifier); nil
+  # renders in the current zone.
   #
   # @return [Time] this instant rendered in `zone`
   def in_time_zone(zone)
     Snails::TimeZone.in_time_zone(self, zone)
   end
 
-  # `to_fs(name)` — `:db` is the stored datetime column form (UTC,
-  # microsecond precision), `:iso8601` the JSON spelling: millisecond
-  # truncation and the zone's offset. The `:db` result is lexicographically
-  # ordered, so it sorts as text.
+  # `:db` is the stored datetime column form (UTC, microsecond precision),
+  # `:iso8601` the JSON spelling: millisecond truncation and the zone's offset.
+  # The `:db` result is lexicographically ordered, so it sorts as text.
   #
   # @param name [Symbol] `:db` for the stored form, `:iso8601` for the JSON
   #   spelling

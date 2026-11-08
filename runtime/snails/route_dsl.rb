@@ -15,8 +15,7 @@
 
 module Snails
   module RouteTable
-    # `get(path, controller, action = :index)` — a GET row, defaulting
-    # to the collection action.
+    # a GET row, defaulting to the collection action.
     #
     # @param path [String] the path pattern, e.g. "/servers"
     # @param controller [Class] the controller class the row dispatches to
@@ -28,8 +27,7 @@ module Snails
       ActionDispatch::Router::Route.new("GET", path, controller, action)
     end
 
-    # `post(path, controller, action = :create)` — a POST row, defaulting
-    # to the creation action.
+    # a POST row, defaulting to the creation action.
     #
     # @param path [String] the path pattern, e.g. "/login"
     # @param controller [Class] the controller class the row dispatches to
@@ -41,8 +39,7 @@ module Snails
       ActionDispatch::Router::Route.new("POST", path, controller, action)
     end
 
-    # `put(path, controller, action = :update)` — a PUT row, defaulting
-    # to the update action.
+    # a PUT row, defaulting to the update action.
     #
     # @param path [String] the path pattern, e.g. "/account/password"
     # @param controller [Class] the controller class the row dispatches to
@@ -54,8 +51,7 @@ module Snails
       ActionDispatch::Router::Route.new("PUT", path, controller, action)
     end
 
-    # `delete(path, controller, action = :destroy)` — a DELETE row,
-    # defaulting to the destruction action.
+    # a DELETE row, defaulting to the destruction action.
     #
     # @param path [String] the path pattern, e.g. "/me/account"
     # @param controller [Class] the controller class the row dispatches to
@@ -67,11 +63,10 @@ module Snails
       ActionDispatch::Router::Route.new("DELETE", path, controller, action)
     end
 
-    # `resources(path, controller, format = nil, only = nil)` — the five
-    # RESTful rows of a resource as `Array[Route]`: index/create on the
-    # collection path, show/update/destroy on `path/:id`, collection rows
-    # before member rows. The caller concatenates the result into its
-    # table; first-match order is preserved exactly as declared.
+    # the five RESTful rows of a resource as `Array[Route]`: index/create on the
+    # collection path, show/update/destroy on `path/:id`, collection rows before
+    # member rows. The caller concatenates the result into its table;
+    # first-match order is preserved exactly as declared.
     #
     # @param path [String] the collection path as written — a nested
     #   resource's parent segments are path text ("/posts/:post_id/
@@ -100,11 +95,10 @@ module Snails
       rows
     end
 
-    # `check_only(only)` — every name in `only` must be one of the five
-    # RESTful actions. A typo there would otherwise silently drop the row
-    # and the app would see a 404 where it declared a route. Loud at table
-    # construction (boot), not at the first request. A nil list has no
-    # names to check.
+    # every name in `only` must be one of the five RESTful actions. A typo there
+    # would otherwise silently drop the row and the app would see a 404 where it
+    # declared a route. Loud at table construction (boot), not at the first
+    # request. A nil list has no names to check.
     #
     # @param only [Array[Symbol], nil] the action subset `resources` will keep
     # @raise [ArgumentError] `only` names an action outside the five RESTful ones
@@ -120,8 +114,8 @@ module Snails
       end
     end
 
-    # `action_wanted(only, name)` — is `name` one of the caller's `only`
-    # list? A nil list selects everything; membership is a `==` scan.
+    # is `name` one of the caller's `only` list? A nil list selects everything;
+    # membership is a `==` scan.
     #
     # @param only [Array[Symbol], nil] the action subset `resources` will keep
     # @param name [Symbol] the action the row would declare
