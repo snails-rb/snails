@@ -9,3 +9,6 @@
 
 # pinned spinel toolchain (materialized next to pins.toml — state, never source)
 /.spinel/
+
+# secrets
+.env
