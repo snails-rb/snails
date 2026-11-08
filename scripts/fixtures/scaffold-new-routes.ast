@@ -66,6 +66,7 @@ S 11 name get
 I 11 node_line 11
 I 11 node_file 0
 I 11 node_col 8
+I 11 ignore_visibility 1
 R 11 receiver -1
 R 11 arguments 12
 R 11 block -1
