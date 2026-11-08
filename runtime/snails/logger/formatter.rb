@@ -1,8 +1,7 @@
 # frozen_string_literal: true
 
-# `Snails::Logger::Formatter` — the default log line: severity letter,
-# fixed-width timestamp, process id, right-aligned level, progname, and
-# the message.
+# the default log line: severity letter, fixed-width timestamp, process id,
+# right-aligned level, progname, and the message.
 #
 # The timestamp is fixed width in one zone, so a reader that sorts the
 # lines sorts them chronologically. The pid separates prefork workers
@@ -16,11 +15,10 @@
 module Snails
   class Logger
     class Formatter
-      # `Formatter.format_time(time)` — the timestamp rule both local log
-      # lines share: the app's zone wall clock with microseconds, plus the
-      # zone offset (`Z` for UTC), so a line read in another zone still names
-      # the same instant. The record line calls this too, so an app string
-      # call and a framework event spell an instant alike.
+      # the timestamp rule both local log lines share: the app's zone wall clock
+      # with microseconds, plus the zone offset (`Z` for UTC), so a line read in
+      # another zone still names the same instant. The record line calls this
+      # too, so an app string call and a framework event spell an instant alike.
       #
       # @param time [Time] the instant to render
       # @return [String] the local timestamp with its offset, `…Z` for UTC

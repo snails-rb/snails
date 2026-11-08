@@ -21,10 +21,10 @@ module ActionDispatch
       attr_reader :verb, :pattern, :controller, :action, :req_format, :int_params,
                   :pattern_parts
 
-      # `req_format` — the route-forced response format (a route
-      # declared `get "/rss" => "home#index", :format => "rss"`), nil
-      # for the common infer-from-path case. Named `req_format` (not
-      # `format`) so targets whose stdlibs claim `format` never collide.
+      # the route-forced response format (a route declared
+      # `get "/rss" => "home#index", :format => "rss"`), nil for the common
+      # infer-from-path case. Named `req_format` (not `format`) so targets whose
+      # stdlibs claim `format` never collide.
       #
       # `int_params` — space-joined names of path params constrained to
       # digit-only segments (Roda's `Integer` matcher, a `constraints:`
@@ -68,8 +68,7 @@ module ActionDispatch
       end
     end
 
-    # `match(method, path, table)` — the routing entry: the first row whose
-    # verb and pattern match the request.
+    # the routing entry: the first row whose verb and pattern match the request.
     #
     # @param method [String] the request verb
     # @param path [String] the request path

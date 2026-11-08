@@ -25,12 +25,11 @@ module Snails
     # come back as `Time`; the list replaces the default pair.
     def self.datetime_columns = %w[scheduled_at created_at]
 
-    # `insert!(job_name, scheduled_at, now)` — put one occurrence on the
-    # ledger. The primary key is the idempotency: a duplicate
-    # (job_name, scheduled_at) raises instead of overwriting, and the
-    # caller turns that into "already queued". The row has no `id`
-    # column (the key IS the pair), which is why the ledger brings its
-    # own insert instead of the id-based `create!` re-read.
+    # put one occurrence on the ledger. The primary key is the idempotency: a
+    # duplicate (job_name, scheduled_at) raises instead of overwriting, and the
+    # caller turns that into "already queued". The row has no `id` column (the
+    # key IS the pair), which is why the ledger brings its own insert instead of
+    # the id-based `create!` re-read.
     #
     # @param job_name [String] the job's name — the stored constant path
     # @param scheduled_at [Time] the interval's start
@@ -44,12 +43,11 @@ module Snails
                        [ job_name, scheduled_at, now ])
     end
 
-    # `prune_before!(scheduled_before, limit:)` — retention delete for
-    # the ledger in bounded batches: occurrences past the window go,
-    # recent ones stay, and one call removes at most `limit` rows (the
-    # caller repeats — `Snails::QueuePruneJob` owns the loop). The pair
-    # IN the subquery is the ledger's primary key, so the delete needs
-    # no `id` column; it works on both backends.
+    # retention delete for the ledger in bounded batches: occurrences past the
+    # window go, recent ones stay, and one call removes at most `limit` rows
+    # (the caller repeats — `Snails::QueuePruneJob` owns the loop). The pair IN
+    # the subquery is the ledger's primary key, so the delete needs no `id`
+    # column; it works on both backends.
     #
     # @param scheduled_before [Time] the retention cutoff
     # @param limit [Integer] the most rows one call deletes (positive)

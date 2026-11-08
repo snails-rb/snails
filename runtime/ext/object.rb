@@ -7,10 +7,10 @@
 # `Object.const_get` intact (a store-backed job adapter resolves stored names
 # that way; upstream 463242126 carries the fix).
 class Object
-  # `blank?()` — the generic emptiness predicate: nil, false, an empty
-  # Array/Hash, and a whitespace-only String are blank. Every other
-  # value is present: `0` and `:sym` are values, not emptiness, and a
-  # String is judged by its own text (`""` and `"  "` are blank).
+  # the generic emptiness predicate: nil, false, an empty Array/Hash, and a
+  # whitespace-only String are blank. Every other value is present: `0` and
+  # `:sym` are values, not emptiness, and a String is judged by its own text
+  # (`""` and `"  "` are blank).
   #
   # @return [Boolean] true when the receiver holds nothing
   # @example
@@ -26,8 +26,7 @@ class Object
     to_s.strip.empty?
   end
 
-  # `present?()` — the negation of `blank?`, for call sites that read
-  # better in the positive.
+  # the negation of `blank?`, for call sites that read better in the positive.
   #
   # @return [Boolean] true when the receiver holds something
   # @example
@@ -37,9 +36,8 @@ class Object
     !blank?
   end
 
-  # `presence()` — the receiver when present, nil when blank: the
-  # `x.presence || fallback` shape replaces `blank? ? nil : x` at the
-  # call site.
+  # the receiver when present, nil when blank: the `x.presence || fallback`
+  # shape replaces `blank? ? nil : x` at the call site.
   #
   # @return [Object, nil] the receiver itself, or nil when blank
   # @example
@@ -49,12 +47,11 @@ class Object
     blank? ? nil : self
   end
 
-  # `presence_in(list)` — the receiver when it is in the allow-list,
-  # nil otherwise: the gate for a value that came off the wire, with
-  # the list naming the allowed values. Membership compares the
-  # receiver's text, so a Symbol value matches its String spelling in
-  # both kinds of list; a non-Array list is rejected at the call — a
-  # String would silently substring-match.
+  # the receiver when it is in the allow-list, nil otherwise: the gate for a
+  # value that came off the wire, with the list naming the allowed values.
+  # Membership compares the receiver's text, so a Symbol value matches its
+  # String spelling in both kinds of list; a non-Array list is rejected at the
+  # call — a String would silently substring-match.
   #
   # @param list [Array<String>] the allow-list of values
   # @return [Object, nil] the receiver itself, or nil when not listed

@@ -3,8 +3,8 @@
 # cookie values (Tep::Response#set_cookie).
 module Tep
   class Url
-    # `unescape(s)` — percent-decode form-urlencoded text: "%XX" bytes, with
-    # "+" read as a space.
+    # percent-decode form-urlencoded text: "%XX" bytes, with "+" read as a
+    # space.
     #
     # Decoding is BY BYTE, and the result is tagged UTF-8: a percent-encoded
     # multibyte character comes back as text, not as an ASCII-8BIT byte string.
@@ -41,8 +41,8 @@ module Tep
       out.force_encoding("UTF-8")
     end
 
-    # `escape(s)` — percent-encode the bytes unsafe in cookie values, query
-    # strings, and similar contexts.
+    # percent-encode the bytes unsafe in cookie values, query strings, and
+    # similar contexts.
     #
     # Encoding is BY BYTE, so a multi-byte character round-trips through
     # `unescape`; a space is `%20`, not `+`, because `unescape` reads `+` back
@@ -69,8 +69,8 @@ module Tep
       out
     end
 
-    # `split_url(u)` — split a URL into a Hash keyed by "scheme", "host",
-    # "port", "path" and "query".
+    # split a URL into a Hash keyed by "scheme", "host", "port", "path" and
+    # "query".
     #
     # Recognises `http://host[:port]/path?query` and the same shape with
     # `https://`. Without a scheme the input is treated as a path (host stays
@@ -134,7 +134,7 @@ module Tep
       out
     end
 
-    # `parse_query(s)` — parse a query string into a name-keyed Hash.
+    # parse a query string into a name-keyed Hash.
     #
     # @param s [String] the raw query string, without the leading "?"
     # @return [Hash{String => String}] one entry per "&"-separated pair, names

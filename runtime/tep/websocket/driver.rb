@@ -58,7 +58,7 @@ module Tep
         write_frame(Tep::WebSocket::OPCODE_BINARY, bytes)
       end
 
-      # `ping(payload)` -- send a ping frame.
+      # send a ping frame.
       #
       # @param payload [String] must fit a control frame: 125 bytes or fewer --
       #   the size is not checked here
@@ -67,7 +67,7 @@ module Tep
         write_frame(Tep::WebSocket::OPCODE_PING, payload)
       end
 
-      # `pong(payload)` -- send a pong frame.
+      # send a pong frame.
       #
       # @param payload [String] the ping's payload carried back, as §5.5.3
       #   requires; 125 bytes or fewer
@@ -76,7 +76,7 @@ module Tep
         write_frame(Tep::WebSocket::OPCODE_PONG, payload)
       end
 
-      # `close(code, reason)` -- send a close frame.
+      # send a close frame.
       #
       # @param code [Integer] the close code to report
       # @param reason [String] truncated to 123 bytes so that code plus reason
@@ -87,8 +87,7 @@ module Tep
         write_frame(Tep::WebSocket::OPCODE_CLOSE, body)
       end
 
-      # `write_frame(opcode, payload)` -- the one path every outbound frame
-      # takes.
+      # the one path every outbound frame takes.
       #
       # The lock keeps concurrent writers from interleaving bytes on the wire,
       # and `retire` flips the closed flag under the same lock so no write can
@@ -110,8 +109,8 @@ module Tep
         r
       end
 
-      # `retire` -- the fd's owner calls this before closing the fd: a write
-      # already in flight finishes, and every later one is refused.
+      # the fd's owner calls this before closing the fd: a write already in
+      # flight finishes, and every later one is refused.
       #
       # That refusal is also how a ping thread learns to exit.
       #

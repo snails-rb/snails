@@ -16,9 +16,9 @@ require_relative "../boot"
 
 module Snails
   module SchemaLoader
-    # `reject_legacy_layout()` — refuse to load while the legacy `config/`
-    # schema layout is still on disk. A silent skip would boot on stub
-    # tables and pass every non-DB case, so the leftover files raise.
+    # refuse to load while the legacy `config/` schema layout is still on disk.
+    # A silent skip would boot on stub tables and pass every non-DB case, so the
+    # leftover files raise.
     #
     # @return [void]
     # @raise [RuntimeError] `config/schema.sql` or `config/views` exists
@@ -31,8 +31,8 @@ module Snails
       raise "stale schema layout (#{stale.join(", ")}) — snails loads db/schema.sql; move the files"
     end
 
-    # `load_tables()` — apply `db/schema.sql` through the adapter's
-    # official client; a tree with no snapshot loads nothing.
+    # apply `db/schema.sql` through the adapter's official client; a tree with
+    # no snapshot loads nothing.
     #
     # @return [void]
     # @raise [RuntimeError] the client exits non-zero — its output is the message
@@ -46,8 +46,8 @@ module Snails
     # The client pair and the target resolution below are private on purpose:
     # they serve the two entries above and are free to change without notice.
 
-    # `apply_file(path)` — run a SQL file through the adapter's official
-    # client: sqlite3 reads it on stdin, psql takes -f.
+    # run a SQL file through the adapter's official client: sqlite3 reads it on
+    # stdin, psql takes -f.
     def self.apply_file(path)
       if Sqlx::Database.owns_schema?
         run_client(["sqlite3", "-bail", sqlite_target], path)
@@ -56,11 +56,10 @@ module Snails
       end
     end
 
-    # `run_client(argv, stdin_path = nil)` — run the official client and
-    # return its stdout. Stdout and stderr share one pipe so the child can
-    # never block on a full pipe while this side waits for the other; a
-    # non-zero exit raises with that combined output (the runner's log
-    # keeps it), and a missing binary names the requirement instead of
+    # run the official client and return its stdout. Stdout and stderr share one
+    # pipe so the child can never block on a full pipe while this side waits for
+    # the other; a non-zero exit raises with that combined output (the runner's
+    # log keeps it), and a missing binary names the requirement instead of
     # leaking an OS error.
     def self.run_client(argv, stdin_path = nil)
       reader, writer = IO.pipe
@@ -83,14 +82,14 @@ module Snails
       output
     end
 
-    # `sqlite_target()` — the file sqlite3 opens, mirroring the adapter's
-    # `configure_default!` (env, else the conventional dev path).
+    # the file sqlite3 opens, mirroring the adapter's `configure_default!` (env,
+    # else the conventional dev path).
     def self.sqlite_target
       path = ENV["DATABASE_PATH"]
       path.nil? || path.empty? ? "storage/development.sqlite3" : path
     end
 
-    # `pg_target()` — the conninfo `configure_default!` already required.
+    # the conninfo `configure_default!` already required.
     def self.pg_target
       ENV["PG_URL"]
     end

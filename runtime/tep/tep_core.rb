@@ -1,5 +1,5 @@
 module Tep
-  # `display_name` — the name the server announces itself by.
+  # the name the server announces itself by.
   #
   # The app records its name before the server starts, so a binary started
   # without one falls back to its file name.
@@ -11,7 +11,7 @@ module Tep
     n.length > 0 ? n : File.basename($PROGRAM_NAME)
   end
 
-  # `os_workers_desc` — the banner's line about OS workers.
+  # the banner's line about OS workers.
   #
   # The runtime exposes no accessor for the effective count, so the banner
   # reports the declaration, never a measurement.
@@ -27,9 +27,8 @@ module Tep
     end
   end
 
-  # `processes_desc(workers)` — the banner's line about worker processes;
-  # `--workers N` preforks N processes, so the flag is named only when it is
-  # in effect.
+  # the banner's line about worker processes; `--workers N` preforks N
+  # processes, so the flag is named only when it is in effect.
   #
   # @param workers [Integer] the requested `--workers N` count
   # @return [String] "N (--workers)" when more than one process, else "1"
@@ -82,8 +81,8 @@ module Tep
     end
   end
 
-  # `str_find(s, needle, start)` — naive substring search returning the
-  # position of `needle` in `s` starting from `start`.
+  # naive substring search returning the position of `needle` in `s` starting
+  # from `start`.
   #
   # It answers an int rather than `String#index`'s int|nil: callers compare
   # with `if x < 0`, and an int comparison cannot narrow against an int|nil.

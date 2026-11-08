@@ -1,14 +1,13 @@
 # frozen_string_literal: true
 
-# `Snails::Logger::RecordFormatter` — render one structured record as a
-# single local line. The prefix matches the default formatter; the message is
-# `event.name=…`, the record fields, exception fields, and the body. Newlines
-# in bodies, stacktraces, and field values are escaped so one record never
-# becomes two lines in a local log.
+# render one structured record as a single local line. The prefix matches the
+# default formatter; the message is `event.name=…`, the record fields, exception
+# fields, and the body. Newlines in bodies, stacktraces, and field values are
+# escaped so one record never becomes two lines in a local log.
 module Snails
   class Logger
     class RecordFormatter
-      # `call(record, progname)` — the local line for one record.
+      # the local line for one record.
       #
       # @param record [Record] the record to render
       # @param progname [String] the service name between `--` and `:`

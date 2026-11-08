@@ -7,9 +7,9 @@
 module Tep
   module WebSocket
     class Handshake
-      # `check(req)` — whether this request may upgrade to a WebSocket.
-      # The verdict arrives as a value: a rejection fills `reason` instead
-      # of raising, so the caller answers it.
+      # whether this request may upgrade to a WebSocket. The verdict arrives as
+      # a value: a rejection fills `reason` instead of raising, so the caller
+      # answers it.
       #
       # @param req [Tep::Request] the request under test
       # @return [Result] `valid`, plus `reason` on a rejection or
@@ -61,8 +61,7 @@ module Tep
         out
       end
 
-      # `build_response(accept_key, protocol)` -- the raw HTTP/1.1 101 bytes
-      # that accept the upgrade.
+      # the raw HTTP/1.1 101 bytes that accept the upgrade.
       #
       # @param accept_key [String] the Sec-WebSocket-Accept value from `check`
       # @param protocol [String] the chosen subprotocol; empty omits

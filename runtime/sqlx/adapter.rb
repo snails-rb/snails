@@ -10,10 +10,10 @@
 # Kept apart from `base.rb`: the transaction uses begin/ensure, so it rides
 # on its own file.
 module Sqlx
-  # `Sqlx.quote(value)` — a full SQL literal, quotes included for
-  # strings. Callers assembling a statement by hand splice this in. A
-  # value written this way is INLINE, not bound, so `Query#write` is
-  # the safer default for anything that arrived from a request.
+  # a full SQL literal, quotes included for strings. Callers assembling a
+  # statement by hand splice this in. A value written this way is INLINE, not
+  # bound, so `Query#write` is the safer default for anything that arrived from
+  # a request.
   #
   # A Time renders in the runtime's stored form — the same form the adapter
   # binds a Time in — so a literal and a bound value compare the same way.
@@ -34,9 +34,9 @@ module Sqlx
     Sqlx::Database.quote(value)
   end
 
-  # `Sqlx.adapter_name` — the dialect the running adapter speaks. Apps
-  # branch on it to pick SQL a dialect understands; each adapter answers
-  # its own name through `Sqlx::Database`.
+  # the dialect the running adapter speaks. Apps branch on it to pick SQL a
+  # dialect understands; each adapter answers its own name through
+  # `Sqlx::Database`.
   #
   # @return [String] the adapter's name ("SQLite", "PostgreSQL")
   def self.adapter_name
@@ -46,16 +46,15 @@ end
 
 module Sqlx
   class Base
-    # `Sqlx::Base.transaction { ... }` — the block inside BEGIN/COMMIT,
-    # with ROLLBACK + re-raise on any exception. The rollback covers
-    # `Exception`, not just `StandardError`: a `ScriptError` or a signal
-    # escaping the block must not leave the transaction open on a pooled
-    # connection — the next lease would run inside it and keep its write
-    # lock. The `ensure` runs on every exit path, including a failing
-    # COMMIT. A lost connection has nothing left to roll back, so its
-    # `ConnectionFailed` must not replace the error that ended the block.
-    # Flat transactions only: a nested BEGIN would error in SQLite rather
-    # than silently join, which is the honest failure.
+    # the block inside BEGIN/COMMIT, with ROLLBACK + re-raise on any exception.
+    # The rollback covers `Exception`, not just `StandardError`: a `ScriptError`
+    # or a signal escaping the block must not leave the transaction open on a
+    # pooled connection — the next lease would run inside it and keep its write
+    # lock. The `ensure` runs on every exit path, including a failing COMMIT. A
+    # lost connection has nothing left to roll back, so its `ConnectionFailed`
+    # must not replace the error that ended the block. Flat transactions only: a
+    # nested BEGIN would error in SQLite rather than silently join, which is the
+    # honest failure.
     #
     # @return [Object] the block's value; an exception rolls the
     #   transaction back and is re-raised

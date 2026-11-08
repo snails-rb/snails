@@ -1,7 +1,6 @@
-# `Snails::Duration` — a seconds-based span, the value the `Integer` time
-# units (`7.days`) return. days/hours/minutes/weeks are exact; months and
-# years use average lengths (a month is 1/12 of a 365.2425-day year), so
-# `1.month` is not a calendar month.
+# a seconds-based span, the value the `Integer` time units (`7.days`) return.
+# days/hours/minutes/weeks are exact; months and years use average lengths (a
+# month is 1/12 of a 365.2425-day year), so `1.month` is not a calendar month.
 module Snails
   class Duration
     SECONDS_PER_MINUTE = 60
@@ -15,9 +14,8 @@ module Snails
       @seconds = seconds
     end
 
-    # `seconds(n)` … `years(n)` — a span of `n` units. The singular and
-    # plural spellings build the same value; months and years use the
-    # average constants above.
+    # a span of `n` units. The singular and plural spellings build the same
+    # value; months and years use the average constants above.
     #
     # @param n [Integer] the unit count
     # @return [Duration] the span
@@ -85,7 +83,7 @@ module Snails
       new(n * SECONDS_PER_YEAR)
     end
 
-    # `ago()` — the instant this span before now; `until()` is its twin.
+    # the instant this span before now; `until()` is its twin.
     #
     # @return [Time] the current UTC instant shifted back
     def ago
@@ -96,7 +94,7 @@ module Snails
       Time.now.utc - @seconds
     end
 
-    # `from_now()` — the instant this span after now; `since()` is its twin.
+    # the instant this span after now; `since()` is its twin.
     #
     # @return [Time] the current UTC instant shifted forward
     def from_now
@@ -115,23 +113,23 @@ module Snails
       @seconds.to_f
     end
 
-    # `to_s()` — the span as its seconds count (`30.minutes.to_s` is
-    # `"1800"`), which is also what string interpolation prints.
+    # the span as its seconds count (`30.minutes.to_s` is `"1800"`), which is
+    # also what string interpolation prints.
     #
     # @return [String] the seconds count
     def to_s
       @seconds.to_s
     end
 
-    # `seconds()` — the span in seconds.
+    # the span in seconds.
     #
     # @return [Integer] the stored seconds count
     def seconds
       @seconds
     end
 
-    # `==(other)` — value equality: equal to another Duration or to its own
-    # seconds count (`1.year == 31556952`).
+    # value equality: equal to another Duration or to its own seconds count
+    # (`1.year == 31556952`).
     #
     # @param other [Object] a Duration or a seconds count
     # @return [Boolean] true when both sides hold the same seconds
@@ -139,9 +137,9 @@ module Snails
       other.is_a?(Duration) ? @seconds == other.seconds : @seconds == other
     end
 
-    # `<=>(other)` and the four comparisons — order against another Duration
-    # or a raw seconds count. Spelled out rather than mixed in from
-    # `Comparable` so every operator is a plain method on this value.
+    # order against another Duration or a raw seconds count. Spelled out rather
+    # than mixed in from `Comparable` so every operator is a plain method on
+    # this value.
     #
     # @param other [Object] a Duration or a seconds count
     # @return [Integer, nil] -1, 0, or 1; nil when the other side cannot be

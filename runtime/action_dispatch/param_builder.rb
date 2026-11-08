@@ -20,7 +20,7 @@ module ActionDispatch
     class Invalid < StandardError
     end
 
-    # `build(keys, values, present)` — the nested params for the pairs.
+    # the nested params for the pairs.
     #
     # @param keys [Array<String>] the decoded parameter names
     # @param values [Array<String>] the decoded values ("" where the pair
@@ -42,8 +42,7 @@ module ActionDispatch
       nil
     end
 
-    # `from_query_string(s)` — a query string (or an urlencoded body)
-    # straight to the nested params.
+    # a query string (or an urlencoded body) straight to the nested params.
     #
     # @param s [String] the raw query string
     # @return [Hash] the nested params; nil where the input is a 400

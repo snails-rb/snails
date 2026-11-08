@@ -41,15 +41,15 @@ module Sqlx
     # boot code and single-fiber tests keep the fallback.
     @lease_required = false
 
-    # `with_connection { ... }` — run the block inside a connection lease scope
-    # and hand back its value. The scope does not touch the pool by itself: the
-    # first database access checks a connection out (see `ensure_connection`),
-    # so a request, job, or log hand-off that never reaches the database never
-    # leases a connection. A thread already inside a scope re-enters it: the
-    # outer connection and request cache carry on, so a nested block can neither
-    # rebind nor unbind its outer scope. Before `configure` there is nothing to
-    # lease, so the block runs without a cache; a database access inside still
-    # fails loudly on the absent connection.
+    # run the block inside a connection lease scope and hand back its value. The
+    # scope does not touch the pool by itself: the first database access checks
+    # a connection out (see `ensure_connection`), so a request, job, or log
+    # hand-off that never reaches the database never leases a connection. A
+    # thread already inside a scope re-enters it: the outer connection and
+    # request cache carry on, so a nested block can neither rebind nor unbind
+    # its outer scope. Before `configure` there is nothing to lease, so the
+    # block runs without a cache; a database access inside still fails loudly on
+    # the absent connection.
     #
     # @return [Object] the block's value
     def self.with_connection
@@ -74,12 +74,11 @@ module Sqlx
       result
     end
 
-    # `ensure_connection()` — the connection for this thread, checking one out
-    # of the pool on first use inside a lease scope. Outside a scope it answers
-    # nil; the caller either falls back (single-fiber contexts before
-    # `require_leases!`) or raises. A scope with no database access never
-    # reaches this method, which is what keeps `/up` and other no-DB requests
-    # off the pool.
+    # the connection for this thread, checking one out of the pool on first use
+    # inside a lease scope. Outside a scope it answers nil; the caller either
+    # falls back (single-fiber contexts before `require_leases!`) or raises. A
+    # scope with no database access never reaches this method, which is what
+    # keeps `/up` and other no-DB requests off the pool.
     #
     # @return [untyped, nil] the leased connection, or nil outside a scope
     def self.ensure_connection
@@ -97,20 +96,20 @@ module Sqlx
       conn
     end
 
-    # `in_lease?()` — whether this thread is inside a `with_connection` scope.
-    # The scope is open even before the first database access; callers use it
-    # to avoid opening a nested scope that would rebind the outer one.
+    # whether this thread is inside a `with_connection` scope. The scope is open
+    # even before the first database access; callers use it to avoid opening a
+    # nested scope that would rebind the outer one.
     #
     # @return [Boolean] true when the thread is inside a lease scope
     def self.in_lease?
       !Thread.current[:db_lease_scope].nil? || !Thread.current[:db_conn].nil?
     end
 
-    # `require_leases!()` — require a `with_connection` scope for every database
-    # access from here on. A server process (the scheduler, worker threads, and
-    # one thread per client connection) may otherwise reach a shared connection
-    # another thread holds mid-transaction. The fallback stays for single-fiber
-    # contexts (boot, tests, one-shot dev commands).
+    # require a `with_connection` scope for every database access from here on.
+    # A server process (the scheduler, worker threads, and one thread per client
+    # connection) may otherwise reach a shared connection another thread holds
+    # mid-transaction. The fallback stays for single-fiber contexts (boot,
+    # tests, one-shot dev commands).
     #
     # @return [void]
     def self.require_leases!

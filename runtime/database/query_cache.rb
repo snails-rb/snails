@@ -24,8 +24,8 @@ module Sqlx
   # write that lands while the read is in flight cannot publish pre-write rows
   # under the new generation.
   class QueryCacheEntry
-    # `initialize(generation, rows)` — one cached SELECT result: the rows and
-    # the cache generation the read started in.
+    # one cached SELECT result: the rows and the cache generation the read
+    # started in.
     #
     # @param generation [Integer] the generation captured before the read
     #   executed
@@ -36,14 +36,14 @@ module Sqlx
       @rows = rows
     end
 
-    # `generation()` — the cache generation the entry belongs to.
+    # the cache generation the entry belongs to.
     #
     # @return [Integer] the process cache generation at store time
     def generation
       @generation
     end
 
-    # `rows()` — the cached name-keyed rows.
+    # the cached name-keyed rows.
     #
     # @return [Array] one name-keyed row per cached result row
     def rows
@@ -61,17 +61,16 @@ module Sqlx
     # The per-request entry cap; past it new statements ride uncached.
     ENTRIES = 128
 
-    # `initialize()` — an empty read cache for one request scope.
+    # an empty read cache for one request scope.
     #
     # @return [void]
     def initialize
       @entries = {}
     end
 
-    # `fetch_cached_rows(key, generation)` — the cached rows for `key` when
-    # the entry was stored under the same cache generation, else nil. Rows are
-    # copied out so a caller mutating a returned row cannot change what a
-    # later hit replays.
+    # the cached rows for `key` when the entry was stored under the same cache
+    # generation, else nil. Rows are copied out so a caller mutating a returned
+    # row cannot change what a later hit replays.
     #
     # @param key [String] the statement's cache key — SQL plus its bind values
     # @param generation [Integer] the cache generation the read started in
@@ -87,10 +86,10 @@ module Sqlx
       copy_rows(entry.rows)
     end
 
-    # `store_cached_rows(key, rows, generation)` — cache a completed result.
-    # A result larger than ROWS is skipped, as is a new key once the cache is
-    # full. The adapter checks the generation immediately before this call, so
-    # an entry that races a write is never published under the new generation.
+    # cache a completed result. A result larger than ROWS is skipped, as is a
+    # new key once the cache is full. The adapter checks the generation
+    # immediately before this call, so an entry that races a write is never
+    # published under the new generation.
     #
     # @param key [String] the statement's cache key — SQL plus its bind values
     # @param rows [Array] one name-keyed row per result row
@@ -104,9 +103,8 @@ module Sqlx
       @entries[key] = QueryCacheEntry.new(generation, copy_rows(rows))
     end
 
-    # `clear_cached_rows()` — drop every entry. The generation check already
-    # makes them unreachable; clearing releases the rows now instead of at
-    # lease end.
+    # drop every entry. The generation check already makes them unreachable;
+    # clearing releases the rows now instead of at lease end.
     #
     # @return [void]
     # @example
@@ -145,27 +143,25 @@ module Sqlx
     @query_cache_generation = 0
     @query_cache_lock = Mutex.new
 
-    # `query_cache_begin()` — open a fresh cache for this scope. Called when
-    # the outermost scope first checks a connection out; a nested scope shares
-    # the outer cache.
+    # open a fresh cache for this scope. Called when the outermost scope first
+    # checks a connection out; a nested scope shares the outer cache.
     #
     # @return [void]
     def self.query_cache_begin
       Thread.current[:sqlx_query_cache] = QueryCache.new
     end
 
-    # `query_cache_end()` — drop this scope's cache. The rows are request
-    # scoped; nothing survives the outermost scope.
+    # drop this scope's cache. The rows are request scoped; nothing survives the
+    # outermost scope.
     #
     # @return [void]
     def self.query_cache_end
       Thread.current[:sqlx_query_cache] = nil
     end
 
-    # `query_cache_clear()` — invalidate every thread's entries after a write
-    # or DDL. The generation bump is serialized: two writes landing together
-    # must not collapse into one value and leave a pre-write entry looking
-    # current.
+    # invalidate every thread's entries after a write or DDL. The generation
+    # bump is serialized: two writes landing together must not collapse into one
+    # value and leave a pre-write entry looking current.
     #
     # @return [void]
     def self.query_cache_clear
@@ -176,9 +172,8 @@ module Sqlx
       cache.clear_cached_rows unless cache.nil?
     end
 
-    # `query_cache_fetch(key, generation)` — the cached rows for the statement
-    # when this lease stored them under the same generation, else nil. A
-    # thread outside a scope has no cache.
+    # the cached rows for the statement when this lease stored them under the
+    # same generation, else nil. A thread outside a scope has no cache.
     #
     # @return [Array, nil]
     def self.query_cache_fetch(key, generation)
@@ -187,10 +182,9 @@ module Sqlx
       cache.fetch_cached_rows(key, generation)
     end
 
-    # `query_cache_store(key, rows, generation)` — cache a completed result
-    # when the generation is still the one the read started in. A write that
-    # landed while the read ran leaves the result uncached instead of
-    # publishing stale rows under the new generation.
+    # cache a completed result when the generation is still the one the read
+    # started in. A write that landed while the read ran leaves the result
+    # uncached instead of publishing stale rows under the new generation.
     #
     # @return [void]
     def self.query_cache_store(key, rows, generation)
@@ -200,11 +194,10 @@ module Sqlx
       cache.store_cached_rows(key, rows, generation)
     end
 
-    # `select_read?(sql)` — whether `sql` is a plain SELECT this cache may
-    # hold. A locking read is not cached, and a WITH query or a write stays
-    # uncached too: this is a keyword check for the reads core emits, not a
-    # SQL parser. SQLite has no locking reads, so the checks there are
-    # harmless no-ops.
+    # whether `sql` is a plain SELECT this cache may hold. A locking read is not
+    # cached, and a WITH query or a write stays uncached too: this is a keyword
+    # check for the reads core emits, not a SQL parser. SQLite has no locking
+    # reads, so the checks there are harmless no-ops.
     #
     # @return [Boolean]
     def self.select_read?(sql)
@@ -227,9 +220,9 @@ module Sqlx
       true
     end
 
-    # `record_cache_hit(sql)` — the trace line for a replay. It logs the
-    # statement as written (placeholders, not values), so the cache key's
-    # bound values never reach the log.
+    # the trace line for a replay. It logs the statement as written
+    # (placeholders, not values), so the cache key's bound values never reach
+    # the log.
     #
     # @return [void]
     def self.record_cache_hit(sql)

@@ -61,8 +61,8 @@ module Tep
     def self.sphttp_poll_ready(slot);         Sock.sp_net_poll_ready(slot);         end
     def self.sphttp_shell_capture(cmd, n);    Sock.sp_net_shell_capture(cmd, n);    end
 
-    # `sphttp_now_us()` — a reading of the native monotonic clock
-    # (Process.clock_gettime), in microseconds.
+    # a reading of the native monotonic clock (Process.clock_gettime), in
+    # microseconds.
     #
     # @return [Integer] microseconds since an unspecified fixed point
     def self.sphttp_now_us
@@ -72,10 +72,9 @@ module Tep
     # ── Protocol/IO helpers implemented in Ruby on sp_net + File ──
     # Kept under the `sphttp_*` names so call sites stay unchanged.
 
-    # `sphttp_filesize(path)` — the file size the caller advertises as
-    # Content-Length; it must equal what `sphttp_sendfile` writes, or a
-    # multibyte asset truncates. The file is read whole, so small static
-    # assets only.
+    # the file size the caller advertises as Content-Length; it must equal what
+    # `sphttp_sendfile` writes, or a multibyte asset truncates. The file is read
+    # whole, so small static assets only.
     #
     # @return [Integer] the byte count, or -1 when the path does not
     #   exist (callers 404 on `< 0`)
@@ -86,11 +85,10 @@ module Tep
       File.size(path)
     end
 
-    # `sphttp_sendfile(fd, path)` — read a static file (binary-safe) and
-    # write its bytes; the caller has already emitted the headers and
-    # checked existence via `sphttp_filesize`. The write counts bytes,
-    # not characters, so it matches the advertised Content-Length and a
-    # multibyte asset does not truncate.
+    # read a static file (binary-safe) and write its bytes; the caller has
+    # already emitted the headers and checked existence via `sphttp_filesize`.
+    # The write counts bytes, not characters, so it matches the advertised
+    # Content-Length and a multibyte asset does not truncate.
     #
     # @return [void]
     def self.sphttp_sendfile(fd, path)
@@ -101,9 +99,9 @@ module Tep
       Sock.sp_net_write_bytes(fd, data, data.bytesize)
     end
 
-    # `sphttp_write_chunk(fd, s)` — write one Transfer-Encoding chunk:
-    # hex byte size + CRLF, the data, CRLF. The size counts bytes, not
-    # characters, so a multibyte payload frames correctly.
+    # write one Transfer-Encoding chunk: hex byte size + CRLF, the data, CRLF.
+    # The size counts bytes, not characters, so a multibyte payload frames
+    # correctly.
     #
     # @return [void]
     def self.sphttp_write_chunk(fd, s)
@@ -112,8 +110,7 @@ module Tep
       Sock.sp_net_write_str(fd, "\r\n")
     end
 
-    # `sphttp_write_chunk_end(fd)` — write the chunked-encoding
-    # terminator: the zero-length chunk.
+    # write the chunked-encoding terminator: the zero-length chunk.
     #
     # @return [void]
     def self.sphttp_write_chunk_end(fd)

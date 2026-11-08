@@ -14,22 +14,22 @@ module ActiveJob
     # process.
     POLL_INTERVAL = 0.05
 
-    # `run()` — the drain loop: poll, run one drain, and repeat. The launcher
-    # spawns one of these per worker thread; `register_executor` flips `enqueue`
-    # from call-site execution to queueing, and this loop is what makes the
-    # queue real. It executes one-off, delayed, and recurring jobs alike (the
+    # the drain loop: poll, run one drain, and repeat. The launcher spawns one
+    # of these per worker thread; `register_executor` flips `enqueue` from
+    # call-site execution to queueing, and this loop is what makes the queue
+    # real. It executes one-off, delayed, and recurring jobs alike (the
     # scheduler only enqueues the last). `WORKER_CONCURRENCY` runs more side by
     # side — the adapter's claim is atomic so rows are split between them, but
     # the global FIFO order is only guaranteed at one. Each worker thread holds
     # its own Sqlx::Database lease, so `DATABASE_POOL_SIZE` must cover worker
     # threads plus request threads. The loop holds no queue knowledge: each
-    # iteration asks whether a drain is due (`drain_due?` — the process queue
-    # is due when work is waiting, the DB adapter samples its rows ~1s) and
-    # drains through the same slot. A job runs outside any request's
+    # iteration asks whether a drain is due (`drain_due?` — the process queue is
+    # due when work is waiting, the DB adapter samples its rows ~1s) and drains
+    # through the same slot. A job runs outside any request's
     # `Sqlx::Database.with_connection`, so touching a model without one would
-    # borrow whichever handle a request happened to be using. Nothing is
-    # retried and nothing survives a restart on the process-local queue; the
-    # DB rows are the restart-surviving half.
+    # borrow whichever handle a request happened to be using. Nothing is retried
+    # and nothing survives a restart on the process-local queue; the DB rows are
+    # the restart-surviving half.
     #
     # @return [void]
     def self.run

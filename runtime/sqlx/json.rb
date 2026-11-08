@@ -12,10 +12,9 @@
 # already uses for a bad argument.
 module Sqlx
   module Json
-    # `Sqlx::Json.encodable?(value)` — whether JSON can represent this
-    # value on its own terms: nil, true/false, a String, a finite
-    # number, or a nested Array/Hash of those (Hash keys may be Symbols;
-    # they read back as Strings). This is the predicate `encode`
+    # whether JSON can represent this value on its own terms: nil, true/false, a
+    # String, a finite number, or a nested Array/Hash of those (Hash keys may be
+    # Symbols; they read back as Strings). This is the predicate `encode`
     # enforces, exposed because it is the precondition a caller holding
     # untrusted input asks BEFORE putting the value in a column — the
     # `label?`-beside-`label` shape.
@@ -51,11 +50,10 @@ module Sqlx
       false
     end
 
-    # `Sqlx::Json.encode(value)` — the logical value a column holds: nil
-    # is SQL NULL and everything else is JSON text, so `decode` reads it
-    # back equal. A value JSON cannot represent raises instead of being
-    # `to_s`d into the column — a Time never arrives as text by
-    # accident. JSON `null` is not distinguishable from SQL NULL here: a
+    # the logical value a column holds: nil is SQL NULL and everything else is
+    # JSON text, so `decode` reads it back equal. A value JSON cannot represent
+    # raises instead of being `to_s`d into the column — a Time never arrives as
+    # text by accident. JSON `null` is not distinguishable from SQL NULL here: a
     # caller that needs the literal writes it directly.
     #
     # @param value [Object] the logical value; nil for an absent column
@@ -74,12 +72,11 @@ module Sqlx
       JSON.generate(value)
     end
 
-    # `Sqlx::Json.decode(text)` — the logical value a column holds: nil
-    # is SQL NULL and a String is the serialized text. Anything else is
-    # a caller bug — the logical value is already in hand, so there is
-    # nothing to decode, and guessing would hide it. Malformed text
-    # raises through the same door (see the file header for why the
-    # parser's own class stays inside).
+    # the logical value a column holds: nil is SQL NULL and a String is the
+    # serialized text. Anything else is a caller bug — the logical value is
+    # already in hand, so there is nothing to decode, and guessing would hide
+    # it. Malformed text raises through the same door (see the file header for
+    # why the parser's own class stays inside).
     #
     # @param text [Object] the stored column value; nil for SQL NULL
     # @return [Object] the decoded Hash/Array/scalar, or nil for SQL NULL

@@ -21,7 +21,7 @@ module Snails
         confirmation: "doesn't match %{attribute}",
       }
 
-      # `initialize(form)` — start the list on its owning form.
+      # start the list on its owning form.
       #
       # @param form [Snails::Form] the owning form (message scope and
       #   attribute display names come from it)
@@ -31,9 +31,8 @@ module Snails
         @entries = []
       end
 
-      # `add(attribute, message, **options)` — append one error.
-      # `message` is display text, or a Symbol key resolved under the
-      # form's message scope; `**options` are interpolation values for
+      # append one error. `message` is display text, or a Symbol key resolved
+      # under the form's message scope; `**options` are interpolation values for
       # that message (`count:`, `attribute:`).
       #
       # @param attribute [Symbol] a declared field, or `:base` for an
@@ -60,16 +59,16 @@ module Snails
         @entries << [ attribute, text, full ]
       end
 
-      # `full_messages` — the display strings, in error order (the
-      # ordered list an HTTP 422 detail ships).
+      # the display strings, in error order (the ordered list an HTTP 422 detail
+      # ships).
       #
       # @return [Array[String]]
       def full_messages
         @entries.map { |entry| entry[2] }
       end
 
-      # `join(separator)` — `full_messages.join`: the one call a
-      # response body needs (`errors.join("\n")`).
+      # `full_messages.join`: the one call a response body needs
+      # (`errors.join("\n")`).
       #
       # @param separator [String] the joiner
       # @return [String]
@@ -77,31 +76,30 @@ module Snails
         full_messages.join(separator)
       end
 
-      # `empty?` — no errors recorded.
+      # no errors recorded.
       #
       # @return [bool]
       def empty?
         @entries.empty?
       end
 
-      # `any?` — at least one error recorded.
+      # at least one error recorded.
       #
       # @return [bool]
       def any?
         !@entries.empty?
       end
 
-      # `size` — how many errors are recorded.
+      # how many errors are recorded.
       #
       # @return [Integer]
       def size
         @entries.length
       end
 
-      # `on(attribute)` — the raw (unprefixed) messages recorded for
-      # one attribute. A non-Symbol name is a caller bug: it would
-      # answer an empty list for a field that does have messages, so
-      # the entry guard is loud here as well.
+      # the raw (unprefixed) messages recorded for one attribute. A non-Symbol
+      # name is a caller bug: it would answer an empty list for a field that
+      # does have messages, so the entry guard is loud here as well.
       #
       # @param attribute [Symbol] the attribute
       # @return [Array[String]]

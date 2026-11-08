@@ -3,8 +3,8 @@
 # through `body_error_status`/`body_error_message`, and every server process
 # leaves one `process.started` record via `log_process_started`.
 module Tep
-  # `reason(status)` — the reason phrase for a status line. Codes this
-  # server spells out answer their phrase; any other code answers "OK".
+  # the reason phrase for a status line. Codes this server spells out answer
+  # their phrase; any other code answers "OK".
   #
   # @param status [Integer] the response status code
   # @return [String] the reason phrase, "OK" when the code is not listed
@@ -25,8 +25,8 @@ module Tep
     "OK"
   end
 
-  # `body_error_status(outcome)` — the response status for a body drain
-  # outcome the server must answer. `:ok` never reaches here.
+  # the response status for a body drain outcome the server must answer. `:ok`
+  # never reaches here.
   #
   # @param outcome [Symbol] :too_large, :timeout, or :incomplete
   # @return [Integer] 413, 408, or 400
@@ -36,8 +36,7 @@ module Tep
     400
   end
 
-  # `body_error_message(outcome)` — the one-line client message that pairs
-  # with `body_error_status`.
+  # the one-line client message that pairs with `body_error_status`.
   #
   # @param outcome [Symbol] :too_large, :timeout, or :incomplete
   # @return [String] the message for the response body
@@ -47,10 +46,10 @@ module Tep
     "incomplete request body"
   end
 
-  # `log_process_started(port, workers)` — the one `process.started` record
-  # each server process leaves after any prefork. The record carries the
-  # listener and backend fields; the app, environment, pid, and core version
-  # ride as resource attributes, so the local line stays short.
+  # the one `process.started` record each server process leaves after any
+  # prefork. The record carries the listener and backend fields; the app,
+  # environment, pid, and core version ride as resource attributes, so the local
+  # line stays short.
   #
   # @param port [Integer] the listening port
   # @param workers [Integer] the prefork process count

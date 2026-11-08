@@ -37,9 +37,9 @@ class Hash
     out
   end
 
-  # `deep_transform_keys { |key| ... }` — a new Hash with the block
-  # applied to every key at every depth; Arrays are walked element-wise
-  # and non-collection values pass through. The receiver is untouched.
+  # a new Hash with the block applied to every key at every depth; Arrays are
+  # walked element-wise and non-collection values pass through. The receiver is
+  # untouched.
   #
   # @return [Hash] a new Hash with the transformed keys
   # @example
@@ -50,11 +50,10 @@ class Hash
     deep_transform(self, &block)
   end
 
-  # `deep_transform_keys! { |key| ... }` — the same transform. Typed
-  # hashes cannot widen in place in this runtime, so the answer is a NEW
-  # Hash and the receiver keeps its old keys: callers must use the return
-  # value (the bang name mirrors the non-bang method; the value is the
-  # contract).
+  # the same transform. Typed hashes cannot widen in place in this runtime, so
+  # the answer is a NEW Hash and the receiver keeps its old keys: callers must
+  # use the return value (the bang name mirrors the non-bang method; the value
+  # is the contract).
   #
   # @return [Hash] a new Hash with the transformed keys
   # @example
@@ -64,10 +63,10 @@ class Hash
     deep_transform_keys(&block)
   end
 
-  # `to_query(namespace = nil)` — the query string rendered for
-  # `key: value` options: a scalar becomes `key=value`, a nil value
-  # renders its key alone, a nested Hash becomes `outer[inner]`, and a
-  # scalar Array repeats `key[]`. Pairs sort at each level.
+  # the query string rendered for `key: value` options: a scalar becomes
+  # `key=value`, a nil value renders its key alone, a nested Hash becomes
+  # `outer[inner]`, and a scalar Array repeats `key[]`. Pairs sort at each
+  # level.
   #
   # Not modeled, and loud when reached: an Array carrying a Hash or an
   # Array element, and a top-level Array (`Array#to_query`). A non-ASCII

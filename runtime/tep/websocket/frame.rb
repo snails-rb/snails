@@ -14,8 +14,8 @@ module Tep
         @payload = payload
       end
 
-      # `encode_unmasked` -- the unmasked server-side wire bytes for this
-      # frame, using the shortest length form that fits.
+      # the unmasked server-side wire bytes for this frame, using the shortest
+      # length form that fits.
       #
       # The header is assembled as byte values and emitted with `pack("C*")`
       # because the 16-bit length form has a `0x00` high byte for any
@@ -53,10 +53,9 @@ module Tep
         (n & 0xff).chr
       end
 
-      # `Frame.parse_from_buf(s, start, avail)` -- parse one frame out of the
-      # bytes received so far. Byte reads use `String#getbyte`, which sees the
-      # 0x00 high byte of the 16-bit length form regardless of the payload's
-      # content.
+      # parse one frame out of the bytes received so far. Byte reads use
+      # `String#getbyte`, which sees the 0x00 high byte of the 16-bit length
+      # form regardless of the payload's content.
       #
       # @param s [String] binary String of received bytes
       # @param start [Integer] the byte offset to begin at

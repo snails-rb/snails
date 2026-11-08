@@ -4,18 +4,17 @@ require "json"
 # servers' body drains complete the body before dispatch.
 module Tep
   class Request
-    # `MAX_BODY_BYTES` — the transport's own body cap. 8 MiB follows the
-    # application-level default Plug/Phoenix uses (8 MB); nginx (1 MiB),
-    # Django (2.5 MB), and Express (100 KB) are stricter, ASP.NET Core (30 MB)
-    # is looser. A larger Content-Length is refused with 413 before any of it
-    # is read, so one client cannot pin a worker by advertising a body the
-    # server would hold in memory.
+    # the transport's own body cap. 8 MiB follows the application-level default
+    # Plug/Phoenix uses (8 MB); nginx (1 MiB), Django (2.5 MB), and Express (100
+    # KB) are stricter, ASP.NET Core (30 MB) is looser. A larger Content-Length
+    # is refused with 413 before any of it is read, so one client cannot pin a
+    # worker by advertising a body the server would hold in memory.
     MAX_BODY_BYTES = 8 * 1024 * 1024
 
-    # `BODY_READ_TIMEOUT` — the whole-body read deadline in seconds. 30s
-    # matches Puma's first-data timeout and Gunicorn's worker timeout; Plug's
-    # 15s per-read and nginx's 60s per-read bracket it. The deadline covers
-    # every recv of one body, not one recv.
+    # the whole-body read deadline in seconds. 30s matches Puma's first-data
+    # timeout and Gunicorn's worker timeout; Plug's 15s per-read and nginx's 60s
+    # per-read bracket it. The deadline covers every recv of one body, not one
+    # recv.
     BODY_READ_TIMEOUT = 30
 
     # The drain answers :ok, :too_large, :timeout, or :incomplete; the server
@@ -30,13 +29,12 @@ module Tep
     # out of the controller's nested poly hash. Same reasoning as
     # req_headers.
     attr_accessor :req_params, :query, :req_headers, :raw_body, :cookies
-    # `raw_query` — the query string as it arrived; `body_fields` — the
-    # body's fields by name (multipart text parts, and JSON leaves
-    # flattened the same way). `Snails::Main.request_params` builds the
-    # controller's params from both
-    # (runtime/action_dispatch/param_builder.rb), because the flat
-    # hashes declared above keep only a repeated key's last value and
-    # cannot say `ids[]=1&ids[]=2`.
+    # the query string as it arrived; `body_fields` — the body's fields by name
+    # (multipart text parts, and JSON leaves flattened the same way).
+    # `Snails::Main.request_params` builds the controller's params from both
+    # (runtime/action_dispatch/param_builder.rb), because the flat hashes
+    # declared above keep only a repeated key's last value and cannot say
+    # `ids[]=1&ids[]=2`.
     #
     # @return [String, Hash{String => String}] the raw query string, then
     #   the body's fields
@@ -78,10 +76,10 @@ module Tep
     # would collide with controller#body through spinel's polymorphic
     # dispatch.
 
-    # `keep_alive?()` — whether the connection stays open after this
-    # response. Spinel's Hash[k] returns "" for a missing string key
-    # rather than nil, so an empty Connection header reads the same as
-    # no header at all; both mean "use the HTTP/1.1 default".
+    # whether the connection stays open after this response. Spinel's Hash[k]
+    # returns "" for a missing string key rather than nil, so an empty
+    # Connection header reads the same as no header at all; both mean "use the
+    # HTTP/1.1 default".
     #
     # @return [Boolean] false on `Connection: close`, true on
     #   `Connection: keep-alive`, otherwise the HTTP/1.1 default (true
@@ -97,12 +95,12 @@ module Tep
       @http_version == "HTTP/1.1"
     end
 
-    # `content_length()` — the advertised body length in bytes. The parser
-    # rejects a non-digit or duplicated header, so a value here is a run of
-    # ASCII digits. The parse clamps at `MAX_BODY_BYTES + 1`: a larger body is
-    # refused before reading, and the clamp keeps a very long digit run from
-    # overflowing the parse. A non-digit value fails closed to the same
-    # sentinel rather than silently reading as zero.
+    # the advertised body length in bytes. The parser rejects a non-digit or
+    # duplicated header, so a value here is a run of ASCII digits. The parse
+    # clamps at `MAX_BODY_BYTES + 1`: a larger body is refused before reading,
+    # and the clamp keeps a very long digit run from overflowing the parse. A
+    # non-digit value fails closed to the same sentinel rather than silently
+    # reading as zero.
     #
     # @return [Integer] the body length, capped at MAX_BODY_BYTES + 1
     def content_length
@@ -123,11 +121,10 @@ module Tep
       @req_headers["content-type"].downcase.start_with?("application/x-www-form-urlencoded")
     end
 
-    # `multipart?()` — whether the body arrived as multipart/form-data,
-    # the encoding a form with file inputs sends. It is parsed by
-    # `ActionDispatch::Http::Multipart`
-    # (runtime/action_dispatch/multipart.rb): text parts into
-    # @req_params, file parts into @uploads.
+    # whether the body arrived as multipart/form-data, the encoding a form with
+    # file inputs sends. It is parsed by `ActionDispatch::Http::Multipart`
+    # (runtime/action_dispatch/multipart.rb): text parts into @req_params, file
+    # parts into @uploads.
     #
     # @return [Boolean] true when the Content-Type is
     #   multipart/form-data
@@ -135,8 +132,8 @@ module Tep
       @req_headers["content-type"].downcase.start_with?("multipart/form-data")
     end
 
-    # `json?()` — whether the body arrived as JSON, the encoding a
-    # client sends when it asks for `contentType: "application/json"`.
+    # whether the body arrived as JSON, the encoding a client sends when it asks
+    # for `contentType: "application/json"`.
     #
     # @return [Boolean] true when the Content-Type is application/json;
     #   `parse_body_params` below parses such a body into params
@@ -144,12 +141,11 @@ module Tep
       @req_headers["content-type"].downcase.start_with?("application/json")
     end
 
-    # `body_parse_failed?()` — whether the body arrived in a shape the
-    # runtime could not read: JSON that does not parse or that is not an
-    # object, or a multipart body with no boundary or one that stops
-    # part-way. `Snails::Main.dispatch` turns it into a 400, so a broken
-    # payload is refused instead of running the action against the empty
-    # params a half-read body would leave behind.
+    # whether the body arrived in a shape the runtime could not read: JSON that
+    # does not parse or that is not an object, or a multipart body with no
+    # boundary or one that stops part-way. `Snails::Main.dispatch` turns it into
+    # a 400, so a broken payload is refused instead of running the action
+    # against the empty params a half-read body would leave behind.
     #
     # @return [Boolean] true when `parse_body_params` could not read the body
     def body_parse_failed?
@@ -167,10 +163,9 @@ module Tep
     def accept;        @req_headers["accept"];      end
     def content_type;  @req_headers["content-type"]; end
 
-    # `scheme()` — the scheme this connection sees from the client's
-    # view (`ssl?` reads it too). Tep does not terminate TLS itself, so
-    # the answer comes off the `X-Forwarded-Proto` header a reverse proxy
-    # sets.
+    # the scheme this connection sees from the client's view (`ssl?` reads it
+    # too). Tep does not terminate TLS itself, so the answer comes off the
+    # `X-Forwarded-Proto` header a reverse proxy sets.
     #
     # @return [String] the forwarded proto, downcased, or "http" when the
     #   header is absent
@@ -186,12 +181,12 @@ module Tep
       scheme == "https"
     end
 
-    # `drain_body(limit)` — the one body-read policy every server shares:
-    # refuse a body over `MAX_BODY_BYTES` before reading, give the whole body
-    # one `BODY_READ_TIMEOUT` deadline, and answer a finite outcome. The block
-    # owns only the transport-specific wait and read: it receives the
-    # remaining seconds and the maximum byte count, and returns the next chunk
-    # or nil when its wait timed out.
+    # the one body-read policy every server shares: refuse a body over
+    # `MAX_BODY_BYTES` before reading, give the whole body one
+    # `BODY_READ_TIMEOUT` deadline, and answer a finite outcome. The block owns
+    # only the transport-specific wait and read: it receives the remaining
+    # seconds and the maximum byte count, and returns the next chunk or nil when
+    # its wait timed out.
     #
     # @param limit [Integer] the advertised Content-Length
     # @return [Symbol] :ok, :too_large, :timeout, or :incomplete
@@ -219,10 +214,10 @@ module Tep
       :ok
     end
 
-    # `parse_body_params()` — put the body's fields into @req_params:
-    # urlencoded pairs, multipart text parts (file parts go to @uploads),
-    # or a JSON object flattened by `flatten_json`. The two body drains
-    # share it; they differ only in how they wait for bytes.
+    # put the body's fields into @req_params: urlencoded pairs, multipart text
+    # parts (file parts go to @uploads), or a JSON object flattened by
+    # `flatten_json`. The two body drains share it; they differ only in how they
+    # wait for bytes.
     #
     # A body it cannot read sets `body_parse_failed?` instead of keeping
     # whatever it managed to read: the dispatcher answers 400, and the
@@ -263,10 +258,9 @@ module Tep
       end
     end
 
-    # `flatten_json(value, prefix)` — a parsed JSON object into
-    # @req_params and @body_fields, spelled the way a form posts it:
-    # `{"blob": {"filename": "a.png"}}` becomes `blob[filename]`, the key
-    # shape `Snails::Main.request_params` already nests from a multipart
+    # a parsed JSON object into @req_params and @body_fields, spelled the way a
+    # form posts it: `{"blob": {"filename": "a.png"}}` becomes `blob[filename]`,
+    # the key shape `Snails::Main.request_params` already nests from a multipart
     # body's fields. Scalars arrive as `to_s`, null as "".
     #
     # An array has no slot in either flat hash: its elements are walked
@@ -291,10 +285,10 @@ module Tep
       end
     end
 
-    # `consume_body_via_scheduler(client_fd)` — the body drain for
-    # Tep::Server::Scheduled, whose client fd is non-blocking: a blocking
-    # recv would starve the whole loop. `Tep::Scheduler.io_wait` parks this
-    # fiber between reads so other connections keep running.
+    # the body drain for Tep::Server::Scheduled, whose client fd is
+    # non-blocking: a blocking recv would starve the whole loop.
+    # `Tep::Scheduler.io_wait` parks this fiber between reads so other
+    # connections keep running.
     #
     # @param client_fd [Integer] the accepted connection fd
     # @return [Symbol] :ok, :too_large, :timeout, or :incomplete
@@ -310,10 +304,9 @@ module Tep
       outcome
     end
 
-    # `consume_body_via_io(io, client_fd)` — the body drain for
-    # Tep::Server::Threaded, whose client fd is non-blocking: `io` is the
-    # connection's `IO.for_fd` wrapper, and its timed `wait_readable`
-    # parks this green thread until body bytes arrive.
+    # the body drain for Tep::Server::Threaded, whose client fd is non-blocking:
+    # `io` is the connection's `IO.for_fd` wrapper, and its timed
+    # `wait_readable` parks this green thread until body bytes arrive.
     #
     # @param io [IO] the connection's file wrapper
     # @param client_fd [Integer] the accepted connection fd

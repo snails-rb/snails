@@ -47,10 +47,9 @@ module ActiveJob
     # lock covers the flags only, never a drain's job time.
     DRAIN_FLAGS_LOCK = Mutex.new
 
-    # `enqueue(job_name, work, payload)` — hand off a job due now: write
-    # one pending row and return. The body does not travel — the row
-    # carries the name and the payload, and a drain (this process or
-    # another) resolves them when the row is claimed.
+    # hand off a job due now: write one pending row and return. The body does
+    # not travel — the row carries the name and the payload, and a drain (this
+    # process or another) resolves them when the row is claimed.
     #
     # @param job_name [String] the job's name — the stored constant path
     # @param work [Proc] the job, closed over its arguments (unused
@@ -63,11 +62,10 @@ module ActiveJob
       Snails::QueueJob.enqueue!(job_name, payload, now, now)
     end
 
-    # `enqueue_at(job_name, work, payload, scheduled_at)` — hand off a
-    # delayed one-off: the row waits in pending until a drain's clock
-    # passes `scheduled_at`. A one-off is NOT deduplicated: every call
-    # writes its own row, so the same name and run time with different
-    # payloads are different jobs.
+    # hand off a delayed one-off: the row waits in pending until a drain's clock
+    # passes `scheduled_at`. A one-off is NOT deduplicated: every call writes
+    # its own row, so the same name and run time with different payloads are
+    # different jobs.
     #
     # @param job_name [String] the job's name — the stored constant path
     # @param work [Proc] the job, closed over its arguments (unused here)
@@ -80,13 +78,12 @@ module ActiveJob
       Snails::QueueJob.enqueue!(job_name, payload, scheduled_at, now)
     end
 
-    # `enqueue_once(name, work, payload, scheduled_at)` — the recurring
-    # half: one row per (name, interval start), so several processes
-    # firing the same beat still queue the occurrence once. The ledger
-    # insert and the queue row are one transaction — a ledger collision
-    # (another process won) answers false with no row written, so the
-    # ledger can never keep an occurrence whose row was lost. A one-off
-    # `enqueue_at` never comes through here.
+    # the recurring half: one row per (name, interval start), so several
+    # processes firing the same beat still queue the occurrence once. The ledger
+    # insert and the queue row are one transaction — a ledger collision (another
+    # process won) answers false with no row written, so the ledger can never
+    # keep an occurrence whose row was lost. A one-off `enqueue_at` never comes
+    # through here.
     #
     # @param name [String] the job's name — the stored constant path
     # @param work [Proc] the job, closed over its arguments (unused here)
@@ -108,13 +105,13 @@ module ActiveJob
       end
     end
 
-    # `drain_due?()` — whether a drain is due: the interval passed
-    # since the last drain, OR the last drain ran a full batch. A full
-    # batch means more due rows may be waiting, so a worker thread (its 50ms
-    # poll) comes straight back and works through the backlog; a
-    # shorter drain clears the flag and the idle interval takes over.
-    # What runs inside a drain is decided by the rows, not by this gate.
-    # The read is mutex-guarded: concurrent worker threads share the flags.
+    # whether a drain is due: the interval passed since the last drain, OR the
+    # last drain ran a full batch. A full batch means more due rows may be
+    # waiting, so a worker thread (its 50ms poll) comes straight back and works
+    # through the backlog; a shorter drain clears the flag and the idle interval
+    # takes over. What runs inside a drain is decided by the rows, not by this
+    # gate. The read is mutex-guarded: concurrent worker threads share the
+    # flags.
     #
     # @return [Boolean] true when a drain should run
     def self.drain_due?
@@ -123,20 +120,19 @@ module ActiveJob
       end
     end
 
-    # `drain()` — release orphaned claims, then run up to `BATCH_SIZE`
-    # due rows oldest first, and answer how many ran. An unresolvable
-    # name or a raising body is recorded on its row and the drain moves
-    # on — one bad job never costs the queue the rest. A worker thread calls
-    # this under its own database lease, and several worker threads may call
-    # it at once: the claim is a single atomic UPDATE, so the rows are
-    # split between them and never duplicated (a claim that lost the
-    # race answers nil and the drain ends). The drain flags are
-    # mutex-guarded; a full batch sets `LAST_DRAIN_WAS_FULL` so the next
-    # drain is due at once, a shorter drain — even an empty one — clears
-    # it and the idle interval takes over. With N worker threads, N rows run
-    # at once (one per worker thread) and a drain processes up to `BATCH_SIZE`
-    # rows per worker thread; a row abandoned by a dead process returns to
-    # pending after `ORPHANED_AFTER_SECONDS`.
+    # release orphaned claims, then run up to `BATCH_SIZE` due rows oldest
+    # first, and answer how many ran. An unresolvable name or a raising body is
+    # recorded on its row and the drain moves on — one bad job never costs the
+    # queue the rest. A worker thread calls this under its own database lease,
+    # and several worker threads may call it at once: the claim is a single
+    # atomic UPDATE, so the rows are split between them and never duplicated (a
+    # claim that lost the race answers nil and the drain ends). The drain flags
+    # are mutex-guarded; a full batch sets `LAST_DRAIN_WAS_FULL` so the next
+    # drain is due at once, a shorter drain — even an empty one — clears it and
+    # the idle interval takes over. With N worker threads, N rows run at once
+    # (one per worker thread) and a drain processes up to `BATCH_SIZE` rows per
+    # worker thread; a row abandoned by a dead process returns to pending after
+    # `ORPHANED_AFTER_SECONDS`.
     #
     # @return [Integer] the number of rows this drain ran
     def self.drain

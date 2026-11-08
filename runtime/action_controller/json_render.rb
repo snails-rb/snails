@@ -14,8 +14,8 @@
 # outside those shapes is served here.
 module ActionController
   module JsonRender
-    # `encode(value)` — the JSON text behind `render json:`: `as_json`
-    # first, then a structural walk and hand-written JSON text.
+    # the JSON text behind `render json:`: `as_json` first, then a structural
+    # walk and hand-written JSON text.
     #
     # @param value [untyped] the object to serialize
     # @return [String] JSON text

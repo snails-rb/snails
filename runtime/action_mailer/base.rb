@@ -1,8 +1,8 @@
 module ActionMailer
   # The mailer class: header defaults, the delivery seam, and captured mail.
   class Base
-    # `default(opts)` — store header defaults on this class. `mail` puts them
-    # under its call options, and subclasses inherit them through `defaults`.
+    # store header defaults on this class. `mail` puts them under its call
+    # options, and subclasses inherit them through `defaults`.
     #
     # @param opts [Hash{Symbol => Object}] the mailer defaults
     # @return [void]
@@ -20,8 +20,8 @@ module ActionMailer
       opts.each { |key, value| @defaults[key] = value }
     end
 
-    # `defaults()` — the effective defaults for this class: the parent chain's
-    # values with this class's declarations on top.
+    # the effective defaults for this class: the parent chain's values with this
+    # class's declarations on top.
     #
     # @return [Hash{Symbol => Object}] the merged header defaults
     def self.defaults
@@ -30,15 +30,14 @@ module ActionMailer
       inherited.merge(@defaults || {})
     end
 
-    # `deliveries()` — the in-memory list `CaptureMethod` pushes into.
+    # the in-memory list `CaptureMethod` pushes into.
     #
     # @return [Array[Message]] the captured messages
     def self.deliveries
       @deliveries ||= []
     end
 
-    # `delivery_method()` — the registered class answering
-    # `deliver(message) -> message`.
+    # the registered class answering `deliver(message) -> message`.
     #
     # @return [_DeliveryMethod] the registered method
     # @raise [RuntimeError] no method was registered
@@ -53,8 +52,8 @@ module ActionMailer
       @delivery_method = method
     end
 
-    # `mail(opts)` — build a message with the class defaults under the call
-    # options, so a per-call value wins.
+    # build a message with the class defaults under the call options, so a
+    # per-call value wins.
     #
     # @param opts [Hash{Symbol => Object}] the call's header options
     # @return [Message] the built message

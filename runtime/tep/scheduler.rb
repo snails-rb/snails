@@ -23,8 +23,8 @@ module Tep
       f
     end
 
-    # `tick(poll_timeout_ms)` -- one scheduler pass: poll the I/O set, mark
-    # ready fibers, then resume the soonest-due one.
+    # one scheduler pass: poll the I/O set, mark ready fibers, then resume the
+    # soonest-due one.
     #
     # The poll must not block while some fiber is already time-due -- that wait
     # is pure latency on every hand-off to a freshly spawned fiber.
@@ -76,9 +76,8 @@ module Tep
       true
     end
 
-    # `run_until_empty` -- resume ready fibers until none can run: every fiber
-    # finished or parked on a future wake or I/O. Non-blocking: no poll wait
-    # between passes.
+    # resume ready fibers until none can run: every fiber finished or parked on
+    # a future wake or I/O. Non-blocking: no poll wait between passes.
     #
     # @return [Integer] how many fibers were resumed
     def self.run_until_empty
@@ -89,9 +88,8 @@ module Tep
       n
     end
 
-    # `run_for(seconds)` -- drain the scheduler until `seconds` elapse or every
-    # fiber finishes. While nothing is runnable it blocks until the next
-    # wake-up instead of spinning.
+    # drain the scheduler until `seconds` elapse or every fiber finishes. While
+    # nothing is runnable it blocks until the next wake-up instead of spinning.
     #
     # @param seconds [Numeric] how long to drain, in seconds
     # @return [void]
@@ -123,9 +121,9 @@ module Tep
       end
     end
 
-    # `pause(seconds)` -- suspend the calling fiber until at-or-after `seconds`,
-    # handing control back to the scheduler loop. Named `pause` rather than
-    # `sleep` to stay distinct from `Kernel#sleep`.
+    # suspend the calling fiber until at-or-after `seconds`, handing control
+    # back to the scheduler loop. Named `pause` rather than `sleep` to stay
+    # distinct from `Kernel#sleep`.
     #
     # Outside a fiber it falls back to a real sleep, so the same call works at
     # top level.
@@ -142,8 +140,8 @@ module Tep
       Fiber.yield
     end
 
-    # `io_wait(fd, mode, timeout_seconds)` -- park the calling fiber until `fd`
-    # is ready for `mode` or `timeout_seconds` elapses.
+    # park the calling fiber until `fd` is ready for `mode` or `timeout_seconds`
+    # elapses.
     #
     # Outside a fiber it does one inline poll, so the same call works at top
     # level.
@@ -203,10 +201,9 @@ module Tep
       n
     end
 
-    # `scheduled_context?` -- whether a scheduler-managed fiber is executing
-    # right now; `tick` sets the flag just before resuming a fiber and clears it
-    # after. Callers use it to choose between the blocking and the
-    # fiber-yielding path.
+    # whether a scheduler-managed fiber is executing right now; `tick` sets the
+    # flag just before resuming a fiber and clears it after. Callers use it to
+    # choose between the blocking and the fiber-yielding path.
     #
     # @return [Boolean] true inside a scheduler resume, false outside one
     def self.scheduled_context?

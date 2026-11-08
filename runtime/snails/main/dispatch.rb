@@ -1,9 +1,8 @@
-# `Snails::Main` request path — route table, controller params, and the
-# API-only dispatch pipeline. Loaded by `runtime/snails/main.rb` before
-# `main/server.rb`.
+# request path — route table, controller params, and the API-only dispatch
+# pipeline. Loaded by `runtime/snails/main.rb` before `main/server.rb`.
 module Snails
   module Main
-    # `route_table()` — the composed route table, built once on first use.
+    # the composed route table, built once on first use.
     #
     # The app's `config/routes.rb` declares `Snails::RouteTable.table`; it is
     # memoized because `Snails::RouteTable.table` constructs every Route on each
@@ -14,9 +13,9 @@ module Snails
       @route_table ||= Snails::RouteTable.table
     end
 
-    # `request_params(req, path_params)` — the controller's params: body fields,
-    # the query string over them, and the route's path captures over both, each
-    # half nested by `ActionDispatch::ParamBuilder`.
+    # the controller's params: body fields, the query string over them, and the
+    # route's path captures over both, each half nested by
+    # `ActionDispatch::ParamBuilder`.
     #
     # Multipart and JSON fields are flattened by name, so a repeated field keeps
     # its last value; urlencoded and query params keep every value.
@@ -52,13 +51,12 @@ module Snails
       out
     end
 
-    # `dispatch(req, res)` — the default request pipeline called by
-    # `Tep::App#dispatch` for every request: match, wire the typed request, run
-    # the controller, and copy status/body/content-type back. API-only:
-    # `request_format` defaults to JSON, and a route miss or malformed params
-    # returns the same JSON an app's endpoints do; a controller's
-    # `Sqlx::RecordNotFound` becomes a JSON 404, and a required parameter the
-    # client did not send becomes a JSON 400.
+    # the default request pipeline called by `Tep::App#dispatch` for every
+    # request: match, wire the typed request, run the controller, and copy
+    # status/body/content-type back. API-only: `request_format` defaults to
+    # JSON, and a route miss or malformed params returns the same JSON an app's
+    # endpoints do; a controller's `Sqlx::RecordNotFound` becomes a JSON 404,
+    # and a required parameter the client did not send becomes a JSON 400.
     #
     # A HEAD request matches the GET route it mirrors and reaches the action
     # as HEAD; the server sends that response's status and headers without

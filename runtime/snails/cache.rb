@@ -1,5 +1,5 @@
-# `Snails.cache` — the process-local in-memory store behind the caching
-# surface. One instance per process; prefork workers do not share it.
+# the process-local in-memory store behind the caching surface. One instance per
+# process; prefork workers do not share it.
 #
 # The store maps a String key to any value plus an optional expiry (epoch
 # seconds; 0 means never). Expiry is checked lazily on read. The entry count is
@@ -16,8 +16,8 @@
 # A stored nil is a valid entry: `fetch` decides hit or miss with the internal
 # sentinel, not with `read`, so a block that returns nil is not re-run.
 module Snails
-  # `Snails.cache` — the process-wide store, memoized so every call answers the
-  # same instance (a fresh `Cache.new` would make every `fetch` a miss).
+  # the process-wide store, memoized so every call answers the same instance (a
+  # fresh `Cache.new` would make every `fetch` a miss).
   #
   # @return [Cache]
   def self.cache
@@ -39,10 +39,9 @@ module Snails
       @lock = Mutex.new
     end
 
-    # `fetch(key, expires_in: nil) { ... }` — return the cached value, or run
-    # the block and store its result. A miss and a stored nil are different:
-    # the hit test uses an internal sentinel, so a nil-valued entry is not
-    # recomputed.
+    # return the cached value, or run the block and store its result. A miss and
+    # a stored nil are different: the hit test uses an internal sentinel, so a
+    # nil-valued entry is not recomputed.
     #
     # @param key [String] the cache key
     # @param expires_in [Integer, Snails::Duration, nil] seconds until
@@ -64,7 +63,7 @@ module Snails
       value
     end
 
-    # `read(key)` — the stored value, or nil on a miss or after expiry.
+    # the stored value, or nil on a miss or after expiry.
     #
     # @param key [String] the cache key
     # @return [Object, nil]
@@ -73,7 +72,7 @@ module Snails
       hit.equal?(MISSING) ? nil : hit
     end
 
-    # `write(key, value, expires_in: nil)` — store a value.
+    # store a value.
     #
     # @param key [String] the cache key
     # @param value [Object] the value to store; nil is a valid entry
@@ -86,7 +85,7 @@ module Snails
       true
     end
 
-    # `delete(key)` — remove one entry.
+    # remove one entry.
     #
     # @param key [String] the cache key
     # @return [Boolean] true when a live entry was removed; an expired entry
@@ -104,7 +103,7 @@ module Snails
       removed
     end
 
-    # `exist?(key)` — whether a live entry is stored.
+    # whether a live entry is stored.
     #
     # @param key [String] the cache key
     # @return [Boolean] false when missing or expired; the expired entry is
@@ -113,10 +112,9 @@ module Snails
       !read_entry(key.to_s).equal?(MISSING)
     end
 
-    # `increment(key, amount = 1, expires_in: nil)` — add to a counter. The
-    # first write in a window starts it: a new entry is stored with
-    # `expires_in`, and later increments keep that expiry (a rate-limit
-    # window). A non-integer value is read through `to_i`.
+    # add to a counter. The first write in a window starts it: a new entry is
+    # stored with `expires_in`, and later increments keep that expiry (a
+    # rate-limit window). A non-integer value is read through `to_i`.
     #
     # @param key [String] the cache key
     # @param amount [Integer] the increase
@@ -145,8 +143,8 @@ module Snails
       result
     end
 
-    # `clear()` — remove every entry. The harness calls this before each case
-    # so cache values and rate-limit windows do not leak across tests.
+    # remove every entry. The harness calls this before each case so cache
+    # values and rate-limit windows do not leak across tests.
     #
     # @return [void]
     def clear

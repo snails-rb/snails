@@ -26,8 +26,7 @@ module Snails
         @headers = headers
       end
 
-      # `parsed_body()` — the body as parsed JSON, or the raw body when it
-      # is not JSON.
+      # the body as parsed JSON, or the raw body when it is not JSON.
       #
       # @return [Object, nil] the parsed value, the raw String when parsing
       #   fails, or nil for an empty body
@@ -40,8 +39,7 @@ module Snails
       end
     end
 
-    # `request(method, path, base_url, params, headers, as)` — one real HTTP
-    # request to the running server.
+    # one real HTTP request to the running server.
     #
     # @param method [Symbol] :get, :post, :put, or :delete
     # @param path [String] the request path, query string included
@@ -89,13 +87,13 @@ module Snails
     class SkipSignal < StandardError
     end
 
-    # `file_selected?` — the bundle dispatch gate the case macro reads.
-    # The bundle runner compiles every case file into one binary and runs
-    # it once per file, so each process must run only the file it was
-    # started for: the entry writes `$spin_test_file = <index>` before
-    # each file's require (require order is the runner's index order) and
-    # the process env names the selected index. Without the env (a plain
-    # `spin test <file>`) every file runs — the single-file path.
+    # the bundle dispatch gate the case macro reads. The bundle runner compiles
+    # every case file into one binary and runs it once per file, so each process
+    # must run only the file it was started for: the entry writes
+    # `$spin_test_file = <index>` before each file's require (require order is
+    # the runner's index order) and the process env names the selected index.
+    # Without the env (a plain `spin test <file>`) every file runs — the
+    # single-file path.
     #
     # @return [Boolean] true when this process should run the cases of
     #   the file currently being required
@@ -131,13 +129,12 @@ module Snails
 
       attr_reader :response
 
-      # `test(name) { ... }` — case declaration inside a subclass, written
-      # as `test "description" do ... end`. The case runs immediately in a
-      # fresh instance — spinel AOT cannot store a block's `self` — and
-      # `name` is the printed name. In a bundle process the require loads
-      # every file, but only the selected file's cases run
-      # (`Snails::Harness.file_selected?`), so each run prints only its
-      # own file's cases.
+      # case declaration inside a subclass, written as
+      # `test "description" do ... end`. The case runs immediately in a fresh
+      # instance — spinel AOT cannot store a block's `self` — and `name` is the
+      # printed name. In a bundle process the require loads every file, but only
+      # the selected file's cases run (`Snails::Harness.file_selected?`), so
+      # each run prints only its own file's cases.
       #
       # The selection gate wraps the body in an `if` rather than returning
       # early: an early return in a method that stores `&block` corrupts a
@@ -162,17 +159,16 @@ module Snails
         end
       end
 
-      # `setup()` — per-case hook: runs once per fresh instance, before the
-      # case body and after per-case isolation (`tables`). No-op here; an
-      # app reopens it to load fixtures or seed state.
+      # per-case hook: runs once per fresh instance, before the case body and
+      # after per-case isolation (`tables`). No-op here; an app reopens it to
+      # load fixtures or seed state.
       #
       # @return [void]
       def setup
       end
 
-      # `tables()` — the table names emptied before each case, so a case
-      # never sees another case's writes. Default: none; a case class with
-      # DB state overrides this.
+      # the table names emptied before each case, so a case never sees another
+      # case's writes. Default: none; a case class with DB state overrides this.
       #
       # @return [Array[String]] the table names to empty, empty by default
       # @example
@@ -183,9 +179,9 @@ module Snails
         []
       end
 
-      # `default_host()` — the Host header sent with every request when the
-      # instance is built without one. No-op (nil) here; an app reopens it
-      # with the host its routes expect.
+      # the Host header sent with every request when the instance is built
+      # without one. No-op (nil) here; an app reopens it with the host its
+      # routes expect.
       #
       # @return [String, nil] the host, nil unless the app reopens
       def default_host
@@ -208,12 +204,11 @@ module Snails
         @response = Snails::Harness.request(:delete, path, @base_url, params, with_host(headers), as)
       end
 
-      # `assert_response(type)` — pass when the status matches. Four
-      # category symbols take a range or exact code: `:success` (2xx), `:redirect` (3xx),
-      # `:error` (5xx), `:missing` (404 exactly). Any other symbol
-      # resolves through the shared status table
-      # (`Snails::Utils::SYMBOL_TO_STATUS_CODE`), so every symbol the
-      # controller's `status:` accepts works here too; an Integer is
+      # pass when the status matches. Four category symbols take a range or
+      # exact code: `:success` (2xx), `:redirect` (3xx), `:error` (5xx),
+      # `:missing` (404 exactly). Any other symbol resolves through the shared
+      # status table (`Snails::Utils::SYMBOL_TO_STATUS_CODE`), so every symbol
+      # the controller's `status:` accepts works here too; an Integer is
       # compared as-is (`assert_response 415`).
       #
       # @param type [Symbol, Integer] a category symbol, any status
@@ -249,8 +244,7 @@ module Snails
         raise "assert_response #{type}: got #{actual} — #{@response.body.to_s[0, 200]}"
       end
 
-      # `assert_equal(expected, actual)` — pass when the two values
-      # match; the failure names both sides.
+      # pass when the two values match; the failure names both sides.
       #
       # @return [void]
       # @raise [RuntimeError] the values differ
@@ -260,10 +254,9 @@ module Snails
         raise "assert_equal: expected #{expected.inspect}, got #{actual.inspect}"
       end
 
-      # `assert_raises(error_class) { ... }` — pass when the block raises
-      # the named exception (a subclass counts); nothing raised or a
-      # different exception fails, and the failure names what came
-      # instead.
+      # pass when the block raises the named exception (a subclass counts);
+      # nothing raised or a different exception fails, and the failure names
+      # what came instead.
       #
       # @param error_class [Class] the exception the block must raise
       # @return [void]
@@ -281,9 +274,9 @@ module Snails
         raise "assert_raises: #{error_class} not raised"
       end
 
-      # `assert_match(pattern, actual)` — pass when the pattern matches
-      # the actual value. A String pattern is a literal substring (minitest
-      # parity: never a regexp source), so it needs no escaping pass.
+      # pass when the pattern matches the actual value. A String pattern is a
+      # literal substring (minitest parity: never a regexp source), so it needs
+      # no escaping pass.
       #
       # @param pattern [Regexp, String] the pattern to match against
       # @param actual [String] the value being matched
@@ -302,9 +295,8 @@ module Snails
         raise "assert_match: expected #{actual.inspect} to match #{pattern.inspect}"
       end
 
-      # `assert_includes(collection, object)` — pass when the collection
-      # holds the object; whatever `include?` answers for that collection
-      # covers it (Array membership, String substring).
+      # pass when the collection holds the object; whatever `include?` answers
+      # for that collection covers it (Array membership, String substring).
       #
       # @param collection [Array, String] the collection searched
       # @param object [Object] the value that must be present
@@ -318,8 +310,8 @@ module Snails
         raise "assert_includes: #{object.inspect} not included in #{collection.inspect}"
       end
 
-      # `assert(value, message = nil)` — pass when the value is truthy;
-      # the optional message rides on the failure line.
+      # pass when the value is truthy; the optional message rides on the failure
+      # line.
       #
       # @param value [Object] the truthy value under test
       # @param message [String, nil] extra context printed on failure
@@ -331,8 +323,7 @@ module Snails
         raise message.nil? ? "assert failed" : "assert failed: #{message}"
       end
 
-      # `assert_nil(value, message = nil)` — pass when the value is nil;
-      # the failure names what was there instead.
+      # pass when the value is nil; the failure names what was there instead.
       #
       # @param value [Object] the value under test
       # @param message [String, nil] extra context printed on failure
@@ -344,8 +335,7 @@ module Snails
         raise "assert_nil failed#{message.nil? ? "" : ": #{message}"} got=#{value.inspect}"
       end
 
-      # `assert_not_nil(value, message = nil)` — pass when the value is
-      # not nil; the failure names the nil it got.
+      # pass when the value is not nil; the failure names the nil it got.
       #
       # @param value [Object] the value under test
       # @param message [String, nil] extra context printed on failure
@@ -357,8 +347,7 @@ module Snails
         raise message.nil? ? "assert_not_nil failed" : "assert_not_nil failed: #{message}"
       end
 
-      # `assert_not(value, message = nil)` — pass when the value is
-      # false or nil; the failure names what was truthy.
+      # pass when the value is false or nil; the failure names what was truthy.
       #
       # @param value [Object] the value under test
       # @param message [String, nil] extra context printed on failure
@@ -370,9 +359,8 @@ module Snails
         raise "assert_not failed#{message.nil? ? "" : ": #{message}"} got=#{value.inspect}"
       end
 
-      # `assert_not_equal(expected, actual, message = nil)` — pass when
-      # the two values differ; the failure names both
-      # sides, like `assert_equal`.
+      # pass when the two values differ; the failure names both sides, like
+      # `assert_equal`.
       #
       # @param expected [Object] the value the actual must differ from
       # @param actual [Object] the value under test
@@ -385,8 +373,7 @@ module Snails
         raise "assert_not_equal failed#{message.nil? ? "" : ": #{message}"}: both were #{expected.inspect}"
       end
 
-      # `assert_operator(left, operator, right, message = nil)` — pass
-      # when `left <operator> right` holds; the failure prints the
+      # pass when `left <operator> right` holds; the failure prints the
       # comparison that did not.
       #
       # @param left [Object] the left-hand value
@@ -413,17 +400,16 @@ module Snails
         raise "assert_operator failed#{message.nil? ? "" : ": #{message}"} #{left.inspect} #{operator} #{right.inspect}"
       end
 
-      # `assert_emails(count) { ... }` — assert the block caused exactly
-      # `count` deliveries. The server is a separate process, so its
-      # `ActionMailer::Base.deliveries` is unreadable from here; the shared
-      # observation point is the gate's mail log (`tmp/mail-capture.jsonl`
-      # under the spin root, `MAIL_LOG_PATH` from this target's cwd — the
-      # file the server writes in test mode, where the stamped
-      # config/environment.rb registers the capture). The engine empties
-      # the file before boot, so the count is the block's before/after
-      # line delta, never an absolute. Without a live gate (a bare
-      # `spin test <file>`) the case skips — a mail assertion that cannot
-      # run is visibly skipped, not silently green.
+      # assert the block caused exactly `count` deliveries. The server is a
+      # separate process, so its `ActionMailer::Base.deliveries` is unreadable
+      # from here; the shared observation point is the gate's mail log
+      # (`tmp/mail-capture.jsonl` under the spin root, `MAIL_LOG_PATH` from this
+      # target's cwd — the file the server writes in test mode, where the
+      # stamped config/environment.rb registers the capture). The engine empties
+      # the file before boot, so the count is the block's before/after line
+      # delta, never an absolute. Without a live gate (a bare
+      # `spin test <file>`) the case skips — a mail assertion that cannot run is
+      # visibly skipped, not silently green.
       #
       # @param count [Integer] the deliveries the block must cause
       # @return [void]
@@ -444,19 +430,18 @@ module Snails
         raise "assert_emails failed: expected #{count} mail(s), got #{actual}"
       end
 
-      # `emails` — the run's recorded deliveries so far, in send order: one
-      # hash per delivery with `"to"` (array), `"from"`, and `"subject"`.
-      # The gate engine empties the log before boot; a case reads
-      # `emails.last` after an `assert_emails` block rather than asserting
-      # absolutes.
+      # the run's recorded deliveries so far, in send order: one hash per
+      # delivery with `"to"` (array), `"from"`, and `"subject"`. The gate engine
+      # empties the log before boot; a case reads `emails.last` after an
+      # `assert_emails` block rather than asserting absolutes.
       #
       # @return [Array[Hash]] parsed log rows; empty without a gate
       def emails
         mail_log_entries
       end
 
-      # `skip(message)` — end the case as skipped rather than failed; raises
-      # `SkipSignal`, the signal the `test` macro catches.
+      # end the case as skipped rather than failed; raises `SkipSignal`, the
+      # signal the `test` macro catches.
       #
       # @param message [String] the reason printed after the case name;
       #   "skipped" by default
@@ -526,8 +511,8 @@ module Snails
   # Explicit case runner — spinel has no autorun, so the caller names the
   # cases and the printed summary is the `.expected` snapshot.
   module HarnessRunner
-    # `run(klass, names)` — run one class's cases and report them: one
-    # `ok`/`FAIL` line per case, then a summary.
+    # run one class's cases and report them: one `ok`/`FAIL` line per case, then
+    # a summary.
     #
     # @param klass [Class] the case class, instantiated fresh per case
     # @param names [Array[String]] the case method names to run

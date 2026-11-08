@@ -1,13 +1,12 @@
 # frozen_string_literal: true
 
-# `Snails::Logger::OTLPTransport` — the default transport: turn one batch of
-# `Record`s into OTLP logs JSON and hand it to `Snails::LogDeliveryJob`. The
-# HTTP call runs in the job, so a slow or dead log service never blocks a
-# request thread. The endpoint is the receiver's base URL; the transport
-# appends the OTLP logs path (`v1/logs`) itself, so an app configures one
-# receiver address and does not duplicate the signal path. The endpoint and
-# token stay in this object, not in the job payload, so a store-backed queue
-# never persists the token.
+# the default transport: turn one batch of `Record`s into OTLP logs JSON and
+# hand it to `Snails::LogDeliveryJob`. The HTTP call runs in the job, so a slow
+# or dead log service never blocks a request thread. The endpoint is the
+# receiver's base URL; the transport appends the OTLP logs path (`v1/logs`)
+# itself, so an app configures one receiver address and does not duplicate the
+# signal path. The endpoint and token stay in this object, not in the job
+# payload, so a store-backed queue never persists the token.
 #
 # `send_encoded(body)` is the job's half: it posts the already-encoded batch
 # and turns a 4xx into a permanent failure, retrying a 5xx or a network error
@@ -36,7 +35,7 @@ module Snails
           @status = status
         end
 
-        # `status()` — the HTTP status that failed, or nil for a network error.
+        # the HTTP status that failed, or nil for a network error.
         #
         # @return [Integer, nil]
         def status
@@ -44,12 +43,11 @@ module Snails
         end
       end
 
-      # `initialize(endpoint:, token:)` — configure the destination. The
-      # endpoint is the receiver's base URL (scheme, host, and optional path
-      # prefix); the transport appends the OTLP logs path itself. A trailing
-      # slash on the base is absorbed. The token is sent as
-      # `Authorization: Bearer`. Both are validated here so a typo fails at
-      # boot rather than on the first batch.
+      # configure the destination. The endpoint is the receiver's base URL
+      # (scheme, host, and optional path prefix); the transport appends the OTLP
+      # logs path itself. A trailing slash on the base is absorbed. The token is
+      # sent as `Authorization: Bearer`. Both are validated here so a typo fails
+      # at boot rather than on the first batch.
       #
       # @param endpoint [String] the base `http` or `https` URL
       # @param token [String] the ingest token
@@ -77,9 +75,9 @@ module Snails
         end
       end
 
-      # `after_fork()` — drop the parent's HTTP session in a forked child.
-      # The socket and the lock belong to the parent process; a child that
-      # inherited them would write on a connection another process owns.
+      # drop the parent's HTTP session in a forked child. The socket and the
+      # lock belong to the parent process; a child that inherited them would
+      # write on a connection another process owns.
       #
       # @return [void]
       def after_fork
@@ -87,8 +85,8 @@ module Snails
         @session_lock = Mutex.new
       end
 
-      # `deliver(records)` — encode one batch and enqueue the delivery job. It
-      # never performs HTTP; the transport contract stays the hand-off point.
+      # encode one batch and enqueue the delivery job. It never performs HTTP;
+      # the transport contract stays the hand-off point.
       #
       # A process without a registered executor would run the job at the call
       # site and block the caller, so that case is refused. The first refusal
@@ -112,8 +110,8 @@ module Snails
         ActiveJob.enqueue(Snails::LogDeliveryJob, body)
       end
 
-      # `send_encoded(body)` — post one encoded OTLP batch. A 2xx succeeds; a
-      # 4xx raises immediately; a 5xx or a network error is retried once.
+      # post one encoded OTLP batch. A 2xx succeeds; a 4xx raises immediately; a
+      # 5xx or a network error is retried once.
       #
       # @param body [Hash] the OTLP logs JSON structure
       # @return [Boolean] true when the endpoint answered 2xx

@@ -7,7 +7,7 @@ module Snails
   # (no HTML page): a monitor reading the body gets a stable shape, and a
   # probe that only checks the status code is served by the 200 itself.
   class HealthController < ActionController::API
-    # `show()` — the liveness answer; the route table calls it as `:show`.
+    # the liveness answer; the route table calls it as `:show`.
     #
     # @return [void]
     def show

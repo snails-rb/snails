@@ -1,8 +1,8 @@
-# `Snails.root` — the app root as a plain path value (`AppPath`). The server
-# runs with the app root as its working directory, so the value is "." and
-# interpolation stays byte-identical to plain relative paths.
+# the app root as a plain path value (`AppPath`). The server runs with the app
+# root as its working directory, so the value is "." and interpolation stays
+# byte-identical to plain relative paths.
 module Snails
-  # `Snails.root()` — the app root.
+  # the app root.
   #
   # This is app-facing surface: the runtime itself does not read it, but app
   # code uses it for paths under the root.
@@ -25,7 +25,7 @@ module Snails
       @base = base
     end
 
-    # `join(*parts)` — appends path parts with one separator between each.
+    # appends path parts with one separator between each.
     #
     # With no parts it answers this path unchanged, so `Snails.root.join` is
     # `Snails.root`.
@@ -42,7 +42,7 @@ module Snails
       end
     end
 
-    # `+(part)` — a path join, not string concatenation.
+    # a path join, not string concatenation.
     #
     # @param part [String] the part to append
     # @return [AppPath] the joined path
@@ -50,14 +50,14 @@ module Snails
       join(part)
     end
 
-    # `to_s()` — the accumulated path, which is what interpolation prints.
+    # the accumulated path, which is what interpolation prints.
     #
     # @return [String] the path text
     def to_s
       @base
     end
 
-    # `to_path()` — the implicit conversion `File` methods look for.
+    # the implicit conversion `File` methods look for.
     #
     # It is `to_path`, not `to_str`: a path value does not pose as a String.
     #

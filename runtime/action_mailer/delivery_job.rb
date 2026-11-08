@@ -1,9 +1,9 @@
 module ActionMailer
   # The queue half of deliver_later: rebuilds the message and delivers it.
   class DeliveryJob < ActiveJob::Base
-    # `perform(data)` — rebuild the message from the serialized payload and
-    # deliver it. The provider's failure reaches the job boundary, which
-    # records it as `job.failed`.
+    # rebuild the message from the serialized payload and deliver it. The
+    # provider's failure reaches the job boundary, which records it as
+    # `job.failed`.
     #
     # @param data [Hash{String => untyped}] the delivery payload
     # @return [void]

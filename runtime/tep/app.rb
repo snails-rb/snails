@@ -6,10 +6,9 @@
 # here has a lock and every reader and writer takes it (tep/broadcast.rb).
 module Tep
   class App
-    # `broadcast_subs` — the Tep::Broadcast registry: each entry pairs a
-    # topic with an output fd and a delivery mode. `broadcast_lock` is
-    # the mutex every reader and writer takes, because the connection
-    # threads share this object.
+    # the Tep::Broadcast registry: each entry pairs a topic with an output fd
+    # and a delivery mode. `broadcast_lock` is the mutex every reader and writer
+    # takes, because the connection threads share this object.
     #
     # @return [Array<Tep::BroadcastSubscription>, Mutex] `broadcast_subs`,
     #   then `broadcast_lock`
@@ -26,9 +25,9 @@ module Tep
     attr_accessor :sched_fibers, :sched_wake_at, :sched_current
     attr_accessor :sched_io_fd, :sched_io_mode, :sched_io_ready
 
-    # `name` — the app's own name for the startup banner and the log
-    # prefix (`Tep.display_name`). Assigned by `Snails::Main.start`
-    # before the server runs; empty until then.
+    # the app's own name for the startup banner and the log prefix
+    # (`Tep.display_name`). Assigned by `Snails::Main.start` before the server
+    # runs; empty until then.
     #
     # @return [String] the app name, or "" until the server assigns it
     attr_accessor :name
@@ -57,9 +56,9 @@ module Tep
       @sched_io_ready.pop
     end
 
-    # `dispatch(req, res)` — the per-request entry point: every server
-    # calls `Tep::APP.dispatch(req, res)` because the handler runs as a
-    # class method and cannot hold instance state.
+    # the per-request entry point: every server calls
+    # `Tep::APP.dispatch(req, res)` because the handler runs as a class method
+    # and cannot hold instance state.
     #
     # The request lease scope and the request log share this seam because every
     # request passes through it: the scope checks a pooled connection out on
@@ -101,11 +100,10 @@ module Tep
       end
     end
 
-    # `log_request_completed(req, started, status)` — the one info record a
-    # served request leaves. The matched controller/action and request id
-    # come from `Snails::Logger::Context`; a request that never reached a
-    # controller (404, 400, or an app dispatch that does not record them)
-    # simply omits those fields.
+    # the one info record a served request leaves. The matched controller/action
+    # and request id come from `Snails::Logger::Context`; a request that never
+    # reached a controller (404, 400, or an app dispatch that does not record
+    # them) simply omits those fields.
     def log_request_completed(req, started, status)
       Snails.logger.info(
         request_summary(req, status),
@@ -114,11 +112,10 @@ module Tep
       )
     end
 
-    # `log_request_failed(req, started, status, failure)` — the one error
-    # record a failed request leaves. A raised exception and a 5xx response
-    # both land here; the exception is nil for a returned 5xx. The exception
-    # travels on the record, so a transport receives the type, message, and
-    # stacktrace together with the status and duration.
+    # the one error record a failed request leaves. A raised exception and a 5xx
+    # response both land here; the exception is nil for a returned 5xx. The
+    # exception travels on the record, so a transport receives the type,
+    # message, and stacktrace together with the status and duration.
     def log_request_failed(req, started, status, failure)
       Snails.logger.error(
         request_summary(req, status),

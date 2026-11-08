@@ -26,12 +26,11 @@ module ActionController
   class API
     attr_accessor :request_method, :request_path, :request_format
 
-    # `params()` — the request params an action reads (`params["id"]`).
-    # The value lives in `@_params`, outside the app-subclass namespace:
-    # an app-side `@params` is a mistake, not a second handle on request
-    # state. The scaffold contract (`verify-scaffold`) rejects `@params`
-    # in app code, and reading through the accessor lets the value change
-    # shape later without touching call sites.
+    # the request params an action reads (`params["id"]`). The value lives in
+    # `@_params`, outside the app-subclass namespace: an app-side `@params` is a
+    # mistake, not a second handle on request state. The scaffold contract
+    # (`verify-scaffold`) rejects `@params` in app code, and reading through the
+    # accessor lets the value change shape later without touching call sites.
     #
     # The values are the request's scalars, arrays, hashes, and uploaded
     # files; a key carried without a value is nil. The tree is a mutable
@@ -48,27 +47,24 @@ module ActionController
       @_params = value
     end
 
-    # `action_name` — the current action: the run-time context the
-    # `only:`/`except:` gate reads. The action dispatch sets it before
-    # `run_before_filters`. Nil before any dispatch set it, and
-    # a conditional filter run without it raises rather than silently
-    # applying to every action (or none).
+    # the current action: the run-time context the `only:`/`except:` gate reads.
+    # The action dispatch sets it before `run_before_filters`. Nil before any
+    # dispatch set it, and a conditional filter run without it raises rather
+    # than silently applying to every action (or none).
     #
     # @return [Symbol?] the action the controller is dispatching
     # @param value [Symbol?] the action to gate conditional filters
     #   against
     attr_accessor :action_name
-    # `accepts_any_format` — true when the request's Accept is a bare
-    # `*/*`, an XMLHttpRequest or fetch that named none, which reads as
-    # "any format". The dispatcher sets it; false keeps every other
-    # request on the html path.
+    # true when the request's Accept is a bare `*/*`, an XMLHttpRequest or fetch
+    # that named none, which reads as "any format". The dispatcher sets it;
+    # false keeps every other request on the html path.
     #
     # @return [Boolean] true when the request accepted any format
     attr_accessor :accepts_any_format
-    # `path_parameters` — the matched route's own segments
-    # (`{"length" => "1y"}` on `/top/1y`), not the query string. The
-    # dispatcher assigns it; a caller building a URL from options reads it
-    # back to fill a segment the options leave out.
+    # the matched route's own segments (`{"length" => "1y"}` on `/top/1y`), not
+    # the query string. The dispatcher assigns it; a caller building a URL from
+    # options reads it back to fill a segment the options leave out.
     #
     # @return [Hash{String => String}] the matched route's segments
     attr_accessor :path_parameters
@@ -102,11 +98,10 @@ module ActionController
       @action_name = nil
     end
 
-    # `performed?` — true once render/redirect_to/head has produced a
-    # response. Two gates read it: the action dispatch skips the action
-    # after a filter that responded (the halting rule), and `send_action`
-    # skips the implicit 204 once anything — filter or action — has
-    # answered.
+    # true once render/redirect_to/head has produced a response. Two gates read
+    # it: the action dispatch skips the action after a filter that responded
+    # (the halting rule), and `send_action` skips the implicit 204 once anything
+    # — filter or action — has answered.
     #
     # @return [Boolean] true once a response has been produced
     def performed?
@@ -121,15 +116,13 @@ module ActionController
     # `run_before_filters`.
     BEFORE_FILTERS = []
 
-    # `before_action(*names, only:, except:)` — register before-filters
-    # for the receiving controller class. Each name is a Symbol method
-    # the chain dispatches with `send` at run time — the method may
-    # live on the controller or a parent, and private is fine (`send`
-    # reaches both). Registration records the owner class: a filter
-    # runs only on instances of the class that registered it — the
-    # `inherited` hook is never called, so the registration itself
-    # does not propagate to subclasses (declare it there again, or
-    # share the method on a parent).
+    # register before-filters for the receiving controller class. Each name is a
+    # Symbol method the chain dispatches with `send` at run time — the method
+    # may live on the controller or a parent, and private is fine (`send`
+    # reaches both). Registration records the owner class: a filter runs only on
+    # instances of the class that registered it — the `inherited` hook is never
+    # called, so the registration itself does not propagate to subclasses
+    # (declare it there again, or share the method on a parent).
     #
     # @param names [Array[Symbol]] filter method names, run in
     #   registration order
@@ -153,12 +146,10 @@ module ActionController
       BEFORE_FILTERS << [self.name, names, only_list, except_list]
     end
 
-    # `run_before_filters` — run this controller's registered
-    # before-filters in registration order, each gated by its
-    # `only:`/`except:` lists. The chain stops at the first filter that
-    # has produced a response: a filter that renders/redirects/heads
-    # skips the remaining filters and, at the call site, the action
-    # body.
+    # run this controller's registered before-filters in registration order,
+    # each gated by its `only:`/`except:` lists. The chain stops at the first
+    # filter that has produced a response: a filter that renders/redirects/heads
+    # skips the remaining filters and, at the call site, the action body.
     #
     # @return [void]
     # @raise [RuntimeError] a filter carrying `only:`/`except:` ran
@@ -179,9 +170,8 @@ module ActionController
       end
     end
 
-    # `process_action(action_name)` — dispatch one matched action: set the
-    # action context, run the controller's registered before-filters, then
-    # hand off to `send_action`.
+    # dispatch one matched action: set the action context, run the controller's
+    # registered before-filters, then hand off to `send_action`.
     #
     # A filter that responds (render/redirect/head) marks the response
     # performed and the action is skipped — the halting rule. A name with
@@ -202,14 +192,13 @@ module ActionController
       send_action(action_name) unless performed?
     end
 
-    # `send_action(action_name)` — call the action by name, then answer
-    # 204 No Content when it produced no response. The implicit-render
-    # half of dispatch: an action with nothing to return still owes the
-    # caller a definite status, and the constructor's empty 200 says
-    # "success with a body" while carrying neither — a failure class
-    # that slips past any `:success` assertion. 204 is the definite
-    # answer for "done, nothing to return" (DELETE acknowledgements and
-    # other fire-and-forget writes are the common shape).
+    # call the action by name, then answer 204 No Content when it produced no
+    # response. The implicit-render half of dispatch: an action with nothing to
+    # return still owes the caller a definite status, and the constructor's
+    # empty 200 says "success with a body" while carrying neither — a failure
+    # class that slips past any `:success` assertion. 204 is the definite answer
+    # for "done, nothing to return" (DELETE acknowledgements and other
+    # fire-and-forget writes are the common shape).
     #
     # `performed?` is the gate on purpose: a response already produced —
     # by the action body, or by a before-filter that halted the chain —
@@ -228,13 +217,12 @@ module ActionController
       default_render unless performed?
     end
 
-    # `render(body, status:, content_type:, location:, json:)` — sets
-    # @body, @status, and optionally @content_type / @location. The
-    # `location:` kwarg sets @location so the response ships a Location
-    # header alongside the rendered body — the `render :show, status: :created,
-    # location: @article` idiom for POST 201 responses. Distinct from
-    # redirect_to (which uses a 3xx status); main.rb dispatches on
-    # status, not on @location nil-ness.
+    # sets @body, @status, and optionally @content_type / @location. The
+    # `location:` kwarg sets @location so the response ships a Location header
+    # alongside the rendered body — the
+    # `render :show, status: :created, location: @article` idiom for POST 201
+    # responses. Distinct from redirect_to (which uses a 3xx status); main.rb
+    # dispatches on status, not on @location nil-ness.
     #
     # The `json:` keyword is the payload form: `render json: value`
     # encodes the value with ActionController::JsonRender and answers
@@ -279,9 +267,8 @@ module ActionController
       @location = location unless location.nil?
     end
 
-    # `redirect_to(path, status:)` — sets location and status. The default
-    # is 302 (Found); a PATCH/DELETE response that must not be replayed
-    # passes `status: :see_other` (303).
+    # sets location and status. The default is 302 (Found); a PATCH/DELETE
+    # response that must not be replayed passes `status: :see_other` (303).
     #
     # @param status [Symbol, Integer] symbolic status (resolved through Snails::Utils::SYMBOL_TO_STATUS_CODE) or an integer code
     # @return [void]
@@ -291,10 +278,9 @@ module ActionController
       @performed = true
     end
 
-    # `head(status, content_type:, location:)` — empty body, status only.
-    # `content_type` is optional: omit it and the default text/html
-    # stands, while an explicit value costs nothing — clients may still
-    # parse the header.
+    # empty body, status only. `content_type` is optional: omit it and the
+    # default text/html stands, while an explicit value costs nothing — clients
+    # may still parse the header.
     #
     # `location:` records the resource a 201 created
     # (`head :created, location: ...`). It is not a redirect — that is a
@@ -312,11 +298,11 @@ module ActionController
       @content_type = content_type unless content_type.nil?
     end
 
-    # `response` — the surface app actions write headers through
-    # (`response.headers["Expires"] = ...`). The controller is its own
-    # buffered response, so `response` returns self and `headers` the
-    # extra-header hash. Those headers are buffered but not sent yet;
-    # they tune caching, not content.
+    # the surface app actions write headers through
+    # (`response.headers["Expires"] = ...`). The controller is its own buffered
+    # response, so `response` returns self and `headers` the extra-header hash.
+    # Those headers are buffered but not sent yet; they tune caching, not
+    # content.
     #
     # @return [API] the controller itself
     def response
@@ -337,9 +323,9 @@ module ActionController
     # added when a call site asks, rather than one method with a union
     # parameter the compiler cannot narrow.
 
-    # `fresh_when(subject)` — the conditional-GET hook: it takes the
-    # subject a caller would send validators for and stores nothing,
-    # because this runtime never answers a 304 and always renders.
+    # the conditional-GET hook: it takes the subject a caller would send
+    # validators for and stores nothing, because this runtime never answers a
+    # 304 and always renders.
     #
     # The body is empty, not a bare `nil`: a `nil`-only body gives the
     # compiler an optional type with nothing to infer its parameter from,
@@ -353,8 +339,8 @@ module ActionController
     def fresh_when(subject)
     end
 
-    # `stale?(etag:)` — always true: this controller never answers a 304,
-    # so the validator argument is accepted and ignored.
+    # always true: this controller never answers a 304, so the validator
+    # argument is accepted and ignored.
     #
     # @param etag [String, nil] accepted for the call shape; never read
     # @return [Boolean] always true
@@ -362,8 +348,7 @@ module ActionController
       true
     end
 
-    # `expires_in(seconds, public:, stale_while_revalidate:)` — the
-    # Cache-Control writer: it stores the two facts and writes no header
+    # the Cache-Control writer: it stores the two facts and writes no header
     # (see `headers`).
     #
     # Seconds, not a Duration: the lowering unwraps `1.year` at the call
@@ -384,10 +369,9 @@ module ActionController
       @headers
     end
 
-    # `send_data(data, type:, disposition:)` — a binary response body,
-    # buffered like `render`. `disposition` is accepted but not written
-    # out: the Content-Disposition header stays buffered like the ones in
-    # `headers` until the response ships.
+    # a binary response body, buffered like `render`. `disposition` is accepted
+    # but not written out: the Content-Disposition header stays buffered like
+    # the ones in `headers` until the response ships.
     #
     # @param disposition [String] accepted for the Content-Disposition
     #   header, which is not written yet
@@ -398,13 +382,12 @@ module ActionController
       @performed = true
     end
 
-    # `resolve_status(s)` — a status to its HTTP integer code. Both forms
-    # are accepted: a Symbol resolves through
-    # Snails::Utils::SYMBOL_TO_STATUS_CODE, and an Integer is used as
-    # given within 100..599. Anything else raises — a value the caller
-    # mistyped (`status: 2000`, `status: :okay`) must not fall through
-    # to the 200 default and read as a normal success. The message names
-    # both accepted forms so the caller can fix the line from the raise.
+    # a status to its HTTP integer code. Both forms are accepted: a Symbol
+    # resolves through Snails::Utils::SYMBOL_TO_STATUS_CODE, and an Integer is
+    # used as given within 100..599. Anything else raises — a value the caller
+    # mistyped (`status: 2000`, `status: :okay`) must not fall through to the
+    # 200 default and read as a normal success. The message names both accepted
+    # forms so the caller can fix the line from the raise.
     #
     # @param s [Symbol, Integer] the symbolic status name or the integer code
     # @return [Integer] the HTTP status code

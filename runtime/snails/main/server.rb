@@ -1,24 +1,21 @@
-# `Snails::Main` process entry — configure the database, parse the CLI, and
-# hand the process to the server. Loaded by `runtime/snails/main.rb` after
-# `main/dispatch.rb`.
+# process entry — configure the database, parse the CLI, and hand the process to
+# the server. Loaded by `runtime/snails/main.rb` after `main/dispatch.rb`.
 module Snails
   module Main
-    # `configure_database!()` — configure the process-wide `Sqlx::Database` from
-    # the app's `config/database.rb`. Adapter-neutral: the selected
-    # backend reads its own source. No DDL here; schema is applied by an explicit
-    # step (the core `Snails::SchemaLoader` in the harness gate, or the app's own
-    # script).
+    # configure the process-wide `Sqlx::Database` from the app's
+    # `config/database.rb`. Adapter-neutral: the selected backend reads its own
+    # source. No DDL here; schema is applied by an explicit step (the core
+    # `Snails::SchemaLoader` in the harness gate, or the app's own script).
     #
     # @return [void]
     def self.configure_database!
       Sqlx::Database.configure_default!
     end
 
-    # `start()` — parse the CLI/env, configure the database, require
-    # connection leases (the SQLite adapter refuses a database access with
-    # no lease from here on; the PostgreSQL adapter has one shared
-    # connection, so this is a no-op), register the job executor, and run
-    # the green-thread-per-connection server.
+    # parse the CLI/env, configure the database, require connection leases (the
+    # SQLite adapter refuses a database access with no lease from here on; the
+    # PostgreSQL adapter has one shared connection, so this is a no-op),
+    # register the job executor, and run the green-thread-per-connection server.
     #
     # @return [void]
     def self.start

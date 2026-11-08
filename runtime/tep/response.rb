@@ -5,12 +5,12 @@ module Tep
   class Response
     attr_accessor :status, :headers, :body, :halted, :file_path, :set_cookies
 
-    # `headers_only` — the framing decision for HTTP HEAD: the write paths
-    # send the status and headers (Content-Length computed from `body`) and
-    # no message body. `Tep::App#dispatch` sets it at the seam every server
-    # passes through, so this class carries the rule and the write paths only
-    # obey it — a client reads no body from a HEAD response, so bytes written
-    # anyway would be taken for the next response on a keep-alive connection.
+    # the framing decision for HTTP HEAD: the write paths send the status and
+    # headers (Content-Length computed from `body`) and no message body.
+    # `Tep::App#dispatch` sets it at the seam every server passes through, so
+    # this class carries the rule and the write paths only obey it — a client
+    # reads no body from a HEAD response, so bytes written anyway would be taken
+    # for the next response on a keep-alive connection.
     attr_accessor :headers_only
 
     def initialize
@@ -49,10 +49,9 @@ module Tep
       @streaming = true
     end
 
-    # `start_websocket(accept_key, driver)` — mark the response as a
-    # WebSocket upgrade. The server writes a 101 Switching Protocols
-    # response with the accept key, assigns the live client fd onto the
-    # driver, then runs the recv loop.
+    # mark the response as a WebSocket upgrade. The server writes a 101
+    # Switching Protocols response with the accept key, assigns the live client
+    # fd onto the driver, then runs the recv loop.
     #
     # @param accept_key [String] the Sec-WebSocket-Accept value
     # @param driver [Tep::WebSocket::Driver] the driver the recv loop
@@ -64,7 +63,7 @@ module Tep
       @ws_driver     = driver
     end
 
-    # `set_cookie(name, value, opts)` — append one Set-Cookie line.
+    # append one Set-Cookie line.
     #
     # @param opts [Hash{String => String}] option name to value: path,
     #   expires, max-age, domain, samesite, httponly, secure. An empty
@@ -90,7 +89,7 @@ module Tep
       @body = +""
     end
 
-    # `set_body_if_empty(s)` — install the body when it is still empty.
+    # install the body when it is still empty.
     #
     # The assignment cannot be spelled `res.body = x` from a context
     # holding a polymorphic value: spinel's polymorphic-receiver write

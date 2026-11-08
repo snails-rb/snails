@@ -14,8 +14,7 @@ module Tep
   class BroadcastSubscription
     attr_reader :topic   # String
     attr_reader :fd      # Integer file descriptor
-    # `mode` — the delivery encoding Tep::Broadcast.publish uses for
-    # this subscription.
+    # the delivery encoding Tep::Broadcast.publish uses for this subscription.
     #
     # @return [Integer] 0 = raw bytes (Sock.sphttp_write_bytes), the
     #   default for SSE and log fan-out; 1 = WebSocket TEXT frame
