@@ -664,7 +664,7 @@ canary_pg() {
   # Same shape as the sqlite scaffold: baseline as a UTC migration, no
   # snapshot — and on pg `migrate dump` needs a server to replay into
   # (a throwaway schema), so a scratch container carries that one command
-  # and is dropped before the dev lanes start their own.
+  # and is dropped before the dev scenarios start their own.
   local pg_baseline
   pg_baseline="$(printf '%s\n' "$PG_APP"/db/migrate/[0-9]*_baseline.sql)"
   [[ $pg_baseline == "$PG_APP"/db/migrate/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_baseline.sql &&
@@ -816,7 +816,7 @@ canary_pg() {
     exit 1
   }
 
-  # The pending gate covers the pg lane too: a reused dev container whose
+  # The pending gate covers the pg path too: a reused dev container whose
   # schema predates a migration file stops before the build, and applying
   # through the container's URL lets it serve again.
   echo "[test-new] dev stops on a pending pg migration ($PG_APP/bin/dev)"

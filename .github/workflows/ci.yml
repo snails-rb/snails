@@ -50,6 +50,18 @@ jobs:
           echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
       - name: Install system deps
         run: sudo apt-get update && sudo apt-get install -y clang libclang-dev sqlite3 libsqlite3-dev libjemalloc-dev postgresql-client
+      # The postgres service runs 18, but Ubuntu's postgresql-client is 16 and
+      # pg_dump refuses a newer server. Install the 18 client and put its bin
+      # ahead of Ubuntu's version wrapper on PATH.
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
       - name: Cache spinel build
         id: cache-spinel
         uses: actions/cache@v4
