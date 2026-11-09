@@ -21,24 +21,41 @@
 # commit in this checkout, and a second annotated tag is created in the
 # repo. That repo has no source commits, so its
 # tag points at the release-target commit and carries `REV=<full rev>` in
-# the message — that is how an installed CLI maps a version pin back to the
-# source rev. Version tags are immutable like releases: reusing one would
-# silently retarget every consumer pin that names it.
+# the message — that is how an installed CLI maps a version pin back to
+# the source rev. Version tags are immutable like releases: reusing one
+# would silently retarget every consumer pin that names it.
+#
+# A release reads version-first even though its tag names the rev: the
+# title is the version, and the body opens with the pin and the install
+# command, followed by the change list since the previous version
+# (`--notes-file` replaces the generated body with hand-written notes).
+# The tag stays `rev-<rev>` because the assets, the cache path, and the pin
+# resolution all key on the rev.
+#
+# Channel flags make "the recommended install" a property of the release
+# instead of of the newest one. A stable version takes Latest; a prerelease
+# is marked as one and never takes Latest; an unversioned release
+# (`--version` omitted) never takes Latest either — `install.sh` without
+# `--rev` then installs the last stable version, and an unversioned rev is
+# installed by name.
 #
 # Usage: scripts/publish-dist.sh [rev] [--version vX.Y.Z] [--dry-run] [--out DIR]
-#                                 [--dist-repo OWNER/NAME]
+#                                 [--notes-file FILE] [--dist-repo OWNER/NAME]
 #   rev          commit to publish (default: HEAD); publishing requires it
 #                to be on origin/main — a pin must name merged content
 #   --version    also create+push the vX.Y.Z release tag at that commit
 #                (SemVer: MAJOR breaks, MINOR adds, PATCH fixes; 0.x =
 #                development — the API may change until 1.0.0)
-#   --dry-run    build the assets only (no gh, no network)
+#   --notes-file hand-written release body (Markdown) that replaces the
+#                generated install lines and change list; the title stays
+#   --dry-run    build the assets and the release notes only (no gh, no network)
 #   --out DIR    where the assets are written (default: a fresh mktemp -d)
 #   --dist-repo  the public release repo (default snails-rb/dist)
 #
 # Assets: snails-dist-<rev>.tar.gz + snails-dist-<rev>.tar.gz.sha256 +
-# pins.toml. Publishing runs from this checkout with the local `gh` auth.
-# CI publishing is not wired yet.
+# pins.toml, plus release-notes.md in the output directory. Publishing
+# runs from this checkout with the local `gh` auth. CI publishing is not
+# wired yet.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -50,11 +67,12 @@ CORE_PATHS=(runtime cli scaffold bin pins.toml LICENSE)
 usage() {
   cat <<'USAGE'
 usage: publish-dist.sh [rev] [--version vX.Y.Z] [--dry-run] [--out DIR]
-                        [--dist-repo OWNER/NAME]
+                       [--notes-file FILE] [--dist-repo OWNER/NAME]
   rev          commit to publish (default: HEAD; must be on origin/main)
   --version    also create+push the vX.Y.Z release tag at that commit
                (SemVer; 0.x = development, the API may change until 1.0.0)
-  --dry-run    build the assets only (no gh, no network)
+  --notes-file hand-written release notes that replace the generated body
+  --dry-run    build the assets and the release notes only (no gh, no network)
   --out DIR    asset output directory (default: a fresh mktemp -d)
   --dist-repo  the public release repo (default snails-rb/dist)
 USAGE
@@ -62,12 +80,14 @@ USAGE
 
 rev=""
 version=""
+notes_file=""
 dry=0
 out=""
 dist_repo="snails-rb/dist"
 while (($#)); do
   case "$1" in
     --version) version="${2:-}"; shift 2 ;;
+    --notes-file) notes_file="${2:-}"; shift 2 ;;
     --dry-run) dry=1; shift ;;
     --out) out="${2:-}"; shift 2 ;;
     --dist-repo) dist_repo="${2:-}"; shift 2 ;;
@@ -80,6 +100,21 @@ done
 if [[ ! $dist_repo =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
   echo "[publish-dist] --dist-repo must look like owner/name, got: $dist_repo" >&2
   exit 1
+fi
+
+# Hand-written notes are an input file: refuse a missing or empty one here,
+# before anything is built, and keep an absolute path so a later relative
+# resolve cannot pick up a different file.
+if [[ -n $notes_file ]]; then
+  if [[ ! -f $notes_file ]]; then
+    echo "[publish-dist] --notes-file does not exist: $notes_file" >&2
+    exit 1
+  fi
+  if [[ ! -s $notes_file ]]; then
+    echo "[publish-dist] --notes-file is empty: $notes_file" >&2
+    exit 1
+  fi
+  notes_file="$(cd "$(dirname "$notes_file")" && pwd)/$(basename "$notes_file")"
 fi
 
 rev_full="$(git -C "$ROOT" rev-parse --verify "${rev}^{commit}" 2>/dev/null)" || {
@@ -95,9 +130,97 @@ if [[ -n $version && ! $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]
   exit 1
 fi
 
+# The release channel decides both the Latest flag and how the body reads.
+# An unversioned publish (no --version) is an unversioned release: a rev no
+# version names, reachable by --rev only.
+channel=stable
+skip_same_base=0
+if [[ -z $version ]]; then
+  channel=unversioned
+elif [[ $version == *-* ]]; then
+  channel=prerelease
+else
+  # A stable release shares its commit with its own last prerelease, so the
+  # change list spans the whole version rather than only the candidate.
+  skip_same_base=1
+fi
+if [[ -n $version ]]; then
+  release_title="snails $version"
+  consumer_pin="$version"
+else
+  release_title="snails dist ${rev_full:0:12}"
+  consumer_pin="$rev_full"
+fi
+
+# newer_version <a> <b> — true when the SemVer tag <a> is greater than <b>.
+# Both are stable vX.Y.Z forms; each component is compared as a number.
+newer_version() {
+  local a="${1#v}" b="${2#v}" a1 a2 a3 b1 b2 b3
+  IFS=. read -r a1 a2 a3 <<< "$a"
+  IFS=. read -r b1 b2 b3 <<< "$b"
+  if ((a1 > b1)); then return 0; fi
+  if ((a1 < b1)); then return 1; fi
+  if ((a2 > b2)); then return 0; fi
+  if ((a2 < b2)); then return 1; fi
+  ((a3 > b3))
+}
+
+# newest_other_stable_tag <exclude> — the greatest local stable version tag
+# other than <exclude>. Local tags are the publisher's record of released
+# versions (publish creates and pushes them), so a retrospective publish —
+# an older version released after a newer one — is caught here without an
+# API call. Prints nothing when no other stable tag exists.
+newest_other_stable_tag() {
+  local exclude="$1" tag best=""
+  while read -r tag; do
+    [[ $tag == "$exclude" ]] && continue
+    [[ $tag == *-* ]] && continue
+    if [[ -z $best ]] || newer_version "$tag" "$best"; then
+      best="$tag"
+    fi
+  done < <(git -C "$ROOT" tag --list 'v[0-9]*')
+  printf '%s' "$best"
+}
+
+# previous_version_tag <rev> <version> <skip_same_base> — the newest v* tag
+# reachable from <rev> that is not the version being published. A stable
+# release shares its commit with its own last prerelease, so a stable body
+# sets skip_same_base=1 and lists changes across the whole version; a
+# prerelease skips only itself, so each candidate lists changes since the
+# previous one. With no version (an unversioned release) any version tag anchors
+# the list. Prints nothing when no version tag is reachable.
+previous_version_tag() {
+  local rev="$1" version="$2" skip_same_base="$3" base tag best=""
+  base="${version%%-*}"
+  while read -r tag; do
+    if [[ $tag == "$version" ]]; then
+      continue
+    fi
+    if [[ $skip_same_base == 1 && -n $base && ${tag%%-*} == "$base" ]]; then
+      continue
+    fi
+    if git -C "$ROOT" merge-base --is-ancestor "$tag" "$rev" 2>/dev/null; then
+      best="$tag"
+    fi
+  done < <(git -C "$ROOT" tag --list 'v[0-9]*' --sort=v:refname)
+  printf '%s' "$best"
+}
+
 # GitHub refuses branch/tag names consisting of exactly 40 (or 64) hex
 # characters — the tag carries the pin with a fixed prefix instead.
 tag="rev-${rev_full}"
+
+# A stable version takes Latest, so releasing an older version after a newer
+# one would move the recommended install backwards. Pure git, so a dry run
+# catches it too. Older content reaches consumers as an unversioned release
+# (no --version) instead.
+if [[ $channel == stable ]]; then
+  newer="$(newest_other_stable_tag "$version")"
+  if [[ -n $newer ]] && newer_version "$newer" "$version"; then
+    echo "[publish-dist] $version is older than the published $newer — a stable release takes Latest and would move the recommended install backwards; drop --version for an unversioned release, or publish the newer number" >&2
+    exit 1
+  fi
+fi
 
 if ((dry == 0)); then
   # A published rev must be merged content: consumers resolve their pin
@@ -195,9 +318,41 @@ echo "[publish-dist] built $out/$asset"
 echo "[publish-dist] built $out/$asset.sha256"
 echo "[publish-dist] built $out/pins.toml"
 
+# The release reads version-first: a title a human can pin-tag by, and a
+# body whose first line is the pin to record. `install.sh` without --rev
+# installs Latest, so the install line names the rev whenever the channel
+# will not hold Latest (a prerelease or an unversioned release).
+notes_out="$out/release-notes.md"
+if [[ -n $notes_file ]]; then
+  cp "$notes_file" "$notes_out"
+else
+  {
+    printf 'Pin: `SNALS_REV="%s"`\n\n' "$consumer_pin"
+    if [[ $channel == stable ]]; then
+      printf 'Install the latest release:\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/snails-rb/dist/main/install.sh | bash\n```\n'
+    else
+      printf 'Install this %s release by its rev (it does not take Latest):\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/snails-rb/dist/main/install.sh | bash -s -- --rev %s\n```\n' \
+        "$channel" "$rev_full"
+    fi
+    prev="$(previous_version_tag "$rev_full" "$version" "$skip_same_base")"
+    printf '\n## Changes\n\n'
+    if [[ -n $prev ]]; then
+      printf 'Since `%s` (`%s`):\n\n' "$prev" "${rev_full:0:12}"
+      git -C "$ROOT" log --no-merges --format='- %s' "$prev..$rev_full"
+    else
+      printf 'No version tag is reachable — run `git fetch --tags` to anchor this list. Until then the list covers the whole history.\n\n'
+      git -C "$ROOT" log --no-merges --format='- %s' "$rev_full"
+    fi
+    printf '\nReleases are immutable: a rev gets one asset set, never a replaced one. `pins.toml` is the rev'"'"'s spinel declaration; `install.sh` lives on main and the code ships only inside the dist tarball.\n'
+  } > "$notes_out"
+fi
+echo "[publish-dist] built $notes_out"
+
 if ((dry)); then
   echo "[publish-dist] target repo: $dist_repo"
   echo "[publish-dist] release tag: $tag (dry run — nothing published)"
+  echo "[publish-dist] release title: $release_title"
+  echo "[publish-dist] channel: $channel (dry run — nothing published)"
   if [[ -n $version ]]; then
     echo "[publish-dist] version tag: $version (dry run — nothing published)"
   fi
@@ -244,27 +399,23 @@ if ! dist_main="$(gh api "repos/$dist_repo/commits/main" --jq .sha 2>/dev/null)"
   exit 1
 fi
 
-subject="$(git -C "$ROOT" log -1 --format='%s' "$rev_full")"
-# The version is the pin a release channel recommends; the full rev stays
-# the temporary edge form for a pre-release test.
-if [[ -n $version ]]; then
-  consumer_pin="$version"
-else
-  consumer_pin="$rev_full"
-fi
-notes="snails dist at $rev_full.
-
-$subject
-
-A consumer pin (SNALS_REV=\"$consumer_pin\") resolves to this release. Releases are immutable: a new rev gets a new release, never a replaced asset. pins.toml is the rev's spinel declaration; install.sh lives on main and the code ships only inside the dist tarball."
+release_args=(--repo "$dist_repo" --target "$dist_main"
+  --title "$release_title" --notes-file "$notes_out")
+case "$channel" in
+  stable) release_args+=(--latest) ;;
+  # A prerelease never takes Latest on its own; asking for both would be
+  # a contradictory request.
+  prerelease) release_args+=(--prerelease) ;;
+  unversioned) release_args+=(--latest=false) ;;
+esac
 gh release create "$tag" "$out/$asset" "$out/$asset.sha256" "$out/pins.toml" \
-  --repo "$dist_repo" \
-  --target "$dist_main" \
-  --title "dist ${rev_full:0:12}" \
-  --notes "$notes"
+  "${release_args[@]}"
 echo "[publish-dist] published $(gh release view "$tag" --repo "$dist_repo" --json url --jq .url)"
-if [[ -z $version ]]; then
-  echo "[publish-dist] consumers pin: SNALS_REV=\"$rev_full\""
+echo "[publish-dist] consumers pin: SNALS_REV=\"$consumer_pin\" ($channel channel)"
+if [[ $channel == stable ]]; then
+  echo "[publish-dist] install.sh without --rev now installs this release (Latest)"
+else
+  echo "[publish-dist] Latest stays on the last stable release — install this rev with 'install.sh --rev $rev_full'"
 fi
 
 # The version tag comes after the release: a version pin must resolve to
@@ -284,6 +435,6 @@ if [[ -n $version ]]; then
   fi
   git -C "$ROOT" tag -a "$version" "$rev_full" -m "snails $version"
   git -C "$ROOT" push origin "refs/tags/$version"
-  echo "[publish-dist] version tag $version -> ${rev_full:0:12} (source and $dist_repo) — consumers pin: SNALS_REV=\"$version\""
+  echo "[publish-dist] version tag $version -> ${rev_full:0:12} (source and $dist_repo)"
   echo "[publish-dist] next: bash install.sh, then rerun the app gate without SNAILS_DIR (the installed CLI must carry this rev)"
 fi

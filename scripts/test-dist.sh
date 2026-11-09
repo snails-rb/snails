@@ -1,11 +1,12 @@
 #!/bin/bash
 # Regression test for the dist lifecycle: the publish script's dry-run
 # assets (core paths + LICENSE + REV + sha256 sidecar + pins.toml), the
-# target repo name, dist-mode `snails new` (the REV file is the pin
-# source), the dist-mode fetch path (`snails sync` on a pin that is not the
-# dist's own rev downloads, verifies, caches, and reuses the published
-# dist), the version-pin resolution through the target repo's tag
-# annotation, `verify-pin` in dist mode (publication check), and
+# target repo name, the version-first release record (title, generated
+# notes, stable/prerelease/unversioned channel flags), dist-mode `snails new` (the
+# REV file is the pin source), the dist-mode fetch path (`snails sync` on a
+# pin that is not the dist's own rev downloads, verifies, caches, and reuses
+# the published dist), the version-pin resolution through the target repo's
+# tag annotation, `verify-pin` in dist mode (publication check), and
 # install.sh (download, verify, unpack, symlink).
 #
 # The distribution base is a local HTTP server serving the same layout
@@ -182,6 +183,94 @@ bash "$PUB" HEAD --version v9.9.9 --dry-run --out ver-out > ver-dry.out 2>&1
 chk "--version dry-run builds the assets" $? 0
 grep -q "version tag: v9.9.9" ver-dry.out
 chk "the dry run announces the version tag" $? 0
+grep -q 'release title: snails v9.9.9' ver-dry.out
+chk "the release title is the version" $? 0
+grep -q 'channel: stable' ver-dry.out
+chk "a stable version is announced as the stable channel" $? 0
+grep -q 'Pin: `SNALS_REV="v9.9.9"`' ver-out/release-notes.md
+chk "the notes open with the pin to record" $? 0
+grep -q 'Install the latest release' ver-out/release-notes.md
+chk "a stable release installs without naming a rev" $? 0
+
+bash "$PUB" HEAD --version v9.9.9-rc.1 --dry-run --out ver-rc-out > ver-rc.out 2>&1
+chk "--version dry-run builds a prerelease" $? 0
+grep -q 'channel: prerelease' ver-rc.out
+chk "a prerelease is announced as its own channel" $? 0
+grep -q -- "install.sh | bash -s -- --rev $REV" ver-rc-out/release-notes.md
+chk "a prerelease installs by rev" $? 0
+
+bash "$PUB" HEAD --dry-run --out unv-out > unv.out 2>&1
+chk "a dry run without --version builds the assets" $? 0
+grep -q "release title: snails dist ${REV:0:12}" unv.out
+chk "an unversioned release is titled by its rev" $? 0
+grep -q 'channel: unversioned' unv.out
+chk "an unversioned release is announced as its own channel" $? 0
+grep -q 'does not take Latest' unv-out/release-notes.md
+chk "the unversioned body says it does not take Latest" $? 0
+grep -q '## Changes' unv-out/release-notes.md
+chk "the generated body carries a change list" $? 0
+
+# 3c. --notes-file: hand-written notes are an input file. A missing or
+#     empty one is refused before anything is built, and a valid one
+#     replaces the generated body as-is.
+bash "$PUB" HEAD --dry-run --out notes-miss-out --notes-file notes-missing.md > notes-miss.out 2>&1
+chk "--notes-file rejects a missing file" $? 1
+grep -q -- '--notes-file does not exist' notes-miss.out
+chk "the missing notes file is named" $? 0
+: > notes-empty.md
+bash "$PUB" HEAD --dry-run --out notes-empty-out --notes-file notes-empty.md > notes-empty.out 2>&1
+chk "--notes-file rejects an empty file" $? 1
+grep -q -- '--notes-file is empty' notes-empty.out
+chk "the empty notes file is named" $? 0
+printf 'Hand-written notes.\n' > notes.md
+bash "$PUB" HEAD --dry-run --out notes-out --notes-file notes.md > notes-ok.out 2>&1
+chk "--notes-file accepts a hand-written body" $? 0
+cmp -s notes.md notes-out/release-notes.md
+chk "the hand-written body is used unchanged" $? 0
+
+# 3d. the change list spans the version, not the candidates. A synthetic
+#     repo carries v0.1.0, then v0.2.0-rc.1 and v0.2.0-rc.2, then one more
+#     commit: a v0.2.0 body starts at v0.1.0 while v0.2.0-rc.3 starts at
+#     v0.2.0-rc.2.
+mkdir -p tagsrepo
+cp -R dist/. tagsrepo/
+mkdir -p tagsrepo/scripts
+cp "$PUB" tagsrepo/scripts/
+git -C tagsrepo init -q
+git -C tagsrepo add -A
+git -C tagsrepo -c user.name=snails -c user.email=snails@test \
+  -c commit.gpgsign=false commit -q --no-verify -m "start"
+git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.1.0
+git -C tagsrepo -c user.name=snails -c user.email=snails@test \
+  -c commit.gpgsign=false commit -q --no-verify --allow-empty -m "second"
+git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.2.0-rc.1
+git -C tagsrepo -c user.name=snails -c user.email=snails@test \
+  -c commit.gpgsign=false commit -q --no-verify --allow-empty -m "third"
+git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.2.0-rc.2
+bash tagsrepo/scripts/publish-dist.sh HEAD --version v0.2.0 --dry-run --out tags-stable > tags-stable.out 2>&1
+chk "a stable body builds in a tagged repo" $? 0
+grep -q 'Since `v0.1.0`' tags-stable/release-notes.md
+chk "a stable body starts at the previous version" $? 0
+bash tagsrepo/scripts/publish-dist.sh HEAD --version v0.2.0-rc.3 --dry-run --out tags-rc > tags-rc.out 2>&1
+chk "a prerelease body builds in a tagged repo" $? 0
+grep -q 'Since `v0.2.0-rc.2`' tags-rc/release-notes.md
+chk "a prerelease body starts at the previous candidate" $? 0
+
+# 3e. a stable release older than a published one is refused: it would take
+#     Latest and move the recommended install backwards. Edge releases stay
+#     open for older content, so the check is dry-run too. The comparison is
+#     against stable tags only — a candidate does not hold Latest.
+git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.2.0
+bash tagsrepo/scripts/publish-dist.sh HEAD --version v0.1.1 --dry-run --out tags-old > tags-old.out 2>&1
+chk "a stable release older than a published one is refused" $? 1
+grep -q 'is older than the published v0.2.0' tags-old.out
+chk "the refusal names the newer version" $? 0
+grep -q 'drop --version for an unversioned release' tags-old.out
+chk "the refusal names the unversioned alternative" $? 0
+bash tagsrepo/scripts/publish-dist.sh HEAD --dry-run --out tags-unv > tags-unv.out 2>&1
+chk "an unversioned publish of the same rev is allowed" $? 0
+grep -q 'channel: unversioned' tags-unv.out
+chk "the allowed publish is announced as unversioned" $? 0
 
 # 3c. version tags are immutable: neither a local tag nor one already
 #     on origin may be reused. A synthetic checkout with an origin (a
