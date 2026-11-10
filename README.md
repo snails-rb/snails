@@ -29,9 +29,9 @@ The manual is the product documentation. It lives in [`manual/`](manual/) and is
 
 **The Basics**
 
-- [Welcome to snails!](manual/01-welcome-to-snails.md)
+- [Welcome to Snails!](manual/01-welcome-to-snails.md)
 - [Getting Started](manual/02-getting-started.md)
-- [snails CLI](manual/03-snails-cli.md)
+- [Snails CLI](manual/03-snails-cli.md)
 - [Coming from Rails](manual/04-coming-from-rails.md)
 
 **Building Your App**
@@ -50,7 +50,7 @@ The manual is the product documentation. It lives in [`manual/`](manual/) and is
 - [Local Development](manual/13-local-development.md)
 - [Testing](manual/14-testing.md)
 - [Deploying](manual/15-deploying.md)
-- [Updating snails](manual/16-updating-snails.md)
+- [Updating Snails](manual/16-updating-snails.md)
 
 **The Rest**
 

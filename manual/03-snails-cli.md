@@ -1,4 +1,4 @@
-# snails CLI
+# Snails CLI
 
 The `snails` command is your entry point for everything outside your app's own `bin/` scripts. It creates projects, generates files, checks that your setup is intact, migrates the database, and runs your tests — each command prints one line of what happened and nothing else until you ask.
 

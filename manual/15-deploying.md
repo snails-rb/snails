@@ -1,6 +1,6 @@
 # Deploy
 
-A snails app is one native binary. The project builds it into a small container image, so you can run the same image on a laptop, a single server, or a container platform. You don't need the compiler on the machine that runs it.
+A Snails app is one native binary. The project builds it into a small container image, so you can run the same image on a laptop, a single server, or a container platform. You don't need the compiler on the machine that runs it.
 
 ## Build the image
 
