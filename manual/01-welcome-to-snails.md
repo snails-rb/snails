@@ -4,15 +4,15 @@ snails is a small framework for building web apps that compile to a single nativ
 
 ## Why it's fast
 
-Ruby runs one thread of your code at a time by default. Rails gets past that by running several worker processes, and each worker holds its own full copy of your app in memory. snails has no such limit, so one process can use every CPU the machine has. That means one process to watch, one log to tail, and no multiplying memory just to use more CPUs.
+Ruby executes one thread of application code at a time. Rails works around that by running several worker processes, and every worker holds its own copy of the application in memory. snails has no such constraint: a single process uses every core on the machine, with no GVL and no process-per-core duplication.
 
-You feel it in three places: how many requests one machine answers, how much memory it sits on, and how long a deploy or a restart takes.
+That shows up as throughput per core, resident memory, and restart time.
 
 ## How it compares
 
-Both apps answer the same `GET /up` with the same JSON body, running as containers on the same machine: eight cores, sixteen hardware threads. The app gets twelve of those threads, and the load generator keeps the other four so it never competes with the app being measured.
+Both apps are generated defaults answering the same `GET /up` with the same JSON body, in containers on one machine — 8 cores, 16 hardware threads. The app gets twelve threads; the load generator is pinned to the other four so it never competes with the server. Request logging is off on both sides, so what is measured is the framework request path.
 
-| | snails | Rails | Rails, one worker per CPU |
+| | snails | Rails | Rails Cluster Mode |
 |---|---:|---:|---:|
 | Requests per second | 57,863 | 4,920 | 18,547 |
 | Response time, 95th percentile | 1.1 ms | 9.4 ms | 4.0 ms |
@@ -21,11 +21,11 @@ Both apps answer the same `GET /up` with the same JSON body, running as containe
 | Launch to first answer | 8 ms | 1.5 s | 1.6 s |
 | Image size | 138 MiB | 416–424 MiB | 416–424 MiB |
 
-About twelve times the requests of a stock Rails app, and about three times one that has been scaled up to use the same CPUs. The last column is the fairer one to read, because it's what Rails needs in order to use what snails uses by default. The middle column is what `rails new` hands you untouched.
+Cluster Mode is the column that matters for a like-for-like comparison: one worker per core is what Rails needs to reach the parallelism snails gets from a single process. The unlabelled Rails column is `rails new` untouched — one process, five threads — and is what most deployments start as.
 
-Memory under load is where the difference is hardest to miss. The scaled-up Rails app keeps twelve copies of itself in memory to use twelve cores; snails uses one, so its cost doesn't climb with the number of cores.
+The memory gap widens under load rather than narrowing. Cluster Mode pays for one copy of the app per worker, so its footprint scales with core count; a snails process does not.
 
-These are medians of repeated runs on one machine, with request logging turned off on both sides so the comparison is the framework's request path rather than its log writer. Your numbers will differ; what travels is the shape of it. Every figure, the method behind it, and the raw output are in [snails-benchmark](https://github.com/snails-rb/snails-benchmark), which is where these numbers come from and where they get corrected.
+Figures are medians of repeated runs at 32 concurrent connections. Expect different absolute numbers on your hardware — the ratios are the part that holds. The harness, the committed result files and the full method are in [snails-benchmark](https://github.com/snails-rb/snails-benchmark); that repository is the source of these figures and where corrections land.
 
 ## What it doesn't do
 
