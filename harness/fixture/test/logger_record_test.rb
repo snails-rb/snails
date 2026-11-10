@@ -261,6 +261,26 @@ class LoggerRecordTest < TestBase
     assert_equal true, message.include?("event expects")
   end
 
+  # A dropped event builds no record: the record formatter and the transport
+  # see nothing, and the context and resource bags are never read. The clock
+  # read that a record carries is part of that skipped work.
+  def test_a_dropped_event_builds_no_record
+    out = RecordOutput.new
+    formatter = RecordingRecordFormatter.new
+    transport = RecordCapture.new
+    logger = new_logger(out)
+    logger.level = :warn
+    logger.record_formatter = formatter
+    logger.transport = transport
+
+    logger.info("hidden", event: "request.completed", fields: { "http.response.status_code" => 200 })
+    logger.flush
+
+    assert_equal 0, formatter.calls.length
+    assert_equal 0, out.lines.length
+    assert_equal 0, transport.batches.length
+  end
+
   # exception is passed as a keyword and carried on the record.
   def test_event_call_accepts_an_exception_keyword
     out = RecordOutput.new
@@ -497,6 +517,7 @@ FixtureRunner.run(LoggerRecordTest, [
   "test_event_call_uses_the_record_formatter",
   "test_event_call_respects_the_level",
   "test_event_call_validates_before_the_level",
+  "test_a_dropped_event_builds_no_record",
   "test_event_call_accepts_an_exception_keyword",
   "test_default_record_formatter_line",
   "test_record_formatter_escapes_values",

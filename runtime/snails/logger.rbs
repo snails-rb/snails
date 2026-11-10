@@ -9,6 +9,8 @@ module Snails
     @delivery: Delivery
     @progname: String
     @host_name: String?
+    @synced_output: untyped
+    @flush_after_write: bool
     @write_lock: Mutex
 
     def initialize: () -> void

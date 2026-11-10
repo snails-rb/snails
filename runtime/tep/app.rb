@@ -104,7 +104,12 @@ module Tep
     # and request id come from `Snails::Logger::Context`; a request that never
     # reached a controller (404, 400, or an app dispatch that does not record
     # them) simply omits those fields.
+    #
+    # The level predicate runs first: the summary string and the field bag cost
+    # a request nothing when the level has already dropped the line.
     def log_request_completed(req, started, status)
+      return unless Snails.logger.info?
+
       Snails.logger.info(
         request_summary(req, status),
         event: "request.completed",
@@ -117,6 +122,8 @@ module Tep
     # exception travels on the record, so a transport receives the type,
     # message, and stacktrace together with the status and duration.
     def log_request_failed(req, started, status, failure)
+      return unless Snails.logger.error?
+
       Snails.logger.error(
         request_summary(req, status),
         event: "request.failed",

@@ -5,6 +5,13 @@ module Snails
       SCHEMA_VERSION: Integer
       RESERVED_FIELDS: Array[String]
 
+      def self.validate_arguments: (
+        Symbol severity,
+        String event,
+        String body,
+        Exception? exception
+      ) -> void
+
       def initialize: (
         Symbol severity,
         String event,

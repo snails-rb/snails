@@ -50,6 +50,10 @@ module Snails
       @delivery = Delivery.new
       @progname = ""
       @host_name = nil
+      # The output whose sync mode this process already turned on. Held by
+      # identity so an in-process `$stderr` swap is noticed on the next line.
+      @synced_output = nil
+      @flush_after_write = false
       # The local render is one unit: concurrent requests and worker threads
       # must not interleave lines. The transport hand-off runs outside this
       # lock — a hand-off waiting on the database must not freeze every logger
@@ -123,7 +127,9 @@ module Snails
     end
 
     # send log lines somewhere else. A String path is rejected: open the file
-    # first and pass the IO, or the typo would silently log nowhere.
+    # first and pass the IO, or the typo would silently log nowhere. An IO that
+    # answers `sync=` is put in sync mode on first write, so a line reaches its
+    # destination from the write itself and the logger never flushes per line.
     #
     # @param io [IO, nil] an object answering `write`; nil restores stderr
     # @raise [ArgumentError] io is neither nil nor IO-like
@@ -134,6 +140,7 @@ module Snails
       end
 
       @output = io
+      @synced_output = nil
       io
     end
 
@@ -405,56 +412,77 @@ module Snails
       write_event(severity, event, message.to_s, fields, exception)
     end
 
-    # One named record at the level's severity. The arguments are validated
-    # before the level gate, so a malformed event raises in every mode rather
-    # than only when the level happens to write it. An info event is dropped
-    # when the app set `level = :warn`. The record carries the request id,
-    # matched controller/action, and job context as reserved fields; the
+    # One named record at the level's severity. The call's shape is checked
+    # before the level gate, so a malformed call raises in every mode; the
+    # record itself is built only after the gate opens, so a dropped event
+    # pays no field copies, context lookups, or clock read. An info event is
+    # dropped when the app set `level = :warn`. The record carries the request
+    # id, matched controller/action, and job context as reserved fields; the
     # service/process attributes ride separately in `Record#resource`. A
     # caller field with a reserved name raises rather than overwriting it.
     def write_event(severity, event, body, fields, exception)
-      record = Record.new(
-        severity, event, body,
-        fields: fields, exception: exception,
-        context: context_fields, resource: resource_fields
-      )
+      Record.validate_arguments(severity, event, body, exception)
+      return unless writes?(severity)
+
       # The record writer is the one place that sees both the event name and
       # the running job, so it is where a job whose own records would feed the
       # pipeline it logs to (the log delivery job) has its `job.*` events
       # dropped. The queue therefore writes its lifecycle events
       # unconditionally and needs no per-job switch.
-      return if record.event.start_with?("job.") && Context.job_events_suppressed?
-      return unless writes?(record.severity)
+      return if event.start_with?("job.") && Context.job_events_suppressed?
 
-      write_record(record)
+      write_record(Record.new(
+        severity, event, body,
+        fields: fields, exception: exception,
+        context: context_fields, resource: resource_fields
+      ))
     end
 
     # A string call renders through the legacy formatter (so an app's
     # replacement keeps working) and still becomes an `app.log` record for
-    # the transport. The local line is written under the lock; the record
-    # reaches the transport after it is released, so a transport waiting on
-    # the database never holds up other threads' logging.
+    # the transport. Rendering happens before the lock; the lock covers only
+    # the write, so a line being formatted does not hold up other threads.
+    # The record reaches the transport after the lock is released, so a
+    # transport waiting on the database never holds up other threads' logging.
     def write_line(severity, message)
       body = message.to_s
-      record = Record.new(severity, "app.log", body, context: context_fields, resource: resource_fields)
-      @write_lock.synchronize do
-        io = output
-        io.write(@formatter.call(severity.to_s.upcase, Time.now, @progname, tagged_message(body)))
-        io.flush
-      end
-      deliver(record)
+      line = @formatter.call(severity.to_s.upcase, Time.now, @progname, tagged_message(body))
+      write_output(line)
+      deliver(Record.new(severity, "app.log", body, context: context_fields, resource: resource_fields))
     end
 
     # A structured event renders through the record formatter and then
     # reaches the transport, under the same split: the line under the lock,
     # the hand-off outside it.
     def write_record(record)
+      write_output(@record_formatter.call(record, @progname))
+      deliver(record)
+    end
+
+    # The one local write. A line is one `write` call under the lock, which is
+    # what keeps concurrent lines whole. An output that answers `sync=` is
+    # switched to sync mode once here, so the write itself reaches the
+    # destination and no line pays a flush. An output without `sync=` (a custom
+    # sink, a StringIO) keeps the explicit flush it has always had.
+    def write_output(line)
       @write_lock.synchronize do
         io = output
-        io.write(@record_formatter.call(record, @progname))
-        io.flush
+        prepare_output(io)
+        io.write(line)
+        io.flush if @flush_after_write
       end
-      deliver(record)
+    end
+
+    # Decide once per output how a line reaches the destination: a stream that
+    # answers `sync=` is put in sync mode, so the write is not buffered; any
+    # other output is flushed after each line, as before. Called with
+    # `@write_lock` held.
+    def prepare_output(io)
+      return if @synced_output.equal?(io)
+
+      @synced_output = io
+      @flush_after_write = !io.respond_to?(:sync=)
+      io.sync = true if !@flush_after_write
     end
 
     # `Delivery` owns the transport and the hand-off. The logger only turns a
@@ -476,9 +504,11 @@ module Snails
 
     # The local line writer assumes the caller holds `@write_lock`.
     def write_local_line(severity, message)
+      line = @formatter.call(severity.to_s.upcase, Time.now, @progname, tagged_message(message))
       io = output
-      io.write(@formatter.call(severity.to_s.upcase, Time.now, @progname, tagged_message(message)))
-      io.flush
+      prepare_output(io)
+      io.write(line)
+      io.flush if @flush_after_write
     end
 
     # `snails.request_id`, `snails.controller`, `snails.action`, and the job
@@ -530,7 +560,7 @@ module Snails
     end
 
     private :severity_rank, :writes?, :write_level, :write_event,
-            :write_line, :write_record, :deliver,
+            :write_line, :write_record, :write_output, :prepare_output, :deliver,
             :report_outcome, :write_local_line,
             :context_fields, :resource_fields, :tagged_message
   end

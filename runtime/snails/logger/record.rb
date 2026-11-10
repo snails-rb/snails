@@ -61,22 +61,24 @@ module Snails
       # `job.failed`, `worker.loop_stopped`, `app.log`.
       EVENT_PATTERN = /\A[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\z/
 
-      # build one record. `fields` are caller-owned and checked against
-      # `RESERVED_FIELDS`; `context` carries the request/job correlation the
-      # logger already validated, so those names are allowed there; `resource`
-      # carries the service/process attributes the transport sends per batch.
+      # Raise for a caller's scalar arguments outside the record contract
+      # without building anything. The logger runs this before its level gate,
+      # so a malformed call fails in every mode; a call the gate drops then
+      # pays these four checks alone — no record, no field copies, no context
+      # or resource lookup, and no clock read.
+      #
+      # The caller field bag is checked when the record is built. A dropped
+      # event builds nothing, so a field name or value has nothing to violate;
+      # a written event runs the same field contract it always has.
       #
       # @param severity [Symbol] one of `SEVERITIES`
       # @param event [String] the stable event name
       # @param body [String] the human-readable message
-      # @param fields [Hash{String, Symbol => Object}] caller fields
       # @param exception [Exception, nil] the failure this record reports
-      # @param time [Time, nil] the event time; defaults to the current UTC time
-      # @param context [Hash{String => Object}] logger-owned correlation fields
-      # @param resource [Hash{String => Object}] service/process attributes
-      # @raise [ArgumentError] a severity, event, field, value, exception, or
-      #   time outside the contract
-      def initialize(severity, event, body, fields: {}, exception: nil, time: nil, context: {}, resource: {})
+      # @raise [ArgumentError] a severity, event, body, or exception outside
+      #   the contract
+      # @return [void]
+      def self.validate_arguments(severity, event, body, exception)
         if !SEVERITIES.include?(severity)
           raise ArgumentError, "Snails::Logger::Record severity expects one of :debug, :info, :warn, :error, :fatal, got " + severity.inspect
         end
@@ -89,6 +91,23 @@ module Snails
         if !exception.nil? && !exception.is_a?(Exception)
           raise ArgumentError, "Snails::Logger::Record exception expects an Exception or nil, got " + exception.class.name
         end
+      end
+
+      # build one record. The caller's arguments are checked first and the
+      # normalized field bag they produce is what the record carries.
+      #
+      # @param severity [Symbol] one of `SEVERITIES`
+      # @param event [String] the stable event name
+      # @param body [String] the human-readable message
+      # @param fields [Hash{String, Symbol => Object}] caller fields
+      # @param exception [Exception, nil] the failure this record reports
+      # @param time [Time, nil] the event time; defaults to the current UTC time
+      # @param context [Hash{String => Object}] logger-owned correlation fields
+      # @param resource [Hash{String => Object}] service/process attributes
+      # @raise [ArgumentError] a severity, event, field, value, exception, or
+      #   time outside the contract
+      def initialize(severity, event, body, fields: {}, exception: nil, time: nil, context: {}, resource: {})
+        Record.validate_arguments(severity, event, body, exception)
         if !time.nil? && !time.is_a?(Time)
           raise ArgumentError, "Snails::Logger::Record time expects a Time or nil, got " + time.class.name
         end
@@ -177,8 +196,9 @@ module Snails
         frames.join("\n")
       end
 
-      # Normalize names to Strings, validate their shape and values, and
-      # reject caller fields that would shadow the record or its context.
+      # Normalize names to Strings, validate their shape and values, and reject
+      # caller fields that would shadow the record or its context. Runs when a
+      # record is built, so a call the level gate drops pays none of it.
       def normalize_fields(fields, caller_owned)
         if !fields.is_a?(Hash)
           raise ArgumentError, "Snails::Logger::Record fields expect a Hash, got " + fields.class.name
@@ -201,8 +221,8 @@ module Snails
         out
       end
 
-      # Only simple values cross the record boundary; a nested value would
-      # make an OTLP encoding a guess and a local line ambiguous.
+      # Only simple values cross the record boundary; a nested value would make
+      # an OTLP encoding a guess and a local line ambiguous.
       def validate_field_value(name, value)
         case value
         when String, Integer, TrueClass, FalseClass, NilClass

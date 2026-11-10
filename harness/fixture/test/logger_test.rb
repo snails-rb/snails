@@ -33,6 +33,32 @@ class LoggerTest < TestBase
     end
   end
 
+  # An output that answers `sync=` and has no `flush` at all: the logger must
+  # switch it to sync mode and never flush a line, so calling `flush` here
+  # raises NoMethodError and fails the case.
+  class SyncOutput
+    def initialize
+      @lines = []
+      @synced = false
+    end
+
+    def lines
+      @lines
+    end
+
+    def synced?
+      @synced
+    end
+
+    def sync=(on)
+      @synced = on
+    end
+
+    def write(line)
+      @lines << line
+    end
+  end
+
   # A transport that parks inside `deliver` until released, so a hand-off can
   # be held open while another thread logs.
   class BlockingTransport
@@ -209,6 +235,21 @@ class LoggerTest < TestBase
     assert_equal "WARN", fmt.calls[0]["severity"]
     assert_equal "shown", fmt.calls[0]["message"]
     assert_equal "ERROR", fmt.calls[1]["severity"]
+  end
+
+  # A line reaches a stream by its own write: the first write through an
+  # output that answers `sync=` turns sync on, and no line calls `flush` (this
+  # output has none, so a flush would raise).
+  def test_output_is_switched_to_sync_and_never_flushed
+    out = SyncOutput.new
+    logger = Snails::Logger.new
+    logger.output = out
+
+    logger.info("hello")
+    logger.info("again")
+
+    assert_equal true, out.synced?
+    assert_equal 2, out.lines.length
   end
 
   # A typo in any slot stops at configuration time — a logger that
@@ -390,6 +431,7 @@ FixtureRunner.run(LoggerTest, [
   "test_default_formatter_line",
   "test_default_level_follows_the_mode",
   "test_explicit_level_gates_writes_and_predicates",
+  "test_output_is_switched_to_sync_and_never_flushed",
   "test_configuration_rejects_bad_values",
   "test_environment_file_configured_the_shared_logger",
   "test_request_id_tags_the_message",
