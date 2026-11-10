@@ -45,7 +45,7 @@ A fresh project looks like this:
 
 Most days you touch three folders: `app/` for your controllers, models, forms, mailers, and jobs; `config/` for the files that shape the app (`routes.rb` first); and `harness/test/` for the tests that `bin/test` runs.
 
-The rest is setup you rarely edit: `bin/` holds the scripts that run and build the app, `gen/` holds the generated require lists the app loads at boot, `deploy/` and `Dockerfile` describe how the image ships, and `main.rb`, `spin.toml`, and `pins.toml` pin the app together — what it is called, what the build needs, and which version of snails it uses.
+The rest is setup you rarely edit: `bin/` holds the scripts that run and build the app, `gen/` holds the generated require lists the app loads at boot, `deploy/` and `Dockerfile` describe how the image ships, and `main.rb`, `spin.toml`, and `pins.toml` pin the app together — what it is called, what the build needs, and which version of Snails it uses.
 
 When you need to change the database, you add files under `db/` — see [Migrations](08-migrations.md).
 
@@ -70,7 +70,7 @@ myapp
 2 directories, 2 files
 ```
 
-Start anywhere inside and snails walks up until it finds the app:
+Start anywhere inside and Snails walks up until it finds the app:
 
 ```sh
 cd myapp/config
@@ -102,7 +102,7 @@ repo
 3 directories, 2 files
 ```
 
-The app itself is unchanged, just one folder deeper. Start inside it and snails resolves it the same way:
+The app itself is unchanged, just one folder deeper. Start inside it and Snails resolves it the same way:
 
 ```sh
 cd repo/src/config
@@ -114,13 +114,13 @@ snails migrate status
 [snails] 0 applied, 0 pending
 ```
 
-From the repository root, snails doesn't look down. Finding an app below would mean picking one when there could be several, so it stops and tells you:
+From the repository root, Snails doesn't look down. Finding an app below would mean picking one when there could be several, so it stops and tells you:
 
 ```
 [snails] no app root at or above /tmp/manual2/repo (looked for config/database.rb) — pass --app DIR
 ```
 
-Name the folder you are standing in and snails finds the app inside it:
+Name the folder you are standing in and Snails finds the app inside it:
 
 ```sh
 snails migrate status --app .
@@ -132,7 +132,7 @@ snails migrate status --app .
 
 ### More than one app
 
-A folder can hold several apps. Each one is complete and each keeps its own `pins.toml` next to its own `config/`. The file carries the app's name too, and snails uses that name for the development database and container, so two apps can't share one:
+A folder can hold several apps. Each one is complete and each keeps its own `pins.toml` next to its own `config/`. The file carries the app's name too, and Snails uses that name for the development database and container, so two apps can't share one:
 
 ```sh
 tree -L 3 --prune -P 'pins.toml|database.rb' apps
@@ -163,7 +163,7 @@ snails migrate status
 [snails] 0 applied, 0 pending
 ```
 
-From the folder that holds both, snails won't pick one for you:
+From the folder that holds both, Snails won't pick one for you:
 
 ```
 [snails] no app root at or above /tmp/manual2/apps (looked for config/database.rb) — pass --app DIR

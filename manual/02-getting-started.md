@@ -1,6 +1,6 @@
 # Getting Started
 
-This chapter takes you from nothing to a running snails app: install the CLI, create a project, run it, and run its tests. It's short on purpose — a snails project arrives ready to build, so there's no wiring to do first. The first build is the slowest part of the whole journey; after that, everything is fast.
+This chapter takes you from nothing to a running Snails app: install the CLI, create a project, run it, and run its tests. It's short on purpose — a Snails project arrives ready to build, so there's no wiring to do first. The first build is the slowest part of the whole journey; after that, everything is fast.
 
 ## Install the CLI
 
@@ -37,7 +37,7 @@ bin/dev
 
 The first run compiles the app into a single native binary — and, the very first time only, assembles the pinned build tools too — then serves it at http://localhost:3000 in the foreground. The log streams to your terminal and to `tmp/development.log`.
 
-Open http://localhost:3000/up and you'll get `{"status":"ok"}`. Every snails app answers `/up`; it's what a deployment platform will watch to know your app is healthy. A development database is created for you on first boot (a sqlite file by default) and survives restarts, so you can leave data in there between sessions. `Ctrl-C` stops the server.
+Open http://localhost:3000/up and you'll get `{"status":"ok"}`. Every Snails app answers `/up`; it's what a deployment platform will watch to know your app is healthy. A development database is created for you on first boot (a sqlite file by default) and survives restarts, so you can leave data in there between sessions. `Ctrl-C` stops the server.
 
 ## Run the tests
 

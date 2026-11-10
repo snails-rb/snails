@@ -14,7 +14,7 @@ demo (spinel) listening on http://0.0.0.0:3000, pid 212514
   one green thread per connection; OS workers: one per core (SPINEL_WORKERS=N to cap); processes: 1
 ```
 
-The first lines check that your project matches the version of snails it pins, the next one compiles, and the last two say where it listens and where the log goes (see [Logging](12-logging.md)).
+The first lines check that your project matches the version of Snails it pins, the next one compiles, and the last two say where it listens and where the log goes (see [Logging](12-logging.md)).
 
 ## Change code, see it live
 

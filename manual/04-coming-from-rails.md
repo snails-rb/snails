@@ -1,6 +1,6 @@
 # Coming from Rails
 
-If you know Rails, you already know most of snails. Routes are declared the same way, controllers respond with JSON instead of views, and models are plain classes over your tables. This chapter is the translation layer for the habits you bring: where routes live now, what replaces Active Record, and which Rails features you will not find here.
+If you know Rails, you already know most of Snails. Routes are declared the same way, controllers respond with JSON instead of views, and models are plain classes over your tables. This chapter is the translation layer for the habits you bring: where routes live now, what replaces Active Record, and which Rails features you will not find here.
 
 ## What stays the same
 
@@ -13,7 +13,7 @@ You keep the shape of the parts you already know:
 
 ## What changes
 
-| In Rails | In snails |
+| In Rails | In Snails |
 |---|---|
 | Views and templates | Nothing renders HTML — your app answers with JSON (see [Routes and Controllers](06-routes-and-controllers.md)) |
 | Active Record models | Plain model classes over your tables (see [Database and Models](07-database-and-models.md)) |

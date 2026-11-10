@@ -1,6 +1,6 @@
 # Email
 
-A snails app builds the email message; your app owns the way it leaves the process. There are no templates and no built-in SMTP client — you write the subject and body in code and register a delivery class that talks to your email provider.
+A Snails app builds the email message; your app owns the way it leaves the process. There are no templates and no built-in SMTP client — you write the subject and body in code and register a delivery class that talks to your email provider.
 
 ## Create a mailer
 

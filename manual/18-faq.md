@@ -30,6 +30,6 @@ Everything in the files: `storage/` keeps your data, `db/migrate/` keeps your hi
 
 ### Something broke after an update — how do I go back?
 
-Set `SNALS_REV` in `pins.toml` back to the version you came from, run `snails sync`, and `bin/test` (see [Updating snails](16-updating-snails.md)).
+Set `SNALS_REV` in `pins.toml` back to the version you came from, run `snails sync`, and `bin/test` (see [Updating Snails](16-updating-snails.md)).
 
 If a symptom has a specific face — an error line you can copy — [Troubleshooting](17-troubleshooting.md) lists the real ones with their fixes.
