@@ -4,13 +4,15 @@ Snails is a small framework for building web apps that compile to a single nativ
 
 ## Why it's fast
 
-Ruby executes one thread of application code at a time. Rails works around that by running several worker processes, and every worker holds its own copy of the application in memory. Snails has no such constraint: a single process uses every core on the machine, with no GVL and no process-per-core duplication.
+Ruby holds a GVL, so a single Ruby process runs only one thread of application code at a time. Rails gets around that by running several worker processes, and every worker forks its own complete copy of the application — its own connection pool, its own heap, its own resident set.
 
-That shows up as throughput per core, resident memory, and restart time.
+Snails compiles to native code and carries no GVL. One process runs request handlers on as many cores as the OS gives it, so throughput scales with cores without the memory scaling alongside it.
+
+That shows up in three numbers: requests per second per host, resident memory, and time from process start to serving.
 
 ## How it compares
 
-Both apps are generated defaults answering the same `GET /up` with the same JSON body, in containers on one machine — 8 cores, 16 hardware threads. The app gets twelve threads; the load generator is pinned to the other four so it never competes with the server. Request logging is off on both sides, so what is measured is the framework request path.
+Both sides are framework defaults answering the same `GET /up` with the same JSON body, run as containers on one machine: 8 cores with SMT for 16 hardware threads. The server is pinned to threads 4–15, six physical cores; the load generator gets threads 0–3 so it cannot steal CPU from the server. Request logging is off for the throughput and memory figures, so the measurement is the request path and not the log writer; launch time and idle memory come from a run with logging on, where it makes no difference to either.
 
 | | Snails | Rails | Rails Cluster Mode |
 |---|---:|---:|---:|
@@ -21,11 +23,19 @@ Both apps are generated defaults answering the same `GET /up` with the same JSON
 | Launch to first answer | 8 ms | 1.5 s | 1.6 s |
 | Image size | 138 MiB | 416–424 MiB | 416–424 MiB |
 
-Cluster Mode is the column that matters for a like-for-like comparison: one worker per core is what Rails needs to reach the parallelism Snails gets from a single process. The unlabelled Rails column is `rails new` untouched — one process, five threads — and is what most deployments start as.
+The three columns are three deployments of the same app:
 
-The memory gap widens under load rather than narrowing. Cluster Mode pays for one copy of the app per worker, so its footprint scales with core count; a Snails process does not.
+- **Snails** — one process, no GVL, request threads spread across the cores available to it.
+- **Rails** — `rails new` untouched: `WEB_CONCURRENCY=0`, a single process with 5 threads. One core does the Ruby work no matter how many the machine has.
+- **Rails Cluster Mode** — `WEB_CONCURRENCY=n`, one Puma worker per core, 5 threads each. This is the configuration that actually uses the hardware Snails uses by default.
 
-Figures are medians of repeated runs at 32 concurrent connections. Expect different absolute numbers on your hardware — the ratios are the part that holds. The harness, the committed result files and the full method are in [snails-benchmark](https://github.com/snails-rb/snails-benchmark); that repository is the source of these figures and where corrections land.
+Against Cluster Mode, Snails answers 3.1× the requests at a quarter of the p95. The default Rails column is 11.8×, which is the number a `rails new` deployment would see before anyone configured it for load.
+
+Memory is where the two architectures diverge most. Cluster Mode holds 12 copies of the application to use 12 hardware threads, so its resident set scales with core count; under load the gap is 866 MiB against 39 MiB. Idle it is smaller and still the same shape: 184 MiB against 14 MiB.
+
+Launch time does not follow the memory story. Cluster Mode is not meaningfully slower to start than single-process Rails, because each worker pays for loading the framework rather than for the worker count. Both land around 1.5 s. A Snails binary is answering requests in 8 ms.
+
+Figures are medians over three 15-second runs at 32 concurrent connections; launch time and memory use five rounds. Absolute numbers belong to this hardware — the ratios are what transfer. The harness, the raw result files and the method are in [snails-benchmark](https://github.com/snails-rb/snails-benchmark), which is where these figures come from and where corrections land.
 
 ## What it doesn't do
 
