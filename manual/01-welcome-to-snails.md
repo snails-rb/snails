@@ -14,15 +14,18 @@ Both apps answer the same `GET /up` with the same JSON body, running as containe
 
 | | snails | Rails | Rails, one worker per CPU |
 |---|---:|---:|---:|
-| Requests per second | 35,000 | 3,950 | 14,000 |
-| Response time, 95th percentile | 1.7 ms | 11 ms | 4.8 ms |
-| Memory while idle | 14 MiB | 99 MiB | 187 MiB |
-| Launch to first answer | 8 ms | 1.3 s | 1.3 s |
-| Image size | 145 MB | 445 MB | 445 MB |
+| Requests per second | 57,863 | 4,920 | 18,547 |
+| Response time, 95th percentile | 1.1 ms | 9.4 ms | 4.0 ms |
+| Memory while idle | 14 MiB | 98 MiB | 184 MiB |
+| Memory under load | 39 MiB | 141 MiB | 866 MiB |
+| Launch to first answer | 8 ms | 1.5 s | 1.6 s |
+| Image size | 138 MiB | 416–424 MiB | 416–424 MiB |
 
-Nine times the requests of a stock Rails app, and about two and a half times one that has been scaled up to use the same CPUs. The last column is the fairer one to read, because it's what Rails needs in order to use what snails uses by default. The middle column is what `rails new` hands you untouched.
+About twelve times the requests of a stock Rails app, and about three times one that has been scaled up to use the same CPUs. The last column is the fairer one to read, because it's what Rails needs in order to use what snails uses by default. The middle column is what `rails new` hands you untouched.
 
-Each figure is the median of repeated runs on that machine at 32 simultaneous connections. Your numbers will differ; what travels is the shape of it: several times the traffic per CPU, memory measured in megabytes instead of hundreds of them, and a restart you can't perceive.
+Memory under load is where the difference is hardest to miss. The scaled-up Rails app keeps twelve copies of itself in memory to use twelve cores; snails uses one, so its cost doesn't climb with the number of cores.
+
+These are medians of repeated runs on one machine, with request logging turned off on both sides so the comparison is the framework's request path rather than its log writer. Your numbers will differ; what travels is the shape of it. Every figure, the method behind it, and the raw output are in [snails-benchmark](https://github.com/snails-rb/snails-benchmark), which is where these numbers come from and where they get corrected.
 
 ## What it doesn't do
 
