@@ -1,6 +1,6 @@
-# snails
+# Snails
 
-snails is a framework for building web apps that compile to a single native binary. You write ordinary Ruby — routes, controllers, models, forms — and snails turns it into one binary that boots fast and runs anywhere a binary runs. There is no runtime to install on the server, no asset pipeline, and no view layer: your app answers with JSON.
+Snails is a framework for building web apps that compile to a single native binary. You write ordinary Ruby — routes, controllers, models, forms — and Snails turns it into one binary that boots fast and runs anywhere a binary runs. There is no runtime to install on the server, no asset pipeline, and no view layer: your app answers with JSON.
 
 The project is split into parts: the API-only, Rails-like runtime for [Spinel](https://github.com/matz/spinel) (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). A consuming app vendors the runtime as `snails-core/` and pins the revision in `pins.toml`.
 
@@ -100,4 +100,4 @@ bash scripts/test-migrate.sh
 
 MIT. See [`LICENSE`](LICENSE).
 
-`runtime/` began as a fork of the Spinel scaffold emit and has been substantially rewritten. The derived portions live in `runtime/action_controller/` and `runtime/action_dispatch/`; each carries the upstream notice in its `NOTICE` file. `runtime/tep/` follows tep's notice in `runtime/tep/NOTICE`. The rest of the runtime is snails' own work.
+`runtime/` began as a fork of the Spinel scaffold emit and has been substantially rewritten. The derived portions live in `runtime/action_controller/` and `runtime/action_dispatch/`; each carries the upstream notice in its `NOTICE` file. `runtime/tep/` follows tep's notice in `runtime/tep/NOTICE`. The rest of the runtime is Snails' own work.
