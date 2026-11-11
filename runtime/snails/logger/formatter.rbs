@@ -1,7 +1,9 @@
 module Snails
   class Logger
     class Formatter
+      FRACTION_ZEROS: Array[String]
       def self.format_time: (Time time) -> String
+      def self.fraction_text: (Integer usec) -> String
       def call: (untyped severity, ::Time time, untyped progname, untyped message) -> String
     end
   end
