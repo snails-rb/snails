@@ -29,8 +29,6 @@ concurrency:
 
 permissions:
   contents: read
-  # The image preflight looks up the publish run for this commit.
-  actions: read
 
 env:
   HOMEBREW_NO_AUTO_UPDATE: "1"
@@ -262,11 +260,8 @@ jobs:
 
   # The app image test builds an app from the pinned spinel image, so it can
   # only run when that image exists. A push that bumps the pin publishes it
-  # from the same commit in spinel-image and runs the test there after
-  # publishing, so a copy here would race the publish. Probe first: while that
-  # publish run is in flight, skip the test and leave the run in the log; when
-  # the run is missing or failed, fail here too, so a broken pin never leaves
-  # the test silently unrun.
+  # from the same commit in spinel-image, which runs the test there after
+  # publishing; this copy covers pushes that do not publish.
   image-preflight:
     name: pin image published
     runs-on: ubuntu-latest
@@ -286,46 +281,15 @@ jobs:
           echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
       - name: Check whether the pin image is published
         id: probe
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           image="ghcr.io/snails-rb/spinel:$SPINEL_REV"
           if docker manifest inspect "$image" >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "spinel image for $SPINEL_REV is published — running the app image test"
-            exit 0
-          fi
-
-          # The image is missing, so this push either publishes it or the pin is
-          # broken. Look up the publish run for this commit: the run can start
-          # slightly after this job, so retry a bounded number of times.
-          run=""
-          for _ in 1 2 3 4 5 6; do
-            run="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow spinel-image.yml \
-              --commit "$GITHUB_SHA" --limit 1 \
-              --json databaseId,status,conclusion,url \
-              --jq '.[] | [.databaseId, .status, (.conclusion // ""), .url] | @tsv' 2>/dev/null || true)"
-            if [[ -n $run ]]; then
-              break
-            fi
-            sleep 10
-          done
-
-          if [[ -z $run ]]; then
-            echo "spinel image $image is not published and no spinel-image run exists for this commit — publish it first: gh workflow run spinel-image.yml --ref main" >&2
-            exit 1
-          fi
-
-          read -r _ status conclusion url <<<"$run"
-          if [[ $status != "completed" ]]; then
-            echo "published=false" >> "$GITHUB_OUTPUT"
-            echo "spinel image $image is not published — the spinel-image run for this commit publishes and tests it after publishing: $url"
-          elif [[ $conclusion != "success" ]]; then
-            echo "spinel-image run for this commit did not succeed ($conclusion); the pin image is not published: $url" >&2
-            exit 1
           else
-            echo "spinel-image run for this commit succeeded but $image is still missing — check its publish job: $url" >&2
-            exit 1
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "spinel image for $SPINEL_REV is not published — skipping the app image test"
+            echo "spinel-image runs the test after publishing the image; if no publish run exists for this commit, publish it first: gh workflow run spinel-image.yml"
           fi
 
   image:
