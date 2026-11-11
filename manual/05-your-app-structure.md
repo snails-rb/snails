@@ -1,6 +1,6 @@
 # Your App's Structure
 
-A fresh project looks like this:
+A fresh project is small. Most of the tree is setup you touch once; the day-to-day folders are `app/`, `config/`, and `harness/test/`.
 
 ```text
 .
@@ -9,8 +9,8 @@ A fresh project looks like this:
 │   ├── build-binary
 │   ├── build-image
 │   ├── compose
-│   ├── demo.rb
 │   ├── dev
+│   ├── myapp.rb
 │   └── test
 ├── compose.yml
 ├── config
@@ -23,6 +23,8 @@ A fresh project looks like this:
 ├── deploy
 │   └── Caddyfile
 ├── Dockerfile
+├── .dockerignore
+├── .env.sample
 ├── gen
 │   ├── controllers.rb
 │   ├── forms.rb
@@ -37,17 +39,49 @@ A fresh project looks like this:
 ├── harness
 │   ├── boot.rb
 │   ├── test
+│   │   ├── up_test.rb
+│   │   └── up_test.rb.expected
 │   └── test.env
 ├── main.rb
 ├── pins.toml
 └── spin.toml
 ```
 
-Most days you touch three folders: `app/` for your controllers, models, forms, mailers, and jobs; `config/` for the files that shape the app (`routes.rb` first); and `harness/test/` for the tests that `bin/test` runs.
+## The folders you edit
 
-The rest is setup you rarely edit: `bin/` holds the scripts that run and build the app, `gen/` holds the generated require lists the app loads at boot, `deploy/` and `Dockerfile` describe how the image ships, and `main.rb`, `spin.toml`, and `pins.toml` pin the app together — what it is called, what the build needs, and which version of Snails it uses.
+- `app/` holds your controllers, models, forms, mailers, jobs, services, helpers, and shared lib classes. A fresh project starts with an empty folder; `--scaffold` fills it with the posts-and-comments example. `app/services/` is for plain classes that wrap a domain operation; `app/helpers/` is for modules shared by controllers; `app/lib/` is for shared modules and plain classes. All three load automatically and have no framework base class.
+- `config/` shapes the app. `routes.rb` is the route table; `application.rb` holds values; `environment.rb` holds mode-dependent wiring; `database.rb` selects the adapter; `boot.rb` and `codegen.rb` decide what loads.
+- `harness/test/` holds one plain Ruby file per case file, with a `.expected` sibling. `bin/test` runs them against a real server.
 
-When you need to change the database, you add files under `db/` — see [Migrations](08-migrations.md).
+## The files that pin the app together
+
+- `main.rb` is the compile root. It requires `config/boot.rb`, which starts the runtime and ends at the app's own files.
+- `pins.toml` records the runtime release and the compiler revision. The first command that needs the toolchain assembles the one this file names.
+- `spin.toml` is the build manifest. It names the allocator and any build-level settings the compiler needs.
+- `compose.yml` is the single-host deployment file. `Dockerfile` builds the image; `deploy/Caddyfile` is the optional TLS proxy.
+- `.env.sample` is a template for environment variables, not configuration. Copy it to `.env` and source it; the app does not read the file itself.
+- `.dockerignore` keeps the build context small. `storage/` holds the SQLite database and is gitignored.
+
+## The generated files
+
+`gen/` is build output. The require-list files carry a `# scan:` spec and a literal list for one app folder; `snails` refreshes them before every build. `gen/route_helpers.rb` and `gen/model_columns.rb` are generated outright from the route table and the schema. Do not edit any of them by hand — a file added under `app/` appears after the next `bin/dev` or `bin/test`.
+
+`snails-core/` and `.spinel/` are local state assembled by sync: the vendored runtime and the pinned compiler. Both are gitignored, so a fresh clone rebuilds them on the first command that needs them.
+
+The exception is a placeholder file in a fresh project. `gen/model_columns.rb` stays a stub until a schema exists, and the first build tells you to run `snails migrate dump` when a model needs it.
+
+`harness/build/` is also generated and gitignored. It holds the compiled test bundle and the schema loader cache.
+
+A scaffolded project adds `db/`:
+
+```text
+db
+├── migrate
+│   └── 20261111210824_baseline.sql
+└── schema.sql
+```
+
+`db/migrate/` is the migration history; `db/schema.sql` is the generated snapshot the test harness loads. Both are covered in [Migrations](12-migrations.md).
 
 ## Where the app sits
 
@@ -61,10 +95,10 @@ Snails works out which app you mean from where you stand. It recognizes two layo
 tree -L 3 --prune -P 'pins.toml|database.rb' myapp
 ```
 
-```
+```text
 myapp
 ├── config
-│   └── database.rb
+│   └── database.rb
 └── pins.toml
 
 2 directories, 2 files
@@ -77,46 +111,36 @@ cd myapp/config
 snails migrate status
 ```
 
-```
+```text
 [snails] app root /tmp/manual2/myapp (auto-resolved)
 [snails] 0 applied, 0 pending
 ```
 
-The first line says where it landed. You don't get one when you're already standing in the app folder.
+The first line says where it landed. You don't get one when you are already standing in the app folder.
 
 ### The app in src/
 
-A repository can keep its app one level down, in `src/`, so the repository root stays free for the rest of the project: deploy files, documentation, CI. `snails new repo/src` gives you that layout:
+A repository can keep its app one level down, in `src/`, so the repository root stays free for deploy files, documentation, and CI. `snails new repo/src` gives you that layout:
 
 ```sh
 tree -L 3 --prune -P 'pins.toml|database.rb' repo
 ```
 
-```
+```text
 repo
 └── src
     ├── config
-    │   └── database.rb
+    │   └── database.rb
     └── pins.toml
 
 3 directories, 2 files
 ```
 
-The app itself is unchanged, just one folder deeper. Start inside it and Snails resolves it the same way:
+The app itself is unchanged, just one folder deeper. Start inside it and Snails resolves it the same way.
 
-```sh
-cd repo/src/config
-snails migrate status
-```
+From the repository root, Snails does not look down. Finding an app below would mean choosing one when there could be several:
 
-```
-[snails] app root /tmp/manual2/repo/src (auto-resolved)
-[snails] 0 applied, 0 pending
-```
-
-From the repository root, Snails doesn't look down. Finding an app below would mean picking one when there could be several, so it stops and tells you:
-
-```
+```text
 [snails] no app root at or above /tmp/manual2/repo (looked for config/database.rb) — pass --app DIR
 ```
 
@@ -126,59 +150,28 @@ Name the folder you are standing in and Snails finds the app inside it:
 snails migrate status --app .
 ```
 
-```
-[snails] 0 applied, 0 pending
-```
-
 ### More than one app
 
-A folder can hold several apps. Each one is complete and each keeps its own `pins.toml` next to its own `config/`. The file carries the app's name too, and Snails uses that name for the development database and container, so two apps can't share one:
+A folder can hold several apps. Each one is complete and keeps its own `pins.toml` next to its own `config/`. The file carries the app's name too, and Snails uses that name for the development database and container:
 
-```sh
-tree -L 3 --prune -P 'pins.toml|database.rb' apps
-```
-
-```
+```text
 apps
 ├── billing
-│   ├── config
-│   │   └── database.rb
-│   └── pins.toml
+│   ├── config
+│   │   └── database.rb
+│   └── pins.toml
 └── reports
     ├── config
-    │   └── database.rb
+    │   └── database.rb
     └── pins.toml
-
-5 directories, 4 files
 ```
 
-Stand inside either and it works as before:
-
-```sh
-cd apps/billing
-snails migrate status
-```
-
-```
-[snails] 0 applied, 0 pending
-```
-
-From the folder that holds both, Snails won't pick one for you:
-
-```
-[snails] no app root at or above /tmp/manual2/apps (looked for config/database.rb) — pass --app DIR
-```
-
-Name the one you want:
+Stand inside either and it works as before. From the folder that holds both, name the one you want:
 
 ```sh
 snails migrate status --app billing
 ```
 
-```
-[snails] 0 applied, 0 pending
-```
-
 Commands that take a folder rather than `--app` work the same way: `snails sync billing`, run from `apps/`.
 
-Back to the day-to-day loop in [Getting Started](02-getting-started.md).
+Back to the loop in [Getting Started](02-getting-started.md).
