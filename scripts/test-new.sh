@@ -498,18 +498,17 @@ RB
   # dev server, default adapter — bin/dev serves in the foreground and its DB
   # must survive (unlike the gate's throwaway database): the development
   # sqlite file is still there after the server stops. --skip-build: the
-  # gate just built the same binary. The development database starts with an
-  # empty ledger: the first boot loads the snapshot, then the pending check
-  # stops it and prints the explicit apply command. The runner never applies
-  # migrations itself.
+  # gate just built the same binary. The development database does not exist:
+  # the first boot stops and prints the explicit load command. The runner
+  # never creates, loads, or applies anything.
   echo "[test-new] fresh dev stops on the pending baseline ($APP/bin/dev)"
   if out=$(PORT="$DEV_PORT" SNAILS_DIR="$ROOT" "$APP/bin/dev" --skip-build 2>&1); then
-    echo "[test-new] dev served before the explicit apply (must stop)" >&2
+    echo "[test-new] dev served before the explicit load (must stop)" >&2
     exit 1
   fi
   grep -q 'pending migration' <<<"$out" &&
-    grep -q "snails migrate apply" <<<"$out" || {
-    echo "[test-new] the fresh-dev gate does not name the apply repair" >&2
+    grep -q "snails migrate load" <<<"$out" || {
+    echo "[test-new] the fresh-dev gate does not name the load repair" >&2
     printf '%s\n' "$out" >&2
     exit 1
   }
@@ -520,11 +519,11 @@ RB
     exit 1
   }
   [[ ! -f "$APP/storage/development.sqlite3" ]] || {
-    echo "[test-new] the dev runner provisioned the sqlite target before the explicit apply" >&2
+    echo "[test-new] the dev runner provisioned the sqlite target before the explicit load" >&2
     exit 1
   }
-  echo "[test-new] applying the baseline unblocks dev ($APP/bin/dev)"
-  "$ROOT/bin/snails" migrate apply --app "$APP" >/dev/null
+  echo "[test-new] loading the baseline unblocks dev ($APP/bin/dev)"
+  "$ROOT/bin/snails" migrate load --app "$APP" >/dev/null
   dev_probe "$DEV_PORT" "$WORK/dev.log" "$APP" \
     env PORT="$DEV_PORT" SNAILS_DIR="$ROOT" "$APP/bin/dev" --skip-build
   [[ -f "$APP/storage/development.sqlite3" ]] || {
@@ -550,8 +549,9 @@ RB
   # Pending migrations stop the dev server before the build. A consumer
   # dev DB answered /up while background jobs failed on a missing table, so
   # the gate must name the repair and keep the labels behind --verbose; the
-  # apply step then lets the same DB serve, and --fresh provisions a new one
-  # with its ledger recorded (the next boot must not see it as pending).
+  # apply step then lets the same DB serve, and --fresh recreates the DB so
+  # the explicit load records its ledger (the next boot must not see it as
+  # pending).
   echo "[test-new] dev stops on a pending migration ($APP/bin/dev)"
   mkdir -p "$APP/db/migrate"
   cat > "$APP/db/migrate/20261030000000_add_dev_probe.sql" <<'SQL'
@@ -589,22 +589,22 @@ SQL
   cat > "$APP/db/migrate/20261030000100_add_fresh_probe.sql" <<'SQL'
 CREATE TABLE IF NOT EXISTS fresh_probe (id INTEGER PRIMARY KEY);
 SQL
-  echo "[test-new] --fresh recreates the database and stops for the explicit apply ($APP/bin/dev)"
+  echo "[test-new] --fresh recreates the database and stops for the explicit load ($APP/bin/dev)"
   if out=$(PORT="$DEV_PORT" SNAILS_DIR="$ROOT" "$APP/bin/dev" --skip-build --fresh 2>&1); then
-    echo "[test-new] --fresh served before the explicit apply (must stop)" >&2
+    echo "[test-new] --fresh served before the explicit load (must stop)" >&2
     exit 1
   fi
   grep -q 'pending migration' <<<"$out" &&
-    grep -q "snails migrate apply" <<<"$out" || {
-    echo "[test-new] the --fresh gate does not name the apply repair" >&2
+    grep -q "snails migrate load" <<<"$out" || {
+    echo "[test-new] the --fresh gate does not name the load repair" >&2
     printf '%s\n' "$out" >&2
     exit 1
   }
   [[ ! -f "$APP/storage/development.sqlite3" ]] || {
-    echo "[test-new] --fresh provisioned the sqlite target before the explicit apply" >&2
+    echo "[test-new] --fresh provisioned the sqlite target before the explicit load" >&2
     exit 1
   }
-  "$ROOT/bin/snails" migrate apply --app "$APP" >/dev/null
+  "$ROOT/bin/snails" migrate load --app "$APP" >/dev/null
   echo "[test-new] the applied ledger keeps the next boot clean ($APP/bin/dev)"
   dev_probe "$DEV_PORT" "$WORK/dev-fresh-rerun.log" "$APP" \
     env PORT="$DEV_PORT" SNAILS_DIR="$ROOT" "$APP/bin/dev" --skip-build
@@ -751,14 +751,14 @@ canary_pg() {
   PORT="$PORT_PG" SNAILS_DIR="$ROOT" "$PG_APP/bin/test"
 
   # dev server, pg adapter — two paths. Without PG_URL the runner starts its
-  # own persistent development container (named from the app's APP_NAME)
-  # and loads the schema into it: the app's `posts` table appears, and a
-  # reused container keeps its data (the loader does not run again). The
-  # ledger stays empty, so the first boot stops and prints the explicit
-  # `migrate apply` command — the runner never applies migrations. With
-  # PG_URL the database belongs to the developer: the pending gate stops
-  # until they run `migrate apply` against it themselves, and after that
-  # it is used as-is — no container, no loader, existing data survives.
+  # own persistent development container (named from the app's APP_NAME); the
+  # database inside starts empty and the first boot stops with the explicit
+  # `migrate load` command — the runner never loads or applies anything.
+  # The explicit load creates `posts` and the ledger; a reused container
+  # keeps its data. With PG_URL the database belongs to the developer: the
+  # gate stops until they run `migrate load` against it themselves, and
+  # after that it is used as-is — no container, no loader, existing data
+  # survives.
   # PG_CONTAINER_NAME pins this run's own container name: the
   # APP_NAME-derived default is shared by every concurrent run of this
   # suite and would make runs delete each other's containers.
@@ -780,19 +780,19 @@ canary_pg() {
     exit 1
   }
 
-  echo "[test-new] pg dev container stops for the explicit apply ($PG_APP/bin/dev)"
+  echo "[test-new] pg dev container stops for the explicit load ($PG_APP/bin/dev)"
   docker rm -fv "$AUTO_PG_CONTAINER" >/dev/null 2>&1 || true
   local AUTO_URL="postgres://postgres:postgres@127.0.0.1:$DEV_PG_PORT/demopg_development"
   if out=$(env -u PG_URL PORT="$DEV_PG_HTTP" PG_PORT="$DEV_PG_PORT" \
     PG_CONTAINER_NAME="$AUTO_PG_CONTAINER" SNAILS_DIR="$ROOT" \
     "$PG_APP/bin/dev" --skip-build 2>&1); then
-    echo "[test-new] pg dev served before the explicit apply (must stop)" >&2
+    echo "[test-new] pg dev served before the explicit load (must stop)" >&2
     exit 1
   fi
   grep -q 'pending migration' <<<"$out" &&
-    grep -q "snails migrate apply" <<<"$out" &&
+    grep -q "snails migrate load" <<<"$out" &&
     grep -q -- "--database $AUTO_URL" <<<"$out" || {
-    echo "[test-new] the pg dev gate does not name the pasteable apply repair" >&2
+    echo "[test-new] the pg dev gate does not name the pasteable load repair" >&2
     printf '%s\n' "$out" >&2
     exit 1
   }
@@ -801,11 +801,11 @@ canary_pg() {
     exit 1
   }
   [[ "$(psql "$AUTO_URL" -tAc "SELECT to_regclass('posts')")" == "" ]] || {
-    echo "[test-new] the pg dev runner loaded the snapshot before the explicit apply" >&2
+    echo "[test-new] the pg dev runner loaded the snapshot before the explicit load" >&2
     exit 1
   }
-  echo "[test-new] applying the pg baseline unblocks dev ($PG_APP/bin/dev)"
-  "$ROOT/bin/snails" migrate apply --app "$PG_APP" --database "$AUTO_URL" >/dev/null
+  echo "[test-new] loading the pg baseline unblocks dev ($PG_APP/bin/dev)"
+  "$ROOT/bin/snails" migrate load --app "$PG_APP" --database "$AUTO_URL" >/dev/null
   dev_probe "$DEV_PG_HTTP" "$WORK/dev-pg-auto.log" "$PG_APP" \
     env -u PG_URL PORT="$DEV_PG_HTTP" PG_PORT="$DEV_PG_PORT" \
     PG_CONTAINER_NAME="$AUTO_PG_CONTAINER" SNAILS_DIR="$ROOT" "$PG_APP/bin/dev" --skip-build
@@ -850,10 +850,10 @@ canary_pg() {
   fi
   psql "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
     "CREATE TABLE dev_marker (id integer); INSERT INTO dev_marker VALUES (42);" >/dev/null
-  # A provided database is the developer's to migrate: with no ledger the
-  # pending gate stops and names the apply step — the explicit apply is
-  # what consents to writing DDL into their database. Only then does the
-  # runner serve it as-is.
+  # A provided database is the developer's to initialize: with no ledger the
+  # gate stops and names the load step — the explicit load is what consents
+  # to writing DDL into their database. Only then does the runner serve it
+  # as-is.
   echo "[test-new] pending gate stops on a never-migrated provided PG_URL ($PG_APP/bin/dev)"
   if out=$(env PORT="$DEV_PG_HTTP" PG_URL="$MARKER_URL" SNAILS_DIR="$ROOT" \
     "$PG_APP/bin/dev" --skip-build 2>&1); then
@@ -861,12 +861,12 @@ canary_pg() {
     exit 1
   fi
   grep -q 'pending migration' <<<"$out" &&
-    grep -q "snails migrate apply" <<<"$out" || {
-    echo "[test-new] the provided-DB pending gate does not name the repair" >&2
+    grep -q "snails migrate load" <<<"$out" || {
+    echo "[test-new] the provided-DB pending gate does not name the load repair" >&2
     printf '%s\n' "$out" >&2
     exit 1
   }
-  "$ROOT/bin/snails" migrate apply --app "$PG_APP" --database "$MARKER_URL" >/dev/null
+  "$ROOT/bin/snails" migrate load --app "$PG_APP" --database "$MARKER_URL" >/dev/null
   # The snapshot carries a probe object the provided database must not
   # receive: the loader is additive, so with the app's tables already
   # applied only a fresh object distinguishes "never loaded" from
