@@ -1,0 +1,69 @@
+name: app-image-test
+
+# The app image test (scripts/test-image.sh): a new app builds its image from
+# the published spinel pin image, serves GET /up, runs migrations in the image,
+# and the src/ layout builder scripts work.
+#
+# Callable instead of triggered directly, because the test needs the pin image
+# to exist. spinel-image calls it after publishing a pin image; platform-ci
+# calls it on code pushes when the pin image is already there. A push that
+# publishes runs it once, in the workflow that publishes.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  app-image:
+    name: app image (bookworm)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Load tool pin
+        run: |
+          REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
+          echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential clang libclang-dev pkg-config \
+            libssl-dev libffi-dev sqlite3 libsqlite3-dev libpq-dev libjemalloc-dev
+      - name: Cache the pinned spinel install
+        uses: actions/cache@v4
+        with:
+          path: ~/.local
+          key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+      - name: Cache spinel native package objects
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/spin
+          key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+          restore-keys: |
+            spin-native-${{ runner.os }}-${{ runner.arch }}-
+      - name: Build spinel when the cache misses
+        run: |
+          if "$HOME/.local/bin/spin" --version 2>/dev/null | grep -q "${SPINEL_REV:0:8}"; then
+            echo "cached spinel matches $SPINEL_REV"
+            exit 0
+          fi
+          rm -rf "$RUNNER_TEMP/spinel-src"
+          git clone https://github.com/matz/spinel "$RUNNER_TEMP/spinel-src"
+          cd "$RUNNER_TEMP/spinel-src"
+          git checkout "$SPINEL_REV"
+          make deps
+          make -j"$(getconf _NPROCESSORS_ONLN)"
+          make install PREFIX="$HOME/.local"
+      - name: Expose the pinned toolchain
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/spin" --version
+      - name: App image test
+        run: /bin/bash scripts/test-image.sh

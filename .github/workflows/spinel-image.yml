@@ -4,6 +4,10 @@ name: spinel-image
 # dependencies — as one multi-arch image per pins.toml SPINEL_REV. Consumers
 # (app Dockerfiles) FROM that tag, so this workflow is the only publish path.
 #
+# After publishing, the run tests an app build from the new image (the
+# app-image job): that consumer path is what the image exists for, and running
+# it here, after the publish, keeps it from racing a pin bump.
+#
 # Triggers: pin (or Dockerfile/workflow) changes reaching main, or a manual
 # run. There is deliberately no skip-if-exists guard — re-running re-publishes
 # the same pin tag, and image tags are mutable pointers for a pin (callers
@@ -133,3 +137,10 @@ jobs:
               exit 1
             fi
           done
+
+  # An app build from the just-published image. Code pushes that do not publish
+  # run the same test in platform-ci, where the image already exists.
+  app-image:
+    name: app image test
+    needs: [pin, publish]
+    uses: ./.github/workflows/app-image-test.yml

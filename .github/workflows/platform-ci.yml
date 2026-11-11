@@ -8,6 +8,11 @@ name: platform-ci
 # the macOS runners are the scarce resource, and a PR does not need a second
 # long platform matrix. This is the spinel-style split: one Linux job for a
 # PR, the remaining OS/target jobs on the merge commit.
+#
+# The app image test is conditional: it needs the pinned spinel image, so a
+# push that publishes the image runs the test in spinel-image after publishing,
+# and this workflow runs it only when the image is already there (see the
+# image-preflight and image jobs).
 
 on:
   push:
@@ -253,10 +258,16 @@ jobs:
           /bin/bash scripts/test-dist.sh
           /bin/bash scripts/test-new.sh --only=demo
 
-  image:
-    name: app image (bookworm)
+  # The app image test builds an app from the pinned spinel image, so it can
+  # only run when that image exists. A push that bumps the pin publishes it
+  # from the same commit in spinel-image, which runs the test there after
+  # publishing; this copy covers pushes that do not publish.
+  image-preflight:
+    name: pin image published
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      published: ${{ steps.probe.outputs.published }}
     steps:
       - name: Checkout snails
         uses: actions/checkout@v4
@@ -268,40 +279,22 @@ jobs:
         run: |
           REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
           echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
-      - name: Install system deps
+      - name: Check whether the pin image is published
+        id: probe
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential clang libclang-dev pkg-config \
-            libssl-dev libffi-dev sqlite3 libsqlite3-dev libpq-dev libjemalloc-dev
-      - name: Cache the pinned spinel install
-        uses: actions/cache@v4
-        with:
-          path: ~/.local
-          key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
-      - name: Cache spinel native package objects
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/spin
-          key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
-          restore-keys: |
-            spin-native-${{ runner.os }}-${{ runner.arch }}-
-      - name: Build spinel when the cache misses
-        run: |
-          if "$HOME/.local/bin/spin" --version 2>/dev/null | grep -q "${SPINEL_REV:0:8}"; then
-            echo "cached spinel matches $SPINEL_REV"
-            exit 0
+          image="ghcr.io/snails-rb/spinel:$SPINEL_REV"
+          if docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "spinel image for $SPINEL_REV is published — running the app image test"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "spinel image for $SPINEL_REV is not published — skipping the app image test"
+            echo "spinel-image runs the test after publishing the image; if no publish run exists for this commit, publish it first: gh workflow run spinel-image.yml"
           fi
-          rm -rf "$RUNNER_TEMP/spinel-src"
-          git clone https://github.com/matz/spinel "$RUNNER_TEMP/spinel-src"
-          cd "$RUNNER_TEMP/spinel-src"
-          git checkout "$SPINEL_REV"
-          make deps
-          make -j"$(getconf _NPROCESSORS_ONLN)"
-          make install PREFIX="$HOME/.local"
-      - name: Expose the pinned toolchain
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/spin" --version
-      - name: App image contract
-        run: /bin/bash scripts/test-image.sh
+
+  image:
+    # Same test as spinel-image's app-image job; this copy is conditional for
+    # the reason the preflight explains.
+    needs: image-preflight
+    if: needs.image-preflight.outputs.published == 'true'
+    uses: ./.github/workflows/app-image-test.yml
