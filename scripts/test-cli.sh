@@ -30,18 +30,26 @@ else
 fi
 cd "$WORK"
 
-# The toolchain resolves cache → PATH → source build; seed the cache with a
-# toolchain for the fixture rev so no case compiles spinel (those cases check
-# pin presence and freshness only). The fake reports `<rev>f`: long enough for
-# the hex `--version` parsing, and a prefix match for the pin either way.
+# No case may compile spinel: seed the cache with a fake toolchain for every
+# rev the cases use. The fixture rev (1d26ef6) covers pin presence and
+# freshness; the core pin ($SPINEL_REV) is the one `new` stamps, and its
+# route parser answers from canned ASTs of the two fixed scaffold route
+# tables. The parser's real contract (row grammar, name derivation,
+# collisions, --check staleness) is pinned by test-gen-route-helpers.sh
+# against the pinned spinel, and test-dist.sh uses the same canned-AST
+# approach for its dist-mode `new`.
 #
-# `new` runs the generators, and both generators parse with the pinned spinel
-# (`--dump-ast`), so the real pin is seeded from a real toolchain — the cache
-# entry when this machine has one, else the installed unit on PATH. The
-# parsing contracts have their own gates (test-gen-model-columns,
-# test-gen-route-helpers); this one needs the real binary because a canned AST
-# cannot follow a scaffold the caller may edit (the ghapp cases do).
+# The fake reports `<rev>f`: long enough for the hex `--version` parsing,
+# and a prefix match for the pin either way. Regenerate a fixture when its
+# route template or the pinned parser rev changes:
+#   spinel --dump-ast scaffold/new/config/routes.rb > scripts/fixtures/scaffold-new-routes.ast
+#   spinel --dump-ast scaffold/full/config/routes.rb > scripts/fixtures/scaffold-full-routes.ast
 export XDG_CACHE_HOME="$WORK/cache"
+ROUTE_AST_MIN="$ROOT/scripts/fixtures/scaffold-new-routes.ast"
+ROUTE_AST_FULL="$ROOT/scripts/fixtures/scaffold-full-routes.ast"
+for ast in "$ROUTE_AST_MIN" "$ROUTE_AST_FULL"; do
+  [[ -f $ast ]] || { echo "missing route AST fixture: $ast" >&2; exit 1; }
+done
 seed_fake_toolchain() {
   local rev="$1" dir b
   dir="$XDG_CACHE_HOME/snails/spinel/$rev/toolchain"
@@ -50,44 +58,27 @@ seed_fake_toolchain() {
     cat > "$dir/$b" <<SH
 #!/bin/bash
 if [[ \${1:-} == "--version" ]]; then echo "$b unreleased (${rev}f)"; exit 0; fi
+if [[ \${1:-} == "--dump-ast" ]]; then
+  if cmp -s "\${2:-}" "$ROOT/scaffold/new/config/routes.rb"; then
+    cat "$ROUTE_AST_MIN"
+  elif cmp -s "\${2:-}" "$ROOT/scaffold/full/config/routes.rb"; then
+    cat "$ROUTE_AST_FULL"
+  else
+    echo "test toolchain: no canned AST for \${2:-}" >&2
+    exit 1
+  fi
+  exit 0
+fi
 echo "test toolchain: unexpected invocation: \$*" >&2
 exit 1
 SH
     chmod +x "$dir/$b"
   done
 }
-
-# find_real_toolchain — a complete pinned toolchain: the per-rev cache entry
-# first (it survives the XDG redirect below because the path is absolute),
-# then the installed unit on PATH.
-find_real_toolchain() {
-  local pin="$1" candidate
-  for candidate in "$HOME/.cache/snails/spinel/$pin/toolchain" \
-                   "${SNAILS_SPINEL_HOME:-$HOME/.local/lib/spinel}"; do
-    if [[ -x $candidate/spinel && -d $candidate/builtins ]] &&
-       "$candidate/spinel" --version 2>/dev/null | grep -q "$pin"; then
-      printf '%s' "$candidate"
-      return 0
-    fi
-  done
-  candidate="$(command -v spinel 2>/dev/null)" || return 0
-  candidate="$(readlink -f "$candidate" 2>/dev/null || printf '%s' "$candidate")"
-  candidate="$(dirname "$candidate")"
-  if [[ -x $candidate/spinel && -d $candidate/builtins ]] &&
-     "$candidate/spinel" --version 2>/dev/null | grep -q "$pin"; then
-    printf '%s' "$candidate"
-  fi
-}
 # shellcheck source=/dev/null
 source "$ROOT/pins.toml"
-seed_fake_toolchain 1d26ef6         # the fixture rev (pin presence/freshness only)
-real_toolchain="$(find_real_toolchain "$SPINEL_REV")"
-if [[ -z $real_toolchain ]]; then
-  echo "test-cli needs the pinned spinel ($SPINEL_REV): the generators parse with --dump-ast." >&2
-  echo "run 'snails sync' in a project, build spinel, or put the pinned install on PATH." >&2
-  exit 1
-fi
-cp -R "$real_toolchain" "$XDG_CACHE_HOME/snails/spinel/$SPINEL_REV/toolchain"
+seed_fake_toolchain 1d26ef6         # the fixture rev (pin presence/freshness)
+seed_fake_toolchain "$SPINEL_REV"   # the core pin `new` stamps (route AST only)
 
 pass=0
 fail=0
@@ -1003,8 +994,15 @@ launcher_out="$(PATH="$LAUNCHER:$PATH" bash path-source.sh "$ROOT" 1d26ef6)"
 chk "a launcher on PATH is not accepted as a toolchain" "$launcher_out" ""
 [[ ! -e "$WORK/launcher-invoked" ]]
 chk "the launcher was never executed" $? 0
-real_expected="$(cd "$real_toolchain" && pwd -P)"
-real_out="$(PATH="$real_toolchain:$PATH" bash path-source.sh "$ROOT" "$SPINEL_REV")"
+# A complete pinned layout on PATH is accepted. The binaries are the fake;
+# the resolver's contract is the layout plus the reported rev, not a compile.
+COMPLETE="$WORK/complete-toolchain"
+mkdir -p "$COMPLETE/builtins" "$COMPLETE/lib" "$COMPLETE/packages"
+cp "$XDG_CACHE_HOME/snails/spinel/$SPINEL_REV/toolchain/spin" "$COMPLETE/spin"
+cp "$XDG_CACHE_HOME/snails/spinel/$SPINEL_REV/toolchain/spinel" "$COMPLETE/spinel"
+chmod +x "$COMPLETE/spin" "$COMPLETE/spinel"
+real_expected="$(cd "$COMPLETE" && pwd -P)"
+real_out="$(PATH="$COMPLETE:$PATH" bash path-source.sh "$ROOT" "$SPINEL_REV")"
 chk "a complete toolchain on PATH is still accepted" "$real_out" "$real_expected"
 
 # The core checkout itself is refused as a sync target (self-vendor would
@@ -1403,60 +1401,24 @@ bash "$CLI" gen-require-all >/dev/null 2>&1
 chk "gen-require-all usage error" $? 2
 
 # 14. gen-route-helpers — the generator is a CLI engine (no app-side copy):
-#     a scaffold-shaped table generates, an edited table makes --check
-#     stale, and a colliding name is refused (name one row explicitly).
-#     The parser is the pinned spinel, so the tree carries a pin.
+#     the CLI dispatch and --check wiring. The row grammar, name derivation,
+#     collision refusal, and --check contract belong to
+#     test-gen-route-helpers.sh, which runs them against the real parser;
+#     here the fake toolchain answers with the scaffold's canned AST.
 mkdir -p ghapp/config ghapp/gen
 printf 'SPINEL_REV="%s"\n' "$SPINEL_REV" > ghapp/pins.toml
-cat > ghapp/config/routes.rb <<'RB'
-module Snails
-  module RouteTable
-    def self.table
-      [
-        ActionDispatch::Router::Route.new("GET", "/up", Snails::HealthController, :show)
-      ]
-    end
-  end
-end
-RB
+cp "$ROOT/scaffold/new/config/routes.rb" ghapp/config/routes.rb
 bash "$CLI" gen-route-helpers ghapp >/dev/null 2>&1
 chk "gen-route-helpers generates" $? 0
 grep -q 'def self.up_path' ghapp/gen/route_helpers.rb
 chk "the scaffold route has a helper" $? 0
 bash "$CLI" gen-route-helpers ghapp --check >/dev/null 2>&1
 chk "gen-route-helpers --check on a fresh app" $? 0
-cat > ghapp/config/routes.rb <<'RB'
-module Snails
-  module RouteTable
-    def self.table
-      [
-        ActionDispatch::Router::Route.new("GET", "/up", Snails::HealthController, :show),
-        ActionDispatch::Router::Route.new("GET", "/extra", Snails::HealthController, :show)
-      ]
-    end
-  end
-end
-RB
+printf '\n# drift\n' >> ghapp/gen/route_helpers.rb
 bash "$CLI" gen-route-helpers ghapp --check >/dev/null 2>&1
 chk "gen-route-helpers --check detects staleness" $? 1
 bash "$CLI" gen-route-helpers ghapp >/dev/null 2>&1
 chk "gen-route-helpers regenerates" $? 0
-grep -q 'def self.extra_path' ghapp/gen/route_helpers.rb
-chk "the new route is in the helper file" $? 0
-cat > ghapp/config/routes.rb <<'RB'
-module Snails
-  module RouteTable
-    def self.table
-      [
-        ActionDispatch::Router::Route.new("POST", "/devices", Api::DevicesController, :create),
-        ActionDispatch::Router::Route.new("GET", "/devices/:id", Api::DevicesController, :show)
-      ]
-    end
-  end
-end
-RB
-bash "$CLI" gen-route-helpers ghapp >/dev/null 2>&1
-chk "a colliding name is refused" $? 2
 bash "$CLI" gen-route-helpers >/dev/null 2>&1
 chk "gen-route-helpers usage error" $? 2
 
