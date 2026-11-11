@@ -4,7 +4,7 @@ description: >
   of the job. Call it after checkout; the caller owns the system packages the
   build needs (clang, libclang, sqlite3, libpq, jemalloc).
 
-  A per-run, pin-exact install: the gates materialize their toolchain from this
+  A per-rev, pin-exact install: the gates materialize their toolchain from this
   PATH install and accept it only while it reports the pinned rev. This is not a
   human-managed global toolchain — nobody maintains this rev by hand.
 
@@ -18,27 +18,48 @@ runs:
       run: |
         REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
         echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
-    - name: Cache spinel build
-      id: cache-spinel
+    # The install cache is the one platform-ci saves on main (~/.local). A PR
+    # can restore a base-branch cache but not another PR's, so the shared copy
+    # lives here; a .spinel build cache would only ever be scoped to the PR.
+    - name: Cache the pinned spinel install
+      id: cache-spinel-install
       uses: actions/cache@v4
       with:
-        path: .spinel
-        key: spinel-build-${{ runner.os }}-${{ env.SPINEL_REV }}
+        path: ~/.local
+        key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+    # Restore before the build so a warm cache shortens this run, not just a
+    # later one. The key matches platform-ci's native cache.
+    - name: Cache spin native package objects
+      if: steps.cache-spinel-install.outputs.cache-hit != 'true'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/spin
+        key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+        restore-keys: |
+          spin-native-${{ runner.os }}-${{ runner.arch }}-
     - name: Clone and build spinel
-      if: steps.cache-spinel.outputs.cache-hit != 'true'
+      if: steps.cache-spinel-install.outputs.cache-hit != 'true'
       shell: bash
       run: |
         git clone https://github.com/matz/spinel .spinel
         cd .spinel && git checkout "$SPINEL_REV" && make deps && make -j"$(nproc)"
     - name: Install spinel to the user prefix
+      if: steps.cache-spinel-install.outputs.cache-hit != 'true'
       shell: bash
       working-directory: .spinel
+      run: make install PREFIX="$HOME/.local"
+    # A cache hit skips the build and install, so the PATH entry and the rev
+    # check belong here, where both paths meet. A cache that reports another
+    # rev is a loud failure, never a silent unpinned build.
+    - name: Expose the pinned toolchain
+      shell: bash
       run: |
-        make install PREFIX="$HOME/.local"
-        "$HOME/.local/bin/spin" --version
         echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-    - name: Cache spin native package objects
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/spin
-        key: spin-native-${{ runner.os }}-sp${{ env.SPINEL_REV }}
+        for binary in spin spinel; do
+          version="$("$HOME/.local/bin/$binary" --version 2>/dev/null || true)"
+          echo "$version"
+          [[ $version == *"${SPINEL_REV:0:8}"* ]] || {
+            echo "the installed $binary does not report ${SPINEL_REV}: ${version:-<no version>}" >&2
+            exit 1
+          }
+        done
