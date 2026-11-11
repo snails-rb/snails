@@ -61,6 +61,36 @@ class LoggerTest < TestBase
     end
   end
 
+  # A formatter that parks inside `call` for the message "slow" until
+  # released, so a render can be held open while another thread logs.
+  class BlockingFormatter
+    def initialize
+      @lock = Mutex.new
+      @started = false
+      @release = false
+    end
+
+    def started?
+      @lock.synchronize { @started }
+    end
+
+    def release
+      @lock.synchronize { @release = true }
+    end
+
+    def call(severity, time, progname, message)
+      if message.to_s == "slow"
+        @lock.synchronize { @started = true }
+        released = false
+        while !released
+          released = @lock.synchronize { @release }
+          sleep 0.01 if !released
+        end
+      end
+      message.to_s + "\n"
+    end
+  end
+
   # Records formatter calls without rendering, so assertions read the
   # severity, progname and already-tagged message.
   class RecordingFormatter    def initialize
@@ -132,6 +162,67 @@ class LoggerTest < TestBase
     stamp = "[1970-01-01T09:00:00.000000+09:00 #"
     assert_equal true, default_line.include?(stamp)
     assert_equal true, record_line.include?(stamp)
+  end
+
+  # Two instants in one second share the cached date and clock text but each
+  # call keeps its own fractional second.
+  def test_timestamp_prefix_cache_keeps_each_calls_fraction
+    Snails.time_zone = "UTC"
+    first = Snails::Logger::Formatter.format_time(Time.at(1793190896.25).utc)
+    second = Snails::Logger::Formatter.format_time(Time.at(1793190896.75).utc)
+
+    assert_equal "2026-10-28T12:34:56.250000Z", first
+    assert_equal "2026-10-28T12:34:56.750000Z", second
+  end
+
+  # A zone change inside one second rerenders: the cached text belongs to the
+  # zone it was rendered for, so the same instant reads in the new zone.
+  def test_timestamp_prefix_cache_follows_a_zone_change
+    Snails.time_zone = "UTC"
+    utc = Snails::Logger::Formatter.format_time(Time.at(1793190896.5).utc)
+    Snails.time_zone = "Asia/Seoul"
+    seoul = Snails::Logger::Formatter.format_time(Time.at(1793190896.5).utc)
+    Snails.time_zone = "UTC"
+
+    assert_equal "2026-10-28T12:34:56.500000Z", utc
+    assert_equal "2026-10-28T21:34:56.500000+09:00", seoul
+  end
+
+  # A formatter parked mid-render does not hold the write lock: the second
+  # thread's line is written while the first render is still blocked, so a
+  # slow formatter cannot serialize every request thread's logging.
+  def test_a_blocked_formatter_does_not_hold_the_write_lock
+    out = RecordingOutput.new
+    formatter = BlockingFormatter.new
+    logger = Snails::Logger.new
+    logger.output = out
+    logger.formatter = formatter
+
+    first = Thread.new do
+      logger.info("slow")
+    end
+    waiting = true
+    while waiting
+      waiting = !formatter.started?
+      sleep 0.01 if waiting
+    end
+
+    second = Thread.new do
+      logger.info("fast")
+    end
+    waited = 0.0
+    while waited < 2.0
+      break if out.lines.length > 0
+      sleep 0.02
+      waited = waited + 0.02
+    end
+    wrote_while_blocked = out.lines.length
+    formatter.release
+    first.join
+    second.join
+
+    assert_equal 1, wrote_while_blocked
+    assert_equal 2, out.lines.length
   end
 
   # A transport stuck in the hand-off does not block logging from other
@@ -398,5 +489,8 @@ FixtureRunner.run(LoggerTest, [
   "test_dispatch_writes_one_failed_record_for_a_returned_500",
   "test_dispatch_treats_a_script_error_as_a_failed_record",
   "test_both_formatters_spell_the_timestamp_alike",
+  "test_timestamp_prefix_cache_keeps_each_calls_fraction",
+  "test_timestamp_prefix_cache_follows_a_zone_change",
+  "test_a_blocked_formatter_does_not_hold_the_write_lock",
   "test_a_blocked_transport_does_not_hold_other_threads_logging"
 ])

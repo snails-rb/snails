@@ -50,10 +50,10 @@ module Snails
       @delivery = Delivery.new
       @progname = ""
       @host_name = nil
-      # The local render is one unit: concurrent requests and worker threads
-      # must not interleave lines. The transport hand-off runs outside this
-      # lock — a hand-off waiting on the database must not freeze every logger
-      # in the process.
+      # The local write is one unit: concurrent requests and worker threads
+      # must not interleave lines. Rendering happens before this lock and the
+      # transport hand-off after it, so neither a slow formatter nor a
+      # delivery waiting on the database freezes the other threads' logging.
       @write_lock = Mutex.new
     end
 
@@ -295,7 +295,9 @@ module Snails
     # @return [void]
     def report_local(severity, message)
       severity_rank(severity)
-      @write_lock.synchronize { write_local_line(severity, message.to_s) }
+      body = message.to_s
+      line = @formatter.call(severity.to_s.upcase, Time.now, @progname, tagged_message(body))
+      write_output_line(line)
     end
 
     # write at DEBUG when the level allows it. Without `event:` the call is a
@@ -431,30 +433,36 @@ module Snails
 
     # A string call renders through the legacy formatter (so an app's
     # replacement keeps working) and still becomes an `app.log` record for
-    # the transport. The local line is written under the lock; the record
-    # reaches the transport after it is released, so a transport waiting on
-    # the database never holds up other threads' logging.
+    # the transport. The render runs before the lock and the lock covers the
+    # write alone, so a line being formatted does not hold up the other
+    # request threads and a formatter may be called concurrently. The record
+    # reaches the transport after the lock is released, so a transport
+    # waiting on the database never holds up other threads' logging.
     def write_line(severity, message)
       body = message.to_s
       record = Record.new(severity, "app.log", body, context: context_fields, resource: resource_fields)
-      @write_lock.synchronize do
-        io = output
-        io.write(@formatter.call(severity.to_s.upcase, Time.now, @progname, tagged_message(body)))
-        io.flush
-      end
+      line = @formatter.call(severity.to_s.upcase, Time.now, @progname, tagged_message(body))
+      write_output_line(line)
       deliver(record)
     end
 
     # A structured event renders through the record formatter and then
-    # reaches the transport, under the same split: the line under the lock,
-    # the hand-off outside it.
+    # reaches the transport, under the same split: the render first, the
+    # write under the lock, the hand-off after it.
     def write_record(record)
+      write_output_line(@record_formatter.call(record, @progname))
+      deliver(record)
+    end
+
+    # The one local write. The line is already rendered, so the lock covers
+    # one `write` and its flush — the only part that must not interleave with
+    # another thread's write.
+    def write_output_line(line)
       @write_lock.synchronize do
         io = output
-        io.write(@record_formatter.call(record, @progname))
+        io.write(line)
         io.flush
       end
-      deliver(record)
     end
 
     # `Delivery` owns the transport and the hand-off. The logger only turns a
@@ -472,13 +480,6 @@ module Snails
     # wording belong to the outcome, which `Delivery` owns.
     def report_outcome(outcome)
       report_local(outcome.severity, "[logger] " + outcome.message) unless outcome.nil?
-    end
-
-    # The local line writer assumes the caller holds `@write_lock`.
-    def write_local_line(severity, message)
-      io = output
-      io.write(@formatter.call(severity.to_s.upcase, Time.now, @progname, tagged_message(message)))
-      io.flush
     end
 
     # `snails.request_id`, `snails.controller`, `snails.action`, and the job
@@ -530,8 +531,8 @@ module Snails
     end
 
     private :severity_rank, :writes?, :write_level, :write_event,
-            :write_line, :write_record, :deliver,
-            :report_outcome, :write_local_line,
+            :write_line, :write_record, :write_output_line, :deliver,
+            :report_outcome,
             :context_fields, :resource_fields, :tagged_message
   end
 end
