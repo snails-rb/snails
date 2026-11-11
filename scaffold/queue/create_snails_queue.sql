@@ -7,8 +7,8 @@
 -- recurring traffic alone.
 --
 -- `snails generate job_queue` stamps this file into db/migrate/ (with a
--- UTC timestamp version prefix) and regenerates the db/schema.sql
--- snapshot from the migration files. Every statement is idempotent, so
+-- UTC timestamp version prefix) and regenerates db/schema.sql from the
+-- migration files. Every statement is idempotent, so
 -- reapplying it over an existing database is safe. AUTOINCREMENT keeps
 -- row ids increasing for the life of the table (a pruned id is never
 -- reused), which the claim order ("oldest due row first") reads.

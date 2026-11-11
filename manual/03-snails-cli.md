@@ -132,10 +132,10 @@ Commands:
   plan     Print the SQL of pending migrations
   apply    Apply pending migrations in order
   load     Initialize the database: create it, load db/schema.sql, apply
-           pending migrations, then refresh the snapshot
-  verify   Check the committed snapshot against the migration files
+           pending migrations, then refresh the schema dump
+  verify   Check the committed schema dump against the migration files
   dump     Regenerate db/schema.sql (tables, indexes, views) from the
-           migration files — the snapshot is generated output
+           migration files — the schema dump is generated output
   check    Exit 1 while the database is uninitialized or a migration is
            pending (read-only)
 ```

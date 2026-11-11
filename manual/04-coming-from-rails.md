@@ -6,7 +6,7 @@ If you know Rails, you already know most of Snails. Routes are declared the same
 
 - Routes live in `config/routes.rb` and use the same helpers — `get`, `post`, `put`, `delete`, and `resources`.
 - Controllers are classes with actions, and parameters arrive on the request object.
-- The database changes the same way: a numbered file under `db/migrate/`, applied in order, with a snapshot your tests load. See [Migrations](12-migrations.md).
+- The database changes the same way: a numbered file under `db/migrate/`, applied in order, with a schema dump your tests load. See [Migrations](12-migrations.md).
 - A test suite runs with one command: `bin/test`. See [Testing](24-testing.md).
 
 ## What changes
@@ -44,7 +44,7 @@ When you reach for a Rails feature, the replacement is usually one chapter away:
 
 - Request input: [Requests and Parameters](07-requests-and-parameters.md)
 - Queries and transactions: [Querying](10-querying.md)
-- Schema and snapshots: [Migrations](12-migrations.md)
+- Schema dumps and migrations: [Migrations](12-migrations.md)
 - Auth challenges: [Authentication](08-authentication.md)
 - Cache: [Caching](18-caching.md)
 - Errors: [Error Handling](20-error-handling.md)

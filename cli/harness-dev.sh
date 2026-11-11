@@ -44,7 +44,7 @@
 #     file is left alone so development data survives.
 #   pg => with PG_URL the database is the developer's and used as-is: no
 #     container, no DDL, no loader (a shared/web database carries
-#     extensions and data this repo's snapshot would clobber), and --fresh
+#     extensions and data this repo's schema dump would clobber), and --fresh
 #     is refused. Without PG_URL the runner starts (or reuses) a persistent
 #     development container named from APP_NAME (pins.toml — a definitive
 #     declaration, never the directory name), and refuses to start if its
@@ -140,7 +140,7 @@ snails_cli() {
 # `migrate apply` step, never this check. A database the runner started
 # itself (the pg dev container) is named in the repair line: the developer's
 # shell does not carry the runner's exported PG_URL.
-# (The gate engine owns its own snapshot loader; the dev runner never loads
+# (The gate engine owns its own schema dump loader; the dev runner never loads
 # or applies anything.)
 # up only as background-job failures, so stop here instead. Read-only — the
 # repair is the explicit `migrate apply` step, never this check. A database
@@ -234,7 +234,7 @@ if [[ $DB_ADAPTER == pg ]]; then
   if [[ -n ${PG_URL:-} ]]; then
     # Developer-provided database — used as-is: no container, no DDL, no
     # loader (a shared/web database carries extensions and data this repo's
-    # snapshot would clobber), and --fresh is refused.
+    # schema dump would clobber), and --fresh is refused.
     if ((FRESH)); then
       echo "[snails] --fresh applies to the dev container only — a provided PG_URL belongs to its owner" >&2
       exit 1

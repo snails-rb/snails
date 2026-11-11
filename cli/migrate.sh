@@ -3,9 +3,9 @@
 # convention file (db/schema.sql — tables, indexes, views) provisions a
 # FRESH database; this runner brings an EXISTING one forward, one ordered
 # db/migrate/<version>_<name>[.<adapter>].sql at a time, recording what ran in
-# schema_migrations. `dump` regenerates the snapshot files from those same
-# migration files — one writer, so the snapshot cannot drift from its
-# history — and `verify` proves the committed snapshot equals that output,
+# schema_migrations. `dump` regenerates the schema dump from those same
+# migration files — one writer, so the schema dump cannot drift from its
+# history — and `verify` proves the committed schema dump equals that output,
 # byte for byte.
 #
 # Contract:
@@ -17,7 +17,7 @@
 #   - files are idempotent (tables/indexes IF NOT EXISTS, views DROP VIEW
 #     IF EXISTS + CREATE VIEW), so an existing database adopts the ledger
 #     by replaying: objects it already has are left alone.
-#   - the snapshot is generated output: edit the migration files, then
+#   - the schema dump is generated output: edit the migration files, then
 #     `dump`. Never hand-edit db/schema.sql — the design notes belong in
 #     the migration file, and `verify` fails on a hand edit.
 #   - the runner owns transactions; a migration file must not carry its
@@ -40,7 +40,7 @@
 #     pending, with the repair line as the default output (`--verbose`
 #     adds the labels). It never writes; a ledger that cannot be read
 #     (no executor, unreachable target) is a failure, never a silent pass.
-#   - `dump` and `verify` derive the snapshot from the migration files
+#   - `dump` and `verify` derive the schema dump from the migration files
 #     alone, never from a database's current state: sqlite reads no
 #     target (`dump` takes no --database), while pg replays into a
 #     throwaway schema on the target and drops it on exit.
@@ -49,8 +49,8 @@
 #                   [--database TARGET] [--verbose]
 #
 # exit: 0 ok, 1 violation (pending migration in check mode, ledger gap,
-#        failed apply, snapshot drift), 2 structural (usage, missing
-#        pins/target, a snapshot guard — no migration files/tables, an
+#        failed apply, schema dump drift), 2 structural (usage, missing
+#        pins/target, a schema dump guard — no migration files/tables, an
 #        unsupported object, sqlite's --database, pg external/no target)
 set -euo pipefail
 
@@ -78,10 +78,10 @@ usage: snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR] [--
   plan     print the SQL of every pending migration (dry run)
   apply    run pending migrations in order, recording each in the ledger
   load     initialize the database: create it, load db/schema.sql, apply
-           pending migrations, then refresh the snapshot
-  verify   check the committed snapshot against the migration files
+           pending migrations, then refresh the schema dump
+  verify   check the committed schema dump against the migration files
   dump     regenerate db/schema.sql (tables, indexes, views) from the
-           migration files — the snapshot is generated output
+           migration files — the schema dump is generated output
   check    exit 1 when the database is uninitialized or a migration is
            pending (read-only; the boot check); --verbose lists the pending
            labels and the full repair command
@@ -417,7 +417,7 @@ cmd_check() {
 
   if ((n == 0)); then
     # A schema-only app has no pending file to count. The missing ledger is
-    # the signal that the snapshot was never loaded, so the boot still asks
+    # the signal that the schema dump was never loaded, so the boot still asks
     # for the explicit initialization instead of starting against an empty DB.
     if ((LEDGER_PRESENT == 0)) && [[ -f $APP/db/schema.sql ]]; then
       if [[ $OWNER == external ]]; then
@@ -509,27 +509,27 @@ cmd_apply() {
   printf '%s applied\n' "${#PENDING[@]}"
 }
 
-# Load the committed snapshot into the target. A migration-owning app uses
+# Load the committed schema dump into the target. A migration-owning app uses
 # this only before the ledger exists — replaying ALTER-style migrations over
-# an initialized database is not safe. A schema-only app reloads the snapshot
-# on every load because it has no migration path.
-load_snapshot() {
-  local snapshot="$APP/db/schema.sql"
-  [[ -f $snapshot ]] || return 0
+# an initialized database is not safe. A schema-only app reloads the schema
+# dump on every load because it has no migration path.
+load_schema_dump() {
+  local schema_file="$APP/db/schema.sql"
+  [[ -f $schema_file ]] || return 0
   echo "[snails] loading db/schema.sql" >&2
   if [[ $DB_ADAPTER == sqlite ]]; then
     {
       printf '.timeout 30000\nBEGIN;\n'
-      cat "$snapshot"
+      cat "$schema_file"
       printf '\nCOMMIT;\n'
     } | sqlite3 -bail "$TARGET" || die 1 "schema load failed: db/schema.sql"
   else
-    psql "$TARGET" -v ON_ERROR_STOP=1 -X -q --single-transaction -f "$snapshot" ||
+    psql "$TARGET" -v ON_ERROR_STOP=1 -X -q --single-transaction -f "$schema_file" ||
       die 1 "schema load failed: db/schema.sql"
   fi
 }
 
-# The one writer of the snapshot is `migrate dump`; load delegates to it so
+# The one writer of the schema dump is `migrate dump`; load delegates to it so
 # the file it just initialized from and the history stay in step.
 run_dump() {
   local args=(dump --app "$APP")
@@ -541,11 +541,11 @@ run_dump() {
 }
 
 # The explicit setup command: the equivalent of Rails' db:prepare. A fresh
-# database is created, the snapshot is loaded when one exists, pending
-# migrations are replayed to record the ledger, and the snapshot is
+# database is created, the schema dump is loaded when one exists, pending
+# migrations are replayed to record the ledger, and the schema dump is
 # regenerated from the files. An initialized migration-owning database skips
-# the snapshot load and only applies pending migrations; a schema-only app
-# reloads its snapshot because it has no migration path.
+# the schema dump load and only applies pending migrations; a schema-only app
+# reloads its schema dump because it has no migration path.
 cmd_load() {
   local orphans
   orphans="$(orphan_versions)"
@@ -557,12 +557,12 @@ cmd_load() {
   fi
 
   ensure_target_dir
-  # A schema-only app has no migration path, so its snapshot is the schema:
+  # A schema-only app has no migration path, so its schema dump is the schema:
   # reload it every time. A migration-owning app loads it only when the
   # target has no ledger — replaying ALTER-style migrations over an
   # initialized database is not safe.
   if ((LEDGER_PRESENT == 0)) || ((${#VERSIONS[@]} == 0)); then
-    load_snapshot
+    load_schema_dump
   fi
   if ((${#PENDING[@]} > 0)); then
     cmd_apply
@@ -577,10 +577,10 @@ cmd_load() {
   echo "[snails] database ready"
 }
 
-# --- snapshot generation ------------------------------------------------
+# --- schema dump generation ------------------------------------------------
 
 # Replay every migration file into <db> in version order — the same run
-# `apply` performs, minus the ledger: the snapshot is the files' result,
+# `apply` performs, minus the ledger: the schema dump is the files' result,
 # not an adoption record.
 replay_into() { # <db>
   local db="$1" i=0
@@ -590,16 +590,16 @@ replay_into() { # <db>
   done
 }
 
-# The header every generated snapshot file carries: name the file's writer,
+# The header every generated schema dump carries: name the file's writer,
 # so a hand edit has a wrong answer to point at.
-snapshot_header() {
+schema_dump_header() {
   printf '%s\n' \
     '-- Generated by snails migrate dump from db/migrate/*.sql — do not edit.' \
     '-- Edit the migration files, then re-run snails migrate dump.'
 }
 
 # sqlite stores a CREATE statement without the IF NOT EXISTS the file was
-# written with; the snapshot keeps it, so re-loading a snapshot over an
+# written with; the schema dump keeps it, so re-loading a schema dump over an
 # existing database stays a no-op (the contract's idempotency). The match
 # runs case-insensitively over the statement's first line, and the insert
 # measures the ORIGINAL text — the writer keeps the statement's own case
@@ -629,7 +629,7 @@ ensure_if_not_exists() { # <statement> → stdout
 
 # The EXIT trap for dump/verify: the temp tree, plus pg's throwaway
 # schema if one was created (success, die, or crash path).
-cleanup_snapshot() { # <tmp>
+cleanup_schema_dump() { # <tmp>
   rm -rf "$1"
   if [[ -n ${PG_SCRATCH:-} && -n ${TARGET:-} ]]; then
     psql "$TARGET" -q -c "DROP SCHEMA IF EXISTS $PG_SCRATCH CASCADE" >/dev/null 2>&1 || true
@@ -638,7 +638,7 @@ cleanup_snapshot() { # <tmp>
 }
 
 # pg: replay into a throwaway schema on the target. The target is only a
-# scratch pad — the snapshot still comes from the migration files, never
+# scratch pad — the schema dump still comes from the migration files, never
 # from the target's state.
 replay_into_pg() {
   PG_SCRATCH="snails_dump_$$_$RANDOM"
@@ -652,7 +652,7 @@ replay_into_pg() {
       die 1 "replay failed: ${LABELS[$i]}"
     i=$((i + 1))
   done
-  SNAPSHOT_STATEMENTS="$(psql "$TARGET" -tA -c \
+  SCHEMA_DUMP_STATEMENTS="$(psql "$TARGET" -tA -c \
     "SELECT count(*) FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = '$PG_SCRATCH' AND c.relkind IN ('r','v','i','S')")"
 }
 
@@ -660,17 +660,17 @@ replay_into_pg() {
 # serials, sequences, constraints and comments come out right. Strip what
 # must not reach a fresh database: session settings, pg_dump's own
 # banner comments, psql meta-commands (pg17+ \restrict), and the
-# throwaway schema qualifier (the snapshot must load into whatever
+# throwaway schema qualifier (the schema dump must load into whatever
 # search_path the loader runs with). setval lines are dropped too: a
-# rowless snapshot's sequences start at their default.
-pg_snapshot() { # <out_file>
+# rowless schema dump's sequences start at their default.
+pg_schema_dump() { # <out_file>
   command -v pg_dump >/dev/null 2>&1 ||
     die 2 "the pg executor 'pg_dump' is not on PATH — install it"
   {
-    snapshot_header
+    schema_dump_header
     printf '\n'
-    # pg_dump's own output, kept as a structure snapshot — the
-    # SET block included: a snapshot carries the client that rendered it,
+    # pg_dump's own output, kept as a structure dump — the
+    # SET block included: a schema dump carries the client that rendered it,
     # and a server that does not know those settings SHOULD fail to load
     # it (the version pairing is requirements' to state and the
     # environment's to satisfy — dump needs pg_dump >= the server, a
@@ -684,7 +684,7 @@ pg_snapshot() { # <out_file>
     #     must go together.
     #   CREATE SCHEMA, the schema qualifier, and every `-- ` line — they
     #     name the throwaway schema (pid + random per run), which would
-    #     leak into and destabilize every regenerated snapshot; the
+    #     leak into and destabilize every regenerated schema dump; the
     #     version banner rides out with the comments.
     pg_dump --schema-only --no-owner --no-privileges --schema="$PG_SCRATCH" "$TARGET" |
       sed -e '/^\\restrict /d' \
@@ -696,19 +696,19 @@ pg_snapshot() { # <out_file>
   } >"$1"
 }
 
-# build_snapshot <out_dir> — write <out_dir>/schema.sql from the migration
-# files and set SNAPSHOT_STATEMENTS. sqlite replays into a temp file; pg
+# build_schema_dump <out_dir> — write <out_dir>/schema.sql from the migration
+# files and set SCHEMA_DUMP_STATEMENTS. sqlite replays into a temp file; pg
 # replays into a throwaway schema on the target (dropped by the trap).
-build_snapshot() {
+build_schema_dump() {
   local out="$1"
   mkdir -p "$out"
   if [[ $DB_ADAPTER == pg ]]; then
     [[ $OWNER == external ]] &&
       die 2 "DB_OWNER=\"external\": $PINS declares this database is owned by another app — dump would write a throwaway schema there"
     replay_into_pg
-    ((SNAPSHOT_STATEMENTS > 0)) ||
-      die 2 "the migrations create no objects — refusing to write an empty snapshot"
-    pg_snapshot "$out/schema.sql"
+    ((SCHEMA_DUMP_STATEMENTS > 0)) ||
+      die 2 "the migrations create no objects — refusing to write an empty schema dump"
+    pg_schema_dump "$out/schema.sql"
     return 0
   fi
   local replay="$out/.replay.db"
@@ -716,12 +716,12 @@ build_snapshot() {
   local tables
   tables="$(sqlite3 "$replay" "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")"
   ((tables > 0)) ||
-    die 2 "the migrations create no tables — refusing to write an empty snapshot"
-  generate_snapshot "$replay" "$out"
+    die 2 "the migrations create no tables — refusing to write an empty schema dump"
+  generate_schema_dump "$replay" "$out"
   rm -f "$replay"
 }
-# generate_snapshot <replay_db> <out_dir> — write <out_dir>/schema.sql from
-# the replayed catalog; sets SNAPSHOT_STATEMENTS to the statement count.
+# generate_schema_dump <replay_db> <out_dir> — write <out_dir>/schema.sql from
+# the replayed catalog; sets SCHEMA_DUMP_STATEMENTS to the statement count.
 #
 # One file, the shape every dump tool emits (structure.sql, pg_dump,
 # sqlite3 .dump): tables and indexes first, then views, each
@@ -733,19 +733,19 @@ build_snapshot() {
 # dependent); sqlite never validates view bodies at all. Tables and
 # indexes keep IF NOT EXISTS (sqlite strips it from stored DDL); views
 # keep the plain CREATE VIEW the hand-written files carried — the
-# snapshot contract is fresh provisioning.
-generate_snapshot() { # <replay_db> <out_dir>
+# schema dump contract is fresh provisioning.
+generate_schema_dump() { # <replay_db> <out_dir>
   local db="$1" out="$2" rid type name sql table_body="" view_body="" body ids
-  SNAPSHOT_STATEMENTS=0
+  SCHEMA_DUMP_STATEMENTS=0
   ids="$(sqlite3 "$db" "SELECT rowid FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' AND name != '$LEDGER' ORDER BY rowid")"
   mkdir -p "$out"
   for rid in $ids; do
     type="$(sqlite3 "$db" "SELECT type FROM sqlite_master WHERE rowid = $rid")"
     name="$(sqlite3 "$db" "SELECT name FROM sqlite_master WHERE rowid = $rid")"
     sql="$(sqlite3 "$db" "SELECT sql FROM sqlite_master WHERE rowid = $rid")"
-    SNAPSHOT_STATEMENTS=$((SNAPSHOT_STATEMENTS + 1))
+    SCHEMA_DUMP_STATEMENTS=$((SCHEMA_DUMP_STATEMENTS + 1))
     if [[ $type != table && $type != index && $type != view ]]; then
-      die 2 "unsupported object in the migrations: $type $name — the snapshot covers tables, indexes, and views"
+      die 2 "unsupported object in the migrations: $type $name — the schema dump covers tables, indexes, and views"
     fi
     sql="$(ensure_if_not_exists "$sql")"
     if [[ $type == view ]]; then
@@ -762,7 +762,7 @@ generate_snapshot() { # <replay_db> <out_dir>
     body+="$view_body"
   fi
   {
-    snapshot_header
+    schema_dump_header
     if [[ -n $body ]]; then
       printf '\n%s\n' "$body"
     else
@@ -771,24 +771,24 @@ generate_snapshot() { # <replay_db> <out_dir>
   } >"$out/schema.sql"
 }
 
-# The snapshot writer: regenerate the convention files from the migration
+# The schema dump writer: regenerate the convention file from the migration
 # files. One writer is the whole drift story — `verify` compares against
 # exactly this output.
 cmd_dump() {
   require_executor
   ((${#VERSIONS[@]})) ||
-    die 2 "no migration files in db/migrate — refusing to write an empty snapshot"
+    die 2 "no migration files in db/migrate — refusing to write an empty schema dump"
 
   local tmp
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064  # $tmp is resolved here, on purpose
-  trap "cleanup_snapshot '$tmp'" EXIT
-  build_snapshot "$tmp/snap"
-  local statements="$SNAPSHOT_STATEMENTS"
+  trap "cleanup_schema_dump '$tmp'" EXIT
+  build_schema_dump "$tmp/snap"
+  local statements="$SCHEMA_DUMP_STATEMENTS"
 
   # Content-gated write through a same-directory temp file: an unchanged
   # file keeps its mtime (the harness bundle cache keys on them), and an
-  # interrupted dump never leaves a half-written snapshot behind.
+  # interrupted dump never leaves a half-written schema dump behind.
   local changed=0 detail=""
   mkdir -p "$APP/db"
   if [[ ! -f $APP/db/schema.sql ]] || ! cmp -s "$tmp/snap/schema.sql" "$APP/db/schema.sql"; then
@@ -799,16 +799,16 @@ cmd_dump() {
   fi
 
   if ((changed)); then
-    printf '[snails] snapshot regenerated (%s statements)\n' "$statements"
+    printf '[snails] schema dump regenerated (%s statements)\n' "$statements"
   else
-    printf '[snails] snapshot is up to date (%s statements)\n' "$statements"
+    printf '[snails] schema dump is up to date (%s statements)\n' "$statements"
   fi
   if ((VERBOSE)) && [[ -n $detail ]]; then
     printf '%s' "$detail" >&2
   fi
 }
 
-# The gate: the committed snapshot must equal what `dump` regenerates from
+# The gate: the committed schema dump must equal what `dump` regenerates from
 # the same migration files — byte for byte, so a hand edit and a forgotten
 # regeneration are one failure with one repair (`dump`).
 cmd_verify() {
@@ -821,8 +821,8 @@ cmd_verify() {
   local tmp
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064  # $tmp is resolved here, on purpose
-  trap "cleanup_snapshot '$tmp'" EXIT
-  build_snapshot "$tmp/snap"
+  trap "cleanup_schema_dump '$tmp'" EXIT
+  build_schema_dump "$tmp/snap"
 
   local problems=() rel
   if [[ ! -f $APP/db/schema.sql ]]; then
@@ -832,7 +832,7 @@ cmd_verify() {
   fi
 
   if ((${#problems[@]} == 0)); then
-    printf 'snapshot matches the migrate replay (%s statements)\n' "$SNAPSHOT_STATEMENTS"
+    printf 'schema dump matches the migrate replay (%s statements)\n' "$SCHEMA_DUMP_STATEMENTS"
     return 0
   fi
 
@@ -842,7 +842,7 @@ cmd_verify() {
   app_arg="$(app_root_argument "$APP")"
   repair="snails migrate dump"
   if [[ -n $app_arg ]]; then repair+=" --app $(shell_quote "$app_arg")"; fi
-  echo "[snails] snapshot differs from the migrate replay — run: $repair" >&2
+  echo "[snails] schema dump differs from the migrate replay — run: $repair" >&2
   for p in "${problems[@]}"; do
     printf '  %s\n' "$p" >&2
   done
@@ -918,7 +918,7 @@ DB_ADAPTER="$(database_adapter_for "$APP")" || exit 2
 # sqlite dump reads migration files only — a target would be a lie about
 # what the command did. pg dump/verify need the target as their scratch.
 if [[ $COMMAND == dump && $DB_ADAPTER == sqlite && -n $DB_OPTION ]]; then
-  die 2 "dump does not take --database (the snapshot comes from the migration files)"
+  die 2 "dump does not take --database (the schema dump comes from the migration files)"
 fi
 
 OWNER="$(read_pins "$PINS" DB_OWNER)"

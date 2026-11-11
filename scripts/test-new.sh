@@ -43,7 +43,7 @@
 # The `--scaffold` template ships one DDL per adapter (sqlite rowid PK vs
 # pg BIGSERIAL); `new` stamps the adapter's file as the first migration
 # under a UTC version and writes no db/schema.sql — `migrate dump`
-# generates the snapshot, and the canaries run that command next.
+# generates the schema dump, and the canaries run that command next.
 #
 # Usage: bash scripts/test-new.sh [--only=demo|pg]
 # Exit: 0=PASS or suspended, 1=failure, 2=usage.
@@ -255,7 +255,7 @@ canary_demo() {
   }
   # The scaffold ships the baseline as a migration only: one UTC-versioned
   # file, both template variants gone, and no db/schema.sql — the
-  # snapshot is `migrate dump`'s output (run further below).
+  # schema dump is `migrate dump`'s output (run further below).
   local baseline_file
   baseline_file="$(printf '%s\n' "$APP"/db/migrate/[0-9]*_baseline.sql)"
   [[ $baseline_file == "$APP"/db/migrate/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_baseline.sql ]] || {
@@ -305,14 +305,14 @@ canary_demo() {
   # top-level class instead is silent — the model just keeps the core
   # defaults — so both the wiring and the hydration are pinned here.
   # queue_rows enters through a migration, the way any schema change
-  # does: `migrate dump` regenerates the snapshot from the files (the
+  # does: `migrate dump` regenerates the schema dump from the files (the
   # step `new --scaffold` leaves to the user), and a fresh scaffold tree
   # must be verify-clean right after it.
   local queue_version
   queue_version=$(( $(basename "$baseline_file" | cut -d_ -f1) + 1 ))
   printf 'CREATE TABLE IF NOT EXISTS queue_rows (id INTEGER PRIMARY KEY, name TEXT NOT NULL, status TEXT, scheduled_at DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL);\n' \
     > "$APP/db/migrate/${queue_version}_add_queue_rows.sql"
-  echo "[test-new] migrate dump generates the snapshot from the migrations ($APP)"
+  echo "[test-new] migrate dump generates the schema dump from the migrations ($APP)"
   "$ROOT/bin/snails" migrate dump --app "$APP" >/dev/null
   [[ -f "$APP/db/schema.sql" ]] || {
     echo "[test-new] migrate dump wrote no db/schema.sql" >&2
@@ -704,7 +704,7 @@ canary_pg() {
   echo "[test-new] scaffolding $PG_APP (--scaffold, pg adapter)"
   "$ROOT/bin/snails" new "$PG_APP" --scaffold --database=postgresql >/dev/null
   # Same shape as the sqlite scaffold: baseline as a UTC migration, no
-  # snapshot — and on pg `migrate dump` needs a server to replay into
+  # schema dump — and on pg `migrate dump` needs a server to replay into
   # (a throwaway schema), so a scratch container carries that one command
   # and is dropped before the dev scenarios start their own.
   local pg_baseline
@@ -713,7 +713,7 @@ canary_pg() {
       ! -e $PG_APP/db/migrate/0001_baseline.sqlite.sql &&
       ! -e $PG_APP/db/migrate/0001_baseline.pg.sql &&
       ! -e $PG_APP/db/schema.sql ]] || {
-    echo "[test-new] pg new --scaffold must stamp the baseline migration and write no snapshot" >&2
+    echo "[test-new] pg new --scaffold must stamp the baseline migration and write no schema dump" >&2
     exit 1
   }
   docker run -d --name "$DUMP_PG_CONTAINER" --tmpfs /var/lib/postgresql \
@@ -736,7 +736,7 @@ canary_pg() {
     echo "[test-new] the dump scratch container did not start" >&2
     exit 1
   fi
-  echo "[test-new] migrate dump generates the pg snapshot from the migrations ($PG_APP)"
+  echo "[test-new] migrate dump generates the pg schema dump from the migrations ($PG_APP)"
   PG_URL="$dump_url" "$ROOT/bin/snails" migrate dump --app "$PG_APP" >/dev/null
   [[ -f "$PG_APP/db/schema.sql" ]] || {
     echo "[test-new] pg migrate dump wrote no db/schema.sql" >&2
@@ -801,7 +801,7 @@ canary_pg() {
     exit 1
   }
   [[ "$(psql "$AUTO_URL" -tAc "SELECT to_regclass('posts')")" == "" ]] || {
-    echo "[test-new] the pg dev runner loaded the snapshot before the explicit load" >&2
+    echo "[test-new] the pg dev runner loaded the schema dump before the explicit load" >&2
     exit 1
   }
   echo "[test-new] loading the pg baseline unblocks dev ($PG_APP/bin/dev)"
@@ -867,7 +867,7 @@ canary_pg() {
     exit 1
   }
   "$ROOT/bin/snails" migrate load --app "$PG_APP" --database "$MARKER_URL" >/dev/null
-  # The snapshot carries a probe object the provided database must not
+  # The schema dump carries a probe object the provided database must not
   # receive: the loader is additive, so with the app's tables already
   # applied only a fresh object distinguishes "never loaded" from
   # "loaded again".
@@ -879,7 +879,7 @@ canary_pg() {
     exit 1
   }
   [[ "$(psql "$MARKER_URL" -tAc "SELECT to_regclass('loader_probe')")" == "" ]] || {
-    echo "[test-new] PG_URL mode loaded the snapshot (loader_probe appeared)" >&2
+    echo "[test-new] PG_URL mode loaded the schema dump (loader_probe appeared)" >&2
     exit 1
   }
 

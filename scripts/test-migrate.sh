@@ -6,7 +6,7 @@
 # Cases: pending/applied status, idempotent apply + ledger, `load` (fresh
 # create/load/apply/dump, schema-only reload, existing-data preservation),
 # plan writes nothing, adapter-file selection and not-applicable reporting,
-# ambiguity and ledger-gap detection, the DB_OWNER=external refusal, `dump` (the snapshot
+# ambiguity and ledger-gap detection, the DB_OWNER=external refusal, `dump` (the schema dump
 # writer: generated format, idempotent rerun, its guards — no history, no
 # tables, --database, an unsupported object), the `verify` byte-compare
 # gate (hand edit, forgotten dump, missing file, each with the dump
@@ -62,9 +62,9 @@ chk_has() { # chk_has <name> <haystack> <needle>
   fi
 }
 
-# --- app fixture: migration files only. The snapshot they imply does not
+# --- app fixture: migration files only. The schema dump they imply does not
 # exist yet — `dump` below writes it, and `verify` compares against that
-# output (one writer; the fixture never hand-writes a snapshot).
+# output (one writer; the fixture never hand-writes a schema dump).
 APP="$WORK/app"
 mkdir -p "$APP/db/migrate" "$APP/config"
 DB="$APP/storage/test.sqlite3"
@@ -306,12 +306,12 @@ chk "check refuses a ledger gap" "$code" "1"
 chk_has "the check gap names the orphan version" "$out" "0099"
 sqlite3 "$DB" "DELETE FROM schema_migrations WHERE version='0099';"
 
-# --- dump: the snapshot writer. The fixture has no snapshot yet, so this
+# --- dump: the schema dump writer. The fixture has no schema dump yet, so this
 # is also the adoption run — then the guards that refuse to blank a
 # hand-written tree, and the idempotent rerun.
 out=$(bash "$ENGINE" dump --app "$APP" 2>&1); code=$?
 chk "dump exits 0" "$code" "0"
-chk_has "dump reports the regeneration" "$out" "snapshot regenerated"
+chk_has "dump reports the regeneration" "$out" "schema dump regenerated"
 chk_has "dump reports the statement count" "$out" "(4 statements)"
 chk "the generated header names the writer" \
   "$(head -n 1 "$APP/db/schema.sql")" \
@@ -329,7 +329,7 @@ chk "no stub table is generated for the view" \
 before="$(cksum < "$APP/db/schema.sql")"
 out=$(bash "$ENGINE" dump --app "$APP" 2>&1); code=$?
 chk "a rerun dump exits 0" "$code" "0"
-chk_has "a rerun dump reports no change" "$out" "snapshot is up to date"
+chk_has "a rerun dump reports no change" "$out" "schema dump is up to date"
 chk "a rerun dump rewrites nothing" "$(cksum < "$APP/db/schema.sql")" "$before"
 
 # --- dump guards: refuse before a hand-written tree can be blanked.
@@ -341,8 +341,8 @@ printf 'CREATE TABLE hand_written (id INTEGER);\n' > "$NOHIST/db/schema.sql"
 hand_sum="$(cksum < "$NOHIST/db/schema.sql")"
 out=$(bash "$ENGINE" dump --app "$NOHIST" 2>&1); code=$?
 chk "dump without migration files exits 2" "$code" "2"
-chk_has "the empty-history refusal says why" "$out" "refusing to write an empty snapshot"
-chk "the hand-written snapshot survived" "$(cksum < "$NOHIST/db/schema.sql")" "$hand_sum"
+chk_has "the empty-history refusal says why" "$out" "refusing to write an empty schema dump"
+chk "the hand-written schema dump survived" "$(cksum < "$NOHIST/db/schema.sql")" "$hand_sum"
 
 out=$(bash "$ENGINE" dump --app "$APP" --database "$DB" 2>&1); code=$?
 chk "dump refuses --database" "$code" "2"
@@ -358,8 +358,8 @@ out=$(bash "$ENGINE" dump --app "$DATAONLY" 2>&1); code=$?
 chk "dump with no tables left exits 2" "$code" "2"
 chk_has "the empty-replay refusal says why" "$out" "the migrations create no tables"
 
-# An object the snapshot format cannot express is refused, not silently
-# dropped from the output — a snapshot missing the object would ship.
+# An object the schema dump format cannot express is refused, not silently
+# dropped from the output — a schema dump missing the object would ship.
 TRIGAPP="$WORK/triggerapp"
 mkdir -p "$TRIGAPP/config" "$TRIGAPP/db/migrate"
 printf 'APP_NAME="triggerapp"\n' > "$TRIGAPP/pins.toml"
@@ -369,16 +369,16 @@ out=$(bash "$ENGINE" dump --app "$TRIGAPP" 2>&1); code=$?
 chk "dump refuses an unsupported object" "$code" "2"
 chk_has "the refusal names the object" "$out" "unsupported object in the migrations: trigger trig_t"
 
-# --- verify: byte-compare the committed snapshot against `dump`'s output.
+# --- verify: byte-compare the committed schema dump against `dump`'s output.
 out=$(migrate verify 2>&1); code=$?
-chk "verify exits 0 when the snapshot is dump's output" "$code" "0"
-chk_has "verify reports the statement count" "$out" "snapshot matches"
+chk "verify exits 0 when the schema dump is dump's output" "$code" "0"
+chk_has "verify reports the statement count" "$out" "schema dump matches"
 
 # A hand edit — the failure the generated-output rule exists for.
 cp "$APP/db/schema.sql" "$WORK/schema.bak"
 printf '\n-- hand-written note\n' >> "$APP/db/schema.sql"
 out=$(migrate verify 2>&1); code=$?
-chk "verify catches a hand-edited snapshot" "$code" "1"
+chk "verify catches a hand-edited schema dump" "$code" "1"
 chk_has "the hand edit names its file" "$out" "db/schema.sql: differs"
 chk_has "the repair is dump" "$out" "run: snails migrate dump"
 out=$(migrate verify --verbose 2>&1); code=$?
@@ -402,17 +402,17 @@ chk "verify passes after the repair" "$code" "0"
 rm -f "$APP/db/migrate/0006_extra.sql"
 out=$(bash "$ENGINE" dump --app "$APP" 2>&1); code=$?
 chk "dump follows the removed migration" "$code" "0"
-chk "the extra table left the snapshot" "$(grep -c 'CREATE TABLE.*extra' "$APP/db/schema.sql")" "0"
+chk "the extra table left the schema dump" "$(grep -c 'CREATE TABLE.*extra' "$APP/db/schema.sql")" "0"
 
-# A missing snapshot is drift too (repair: dump writes it back).
+# A missing schema dump is drift too (repair: dump writes it back).
 mv "$APP/db/schema.sql" "$WORK/schema.bak"
 out=$(migrate verify 2>&1); code=$?
-chk "verify catches a missing snapshot" "$code" "1"
-chk_has "the missing snapshot names the file" "$out" "db/schema.sql: missing"
+chk "verify catches a missing schema dump" "$code" "1"
+chk_has "the missing schema dump names the file" "$out" "db/schema.sql: missing"
 out=$(bash "$ENGINE" dump --app "$APP" 2>&1); code=$?
-chk "dump restores the missing snapshot" "$code" "0"
+chk "dump restores the missing schema dump" "$code" "0"
 
-# db/views is not the snapshot's business: the loader reads db/schema.sql
+# db/views is not the schema dump's business: the loader reads db/schema.sql
 # only, and a stray view file belongs to the developer's manual upgrade —
 # dump and verify leave it untouched.
 mkdir -p "$APP/db/views"
@@ -448,10 +448,10 @@ chk "cli migrate runs with ruby shadowed" "$code" "0"
 chk_has "shadowed run still prints the ledger state" "$out" "applied"
 out=$(PATH="$NORUBY:$PATH" "$CLI" migrate verify --app "$APP" --database "$DB" 2>&1); code=$?
 chk "cli migrate verify runs with ruby shadowed" "$code" "0"
-chk_has "the ruby shadow was never reached" "$out" "snapshot matches"
+chk_has "the ruby shadow was never reached" "$out" "schema dump matches"
 out=$(PATH="$NORUBY:$PATH" "$CLI" migrate dump --app "$APP" 2>&1); code=$?
 chk "cli migrate dump runs with ruby shadowed" "$code" "0"
-chk_has "dump with ruby shadowed reports the state" "$out" "snapshot is up to date"
+chk_has "dump with ruby shadowed reports the state" "$out" "schema dump is up to date"
 
 # --- default target: no --database resolves to <app>/storage/development.sqlite3.
 rm -f "$APP/storage/development.sqlite3"
@@ -481,8 +481,8 @@ chk "apply creates the sqlite storage dir" "$([[ -d $FRESH/storage ]] && echo ye
 chk "apply creates the default database file" "$([[ -f $FRESH/storage/development.sqlite3 ]] && echo yes || echo no)" "yes"
 
 # --- load: the explicit initialization command. A fresh target loads the
-# snapshot, replays the migrations into the ledger, and refreshes the
-# snapshot. An initialized target skips the snapshot load and applies only
+# schema dump, replays the migrations into the ledger, and refreshes the
+# schema dump. An initialized target skips the schema dump load and applies only
 # new migrations.
 LOAD="$WORK/load"
 mkdir -p "$LOAD/db/migrate" "$LOAD/config"
@@ -497,7 +497,7 @@ CREATE TABLE IF NOT EXISTS load_items (id INTEGER PRIMARY KEY, name TEXT);
 SQL
 LOAD_DB="$LOAD/storage/load.sqlite3"
 bash "$ENGINE" dump --app "$LOAD" >/dev/null
-snapshot_before="$(cksum < "$LOAD/db/schema.sql")"
+schema_dump_before="$(cksum < "$LOAD/db/schema.sql")"
 
 out=$(bash "$ENGINE" check --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
 chk "check on an uninitialized database exits 1" "$code" "1"
@@ -508,16 +508,16 @@ out=$(bash "$ENGINE" load --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
 chk "load exits 0" "$code" "0"
 chk_has "load reports the ready database" "$out" "database ready"
 chk "load created the database" "$([[ -f $LOAD_DB ]] && echo yes || echo no)" "yes"
-chk "load created the snapshot table" "$(sqlite3 "$LOAD_DB" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='load_items';")" "1"
+chk "load created the table from the schema dump" "$(sqlite3 "$LOAD_DB" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='load_items';")" "1"
 chk "load recorded the ledger" "$(sqlite3 "$LOAD_DB" "SELECT count(*) FROM schema_migrations;")" "1"
 bash "$ENGINE" verify --app "$LOAD" --database "$LOAD_DB" >/dev/null 2>&1
-chk "load keeps the snapshot in step" "$?" "0"
+chk "load keeps the schema dump in step" "$?" "0"
 
 sqlite3 "$LOAD_DB" "INSERT INTO load_items (name) VALUES ('kept');"
 out=$(bash "$ENGINE" load --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
 chk "a second load exits 0" "$code" "0"
 chk "a second load keeps the data" "$(sqlite3 "$LOAD_DB" "SELECT name FROM load_items;")" "kept"
-chk "the second load keeps the snapshot byte-identical" "$(cksum < "$LOAD/db/schema.sql")" "$snapshot_before"
+chk "the second load keeps the schema dump byte-identical" "$(cksum < "$LOAD/db/schema.sql")" "$schema_dump_before"
 
 printf 'CREATE TABLE IF NOT EXISTS load_extra (id INTEGER PRIMARY KEY);\n' > "$LOAD/db/migrate/0002_extra.sql"
 out=$(bash "$ENGINE" check --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
@@ -526,11 +526,11 @@ chk_has "an initialized database names the apply repair" "$out" "snails migrate 
 out=$(bash "$ENGINE" load --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
 chk "load applies the new migration" "$code" "0"
 chk "the new table exists" "$(sqlite3 "$LOAD_DB" "SELECT count(*) FROM sqlite_master WHERE name='load_extra';")" "1"
-chk "load refreshed the snapshot" "$(grep -c 'CREATE TABLE IF NOT EXISTS load_extra' "$LOAD/db/schema.sql")" "1"
+chk "load refreshed the schema dump" "$(grep -c 'CREATE TABLE IF NOT EXISTS load_extra' "$LOAD/db/schema.sql")" "1"
 chk "load kept the earlier row" "$(sqlite3 "$LOAD_DB" "SELECT name FROM load_items;")" "kept"
 
 # --- a schema-only app (no migration files) still needs the explicit load:
-# the snapshot is the only way to create its tables.
+# the schema dump is the only way to create its tables.
 SCHEMA_ONLY="$WORK/schema-only"
 mkdir -p "$SCHEMA_ONLY/db" "$SCHEMA_ONLY/config"
 cat > "$SCHEMA_ONLY/pins.toml" <<'PINS'
@@ -555,9 +555,9 @@ chk "the schema-only check passes after load" "$code" "0"
 printf 'CREATE TABLE IF NOT EXISTS schema_extra (id INTEGER PRIMARY KEY);\n' >> "$SCHEMA_ONLY/db/schema.sql"
 out=$(bash "$ENGINE" load --app "$SCHEMA_ONLY" --database "$SCHEMA_DB" 2>&1); code=$?
 chk "a schema-only reload exits 0" "$code" "0"
-chk "a schema-only reload applies the changed snapshot" "$(sqlite3 "$SCHEMA_DB" "SELECT count(*) FROM sqlite_master WHERE name='schema_extra';")" "1"
+chk "a schema-only reload applies the changed schema dump" "$(sqlite3 "$SCHEMA_DB" "SELECT count(*) FROM sqlite_master WHERE name='schema_extra';")" "1"
 
-# --- nothing to initialize: no snapshot and no migration files.
+# --- nothing to initialize: no schema dump and no migration files.
 EMPTY="$WORK/empty"
 mkdir -p "$EMPTY/config"
 cat > "$EMPTY/pins.toml" <<'PINS'
@@ -846,18 +846,18 @@ SQL
   chk "pg dump without a target exits 2" "$code" "2"
   chk_has "the target refusal names the fix" "$out" "no pg target"
 
-  # dump: the snapshot comes from the files, rendered through pg_dump.
+  # dump: the schema dump comes from the files, rendered through pg_dump.
   out=$(pgmigrate dump 2>&1); code=$?
   chk "pg dump exits 0" "$code" "0"
-  chk_has "pg dump reports the regeneration" "$out" "snapshot regenerated"
-  chk "pg snapshot carries the table" "$(grep -c 'CREATE TABLE widgets' "$PGAPP/db/schema.sql")" "1"
-  chk "pg snapshot carries the view" "$(grep -c 'CREATE VIEW widget_totals' "$PGAPP/db/schema.sql")" "1"
+  chk_has "pg dump reports the regeneration" "$out" "schema dump regenerated"
+  chk "pg schema dump carries the table" "$(grep -c 'CREATE TABLE widgets' "$PGAPP/db/schema.sql")" "1"
+  chk "pg schema dump carries the view" "$(grep -c 'CREATE VIEW widget_totals' "$PGAPP/db/schema.sql")" "1"
   chk "no throwaway schema qualifier leaks" "$(grep -c 'snails_dump_' "$PGAPP/db/schema.sql")" "0"
-  # The SET block stays: the snapshot carries the client
+  # The SET block stays: the schema dump carries the client
   # that made it, and a server that does not know those settings failing
   # to load it is the intended version signal. The scratch search_path
   # clear is the exception — it means nothing after the qualifier go.
-  chk "the snapshot keeps pg_dump's session settings" "$(awk '/^SET / { n++ } END { print (n > 0) ? 1 : 0 }' "$PGAPP/db/schema.sql")" "1"
+  chk "the schema dump keeps pg_dump's session settings" "$(awk '/^SET / { n++ } END { print (n > 0) ? 1 : 0 }' "$PGAPP/db/schema.sql")" "1"
   chk "the scratch search_path clear is stripped" "$(grep -c 'set_config' "$PGAPP/db/schema.sql")" "0"
   chk "no pg_dump banner leaks" "$(awk '/^-- (Name|Dumped|PostgreSQL)/ || /^\\/ { c++ } END { print c+0 }' "$PGAPP/db/schema.sql")" "0"
   before="$(cksum < "$PGAPP/db/schema.sql")"
@@ -869,7 +869,7 @@ SQL
   # verify: byte compare, same repair as sqlite.
   out=$(pgmigrate verify 2>&1); code=$?
   chk "pg verify exits 0" "$code" "0"
-  chk_has "pg verify reports the agreement" "$out" "snapshot matches"
+  chk_has "pg verify reports the agreement" "$out" "schema dump matches"
   printf '\n-- hand edit\n' >> "$PGAPP/db/schema.sql"
   out=$(pgmigrate verify 2>&1); code=$?
   chk "pg verify catches a hand edit" "$code" "1"
@@ -878,18 +878,18 @@ SQL
   out=$(pgmigrate verify 2>&1); code=$?
   chk "pg verify passes after the repair" "$code" "0"
 
-  # The generated snapshot must load into a fresh schema and match the
+  # The generated schema dump must load into a fresh schema and match the
   # applied migrations — the correctness proof for the pg_dump render.
   psql "$PG_TARGET" -q -c "CREATE SCHEMA IF NOT EXISTS snapcheck;"
   { printf 'SET search_path TO snapcheck;\n'; cat "$PGAPP/db/schema.sql"; } |
     psql "$PG_TARGET" -v ON_ERROR_STOP=1 -q -f -; code=$?
-  chk "the generated pg snapshot loads" "$code" "0"
+  chk "the generated pg schema dump loads" "$code" "0"
   cols() { psql "$PG_TARGET" -tAc "SELECT table_name||'|'||column_name||'|'||data_type||'|'||is_nullable FROM information_schema.columns WHERE table_schema = '$1' AND table_name <> 'schema_migrations' ORDER BY table_name, column_name"; }
   diff <(cols snapcheck) <(cols public) >/dev/null
-  chk "the loaded snapshot matches the applied columns" "$?" "0"
+  chk "the loaded schema dump matches the applied columns" "$?" "0"
   views() { psql "$PG_TARGET" -tAc "SELECT table_name||'|'||regexp_replace(view_definition, '(snapcheck|public)\.', '', 'g') FROM information_schema.views WHERE table_schema = '$1' ORDER BY table_name"; }
   diff <(views snapcheck) <(views public) >/dev/null
-  chk "the loaded snapshot matches the applied views" "$?" "0"
+  chk "the loaded schema dump matches the applied views" "$?" "0"
 
 else
   echo "skip: no postgres reachable at $PG_ADMIN (pg cases not counted)"
