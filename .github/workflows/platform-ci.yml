@@ -8,6 +8,11 @@ name: platform-ci
 # the macOS runners are the scarce resource, and a PR does not need a second
 # long platform matrix. This is the spinel-style split: one Linux job for a
 # PR, the remaining OS/target jobs on the merge commit.
+#
+# The app image test is conditional: it needs the pinned spinel image, so a
+# push that publishes the image runs the test in spinel-image after publishing,
+# and this workflow runs it only when the image is already there (see the
+# image-preflight and image jobs).
 
 on:
   push:
@@ -24,6 +29,8 @@ concurrency:
 
 permissions:
   contents: read
+  # The image preflight looks up the publish run for this commit.
+  actions: read
 
 env:
   HOMEBREW_NO_AUTO_UPDATE: "1"
@@ -253,10 +260,19 @@ jobs:
           /bin/bash scripts/test-dist.sh
           /bin/bash scripts/test-new.sh --only=demo
 
-  image:
-    name: app image (bookworm)
+  # The app image test builds an app from the pinned spinel image, so it can
+  # only run when that image exists. A push that bumps the pin publishes it
+  # from the same commit in spinel-image and runs the test there after
+  # publishing, so a copy here would race the publish. Probe first: while that
+  # publish run is in flight, skip the test and leave the run in the log; when
+  # the run is missing or failed, fail here too, so a broken pin never leaves
+  # the test silently unrun.
+  image-preflight:
+    name: pin image published
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      published: ${{ steps.probe.outputs.published }}
     steps:
       - name: Checkout snails
         uses: actions/checkout@v4
@@ -268,40 +284,53 @@ jobs:
         run: |
           REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
           echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
-      - name: Install system deps
+      - name: Check whether the pin image is published
+        id: probe
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential clang libclang-dev pkg-config \
-            libssl-dev libffi-dev sqlite3 libsqlite3-dev libpq-dev libjemalloc-dev
-      - name: Cache the pinned spinel install
-        uses: actions/cache@v4
-        with:
-          path: ~/.local
-          key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
-      - name: Cache spinel native package objects
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/spin
-          key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
-          restore-keys: |
-            spin-native-${{ runner.os }}-${{ runner.arch }}-
-      - name: Build spinel when the cache misses
-        run: |
-          if "$HOME/.local/bin/spin" --version 2>/dev/null | grep -q "${SPINEL_REV:0:8}"; then
-            echo "cached spinel matches $SPINEL_REV"
+          image="ghcr.io/snails-rb/spinel:$SPINEL_REV"
+          if docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "spinel image for $SPINEL_REV is published — running the app image test"
             exit 0
           fi
-          rm -rf "$RUNNER_TEMP/spinel-src"
-          git clone https://github.com/matz/spinel "$RUNNER_TEMP/spinel-src"
-          cd "$RUNNER_TEMP/spinel-src"
-          git checkout "$SPINEL_REV"
-          make deps
-          make -j"$(getconf _NPROCESSORS_ONLN)"
-          make install PREFIX="$HOME/.local"
-      - name: Expose the pinned toolchain
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/spin" --version
-      - name: App image contract
-        run: /bin/bash scripts/test-image.sh
+
+          # The image is missing, so this push either publishes it or the pin is
+          # broken. Look up the publish run for this commit: the run can start
+          # slightly after this job, so retry a bounded number of times.
+          run=""
+          for _ in 1 2 3 4 5 6; do
+            run="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow spinel-image.yml \
+              --commit "$GITHUB_SHA" --limit 1 \
+              --json databaseId,status,conclusion,url \
+              --jq '.[] | [.databaseId, .status, (.conclusion // ""), .url] | @tsv' 2>/dev/null || true)"
+            if [[ -n $run ]]; then
+              break
+            fi
+            sleep 10
+          done
+
+          if [[ -z $run ]]; then
+            echo "spinel image $image is not published and no spinel-image run exists for this commit — publish it first: gh workflow run spinel-image.yml --ref main" >&2
+            exit 1
+          fi
+
+          read -r _ status conclusion url <<<"$run"
+          if [[ $status != "completed" ]]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "spinel image $image is not published — the spinel-image run for this commit publishes and tests it after publishing: $url"
+          elif [[ $conclusion != "success" ]]; then
+            echo "spinel-image run for this commit did not succeed ($conclusion); the pin image is not published: $url" >&2
+            exit 1
+          else
+            echo "spinel-image run for this commit succeeded but $image is still missing — check its publish job: $url" >&2
+            exit 1
+          fi
+
+  image:
+    # Same test as spinel-image's app-image job; this copy is conditional for
+    # the reason the preflight explains.
+    needs: image-preflight
+    if: needs.image-preflight.outputs.published == 'true'
+    uses: ./.github/workflows/app-image-test.yml
