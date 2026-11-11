@@ -1,10 +1,16 @@
 # Snails
 
+[![ci](https://github.com/snails-rb/snails/actions/workflows/ci.yml/badge.svg)](https://github.com/snails-rb/snails/actions/workflows/ci.yml)
+
 Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions — routes, controllers, models, forms, mailers, and jobs in Ruby; migrations in SQL — and compiles your app code, the framework, and the HTTP server into one native executable. The server does not depend on Ruby; the executable boots in single-digit milliseconds and handles requests concurrently without a GVL. There is no view layer or asset pipeline.
 
 The project is split into parts: the API-only, Rails-like runtime for [Spinel](https://github.com/matz/spinel) (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). A consuming app vendors the runtime as `snails-core/` and pins the revision in `pins.toml`.
 
 Status: alpha. The public API can change between 0.x releases.
+
+## Scope
+
+This is not a Rails replacement. It is API-only: no views, no asset pipeline, no ActiveRecord or gem compatibility. Models are plain classes over SQL, and migrations are SQL files. See the [FAQ](manual/28-faq.md) and [Coming from Rails](manual/04-coming-from-rails.md) for the full boundary.
 
 ## Install
 
@@ -23,9 +29,15 @@ snails new demo
 
 The first command that needs the toolchain assembles the pinned compiler. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
 
+## Benchmark
+
+The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. Snails does ~3× the throughput of Rails in cluster mode with over 20× less memory under load, and ~12× a default Rails app.
+
+Reproduce from that repository with `bin/bench`, `bin/boottime`, and `bin/imagesize`. The raw result files are under [`results/`](https://github.com/snails-rb/snails-benchmark/tree/main/results).
+
 ## Manual
 
-The manual is the product documentation. It lives in [`manual/`](manual/) and is written for developers building an app.
+The manual is the product documentation. It lives in [`manual/`](manual/), is written for developers building an app, and is published at [snails-rb.github.io/snails-site](https://snails-rb.github.io/snails-site/).
 
 **The Basics**
 
@@ -94,7 +106,11 @@ bash scripts/test-cli.sh
 bash scripts/test-migrate.sh
 ```
 
-`.github/workflows/ci.yml` is the pull-request gate: the Linux amd64 suite on sqlite. `platform-ci.yml` runs on main and adds PostgreSQL, macOS, arm64, and the app image. The scripts need a pinned spinel toolchain; `ci.yml` shows how it is installed.
+`.github/workflows/ci.yml` is the pull-request gate: the Linux amd64 suite on sqlite. `platform-ci.yml` runs on main and adds PostgreSQL, macOS, arm64, and the app image. The scripts resolve and materialize the pinned spinel toolchain themselves; a global `spinel` install is not required.
+
+## Contributing
+
+Bug reports and focused pull requests are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) before opening a PR, and use the issue templates for reproducible bugs or feature proposals. Questions and show-and-tell go to [Discussions](https://github.com/snails-rb/snails/discussions).
 
 ## License
 

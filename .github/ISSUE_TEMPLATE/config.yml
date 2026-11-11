@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Manual
+    url: https://snails-rb.github.io/snails-site/manual/
+    about: Read the manual before opening a usage question.
+  - name: Discussions
+    url: https://github.com/snails-rb/snails/discussions
+    about: Ask a question or share what you built.
