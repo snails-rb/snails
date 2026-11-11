@@ -716,7 +716,7 @@ baseline_sqlite="$(printf '%s\n' newfull/db/migrate/[0-9]*_baseline.sql)"
 [[ $baseline_sqlite == newfull/db/migrate/[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_baseline.sql ]] &&
   grep -q 'INTEGER PRIMARY KEY' "$baseline_sqlite" &&
   [[ ! -e newfull/db/migrate/0001_baseline.sqlite.sql && ! -e newfull/db/migrate/0001_baseline.pg.sql && ! -e newfull/db/schema.sql ]]
-chk "new --scaffold stamps the sqlite baseline as a UTC migration and writes no snapshot" $? 0
+chk "new --scaffold stamps the sqlite baseline as a UTC migration and writes no schema dump" $? 0
 grep -q '"/posts"' newfull/config/routes.rb
 chk "new --scaffold wires the posts routes" $? 0
 grep -q '"/posts/:post_id/comments"' newfull/config/routes.rb
@@ -735,7 +735,7 @@ baseline_pg="$(printf '%s\n' newfullpg/db/migrate/[0-9]*_baseline.sql)"
 grep -q 'BIGSERIAL PRIMARY KEY' "$baseline_pg" && grep -q 'database/postgresql' newfullpg/config/database.rb
 chk "new --scaffold pg selects the pg DDL and database configuration" $? 0
 [[ -f $baseline_pg && ! -e newfullpg/db/migrate/0001_baseline.sqlite.sql && ! -e newfullpg/db/migrate/0001_baseline.pg.sql && ! -e newfullpg/db/schema.sql ]]
-chk "new --scaffold pg stamps the baseline as a UTC migration and writes no snapshot" $? 0
+chk "new --scaffold pg stamps the baseline as a UTC migration and writes no schema dump" $? 0
 bash "$CLI" verify-scaffold newfull >/dev/null 2>&1
 chk "new --scaffold passes verify-scaffold" $? 0
 

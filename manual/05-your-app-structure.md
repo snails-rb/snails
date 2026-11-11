@@ -81,7 +81,7 @@ db
 └── schema.sql
 ```
 
-`db/migrate/` is the migration history; `db/schema.sql` is the generated snapshot the test harness loads. Both are covered in [Migrations](12-migrations.md).
+`db/migrate/` is the migration history; `db/schema.sql` is the generated schema dump the test harness loads. Both are covered in [Migrations](12-migrations.md).
 
 ## Where the app sits
 

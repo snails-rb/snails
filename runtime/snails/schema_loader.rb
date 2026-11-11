@@ -32,7 +32,7 @@ module Snails
     end
 
     # apply `db/schema.sql` through the adapter's official client; a tree with
-    # no snapshot loads nothing.
+    # no schema dump loads nothing.
     #
     # @return [void]
     # @raise [RuntimeError] the client exits non-zero — its output is the message

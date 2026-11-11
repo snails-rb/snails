@@ -30,7 +30,7 @@ If the compiler refuses `create!` or `find_by` on your model with `unsupported c
 
 ### `Sqlx::Base model found but no schema file`
 
-A model exists but `db/schema.sql` does not. Run `snails migrate dump` to write the snapshot, then `snails migrate load` if the database is not initialized yet. A plain project with no migrations has nothing to dump; add one or use `--scaffold`.
+A model exists but `db/schema.sql` does not. Run `snails migrate dump` to write the schema dump, then `snails migrate load` if the database is not initialized yet. A plain project with no migrations has nothing to dump; add one or use `--scaffold`.
 
 ### A parameter comes back nil
 

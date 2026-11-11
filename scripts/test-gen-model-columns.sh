@@ -50,7 +50,7 @@ mk_app() {
 }
 
 # The canonical schema every case copies: tables plus an inline view —
-# the single-file snapshot shape `migrate dump` writes. The view must
+# the single-file schema dump shape `migrate dump` writes. The view must
 # never reach the generated column output.
 cat > canonical.sql <<'SQL'
 -- a comment outside quotes

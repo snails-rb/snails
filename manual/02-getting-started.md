@@ -59,7 +59,7 @@ myapp (spinel) listening on http://0.0.0.0:3000, pid 212514
 
 Open http://localhost:3000/up and you get `{"status":"ok"}`. Every Snails app answers `/up`; a deployment platform watches it to know the app is healthy.
 
-A plain project has no migrations. A scaffolded project has a baseline migration and a schema snapshot, so provision it before the first boot:
+A plain project has no migrations. A scaffolded project has a baseline migration and a schema dump, so provision it before the first boot:
 
 ```sh
 snails migrate load

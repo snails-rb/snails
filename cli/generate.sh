@@ -7,9 +7,9 @@
 #
 #   job_queue — the DB-backed job queue. Writes the migration history
 #           (db/migrate/<UTC version>_create_snails_queue[.pg].sql) and
-#           regenerates the snapshot (db/schema.sql) with `migrate dump`
+#           regenerates the schema dump (db/schema.sql) with `migrate dump`
 #           — one writer, so the generated history and the committed
-#           snapshot agree by construction (pg needs PG_URL: dump
+#           schema dump agree by construction (pg needs PG_URL: dump
 #           replays the migrations into a throwaway schema on it). Then
 #           prints the config/environment.rb wiring lines (the queue
 #           adapter selection, plus the retention registration commented
@@ -18,10 +18,10 @@
 #           cases read, so the bytes stamped into an app are the bytes
 #           under contract.
 #
-# The snapshot and the migration are written together (a snapshot is
+# The schema dump and the migration are written together (a schema dump is
 # provisioning, a migration is history), and both directions of
 # idempotency are one-line results: an existing migration stops the
-# run, and queue tables already in the snapshot mean the app owns its
+# run, and queue tables already in the schema dump mean the app owns its
 # own history.
 #
 # Usage:
@@ -95,7 +95,7 @@ if [[ -n $existing_migration ]]; then
   exit 0
 fi
 
-# Queue tables in the snapshot mean the app already carries the queue
+# Queue tables in the schema dump mean the app already carries the queue
 # (its own migration history, or a hand-written schema) — writing a
 # second history for them would lie about who created what.
 if [[ -f $app_root/db/schema.sql ]] && grep -q 'CREATE TABLE.*snails_queue_jobs' "$app_root/db/schema.sql"; then
@@ -111,7 +111,7 @@ cp "$template" "$app_root/$migration_rel"
 # One writer for both adapters: dump replays the migration files —
 # sqlite into a temp file, pg into a throwaway schema on PG_URL.
 if [[ $adapter == pg && -z ${PG_URL:-} ]]; then
-  die 2 "no pg target: set PG_URL — generate regenerates the snapshot by replaying the migrations"
+  die 2 "no pg target: set PG_URL — generate regenerates the schema dump by replaying the migrations"
 fi
 bash "$GEN_SCRIPTS/migrate.sh" dump --app "$app_root"
 

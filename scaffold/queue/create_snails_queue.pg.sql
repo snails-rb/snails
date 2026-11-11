@@ -9,7 +9,7 @@
 --
 -- `snails generate job_queue` stamps this file into db/migrate/ (with a
 -- UTC timestamp version prefix and the `.pg` adapter suffix) and
--- regenerates the db/schema.sql snapshot from the migration files.
+-- regenerates db/schema.sql from the migration files.
 -- Every statement is idempotent, so reapplying it over an existing
 -- database is safe.
 CREATE TABLE IF NOT EXISTS snails_queue_jobs (
