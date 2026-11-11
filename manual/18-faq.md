@@ -2,7 +2,7 @@
 
 ### Where does the database file live?
 
-Under `storage/` in your project — `snails new` creates the folder, and `snails migrate apply` creates the database file. `bin/dev` never applies migrations. `snails doctor` prints the exact path:
+Under `storage/` in your project — `snails new` creates the folder, and `snails migrate load` creates the database file. `bin/dev` never creates, loads, or applies anything. `snails doctor` prints the exact path:
 
 ```text
 ok    database target: /tmp/tmp.g5AabIJpp7/demo/storage/development.sqlite3

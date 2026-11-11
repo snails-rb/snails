@@ -99,19 +99,21 @@
 #   bin/snails verify-scaffold [<app_root>]
 #       Scaffold contract check (cli/verify-scaffold.sh).
 #
-#   bin/snails migrate <status|plan|apply|verify|check|dump> [--app DIR]
+#   bin/snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR]
 #                      [--database TARGET] [--verbose]
 #       Schema migrations for an EXISTING database: db/migrate/
 #       <version>_<name>[.<adapter>].sql — the version is a numeric
 #       prefix (new files: UTC timestamp YYYYMMDDHHMMSS) — applied in
 #       numeric version order and recorded in schema_migrations;
-#       `dump` regenerates the snapshot (db/schema.sql — tables, indexes,
-#       views) from those migration files — generated output, never
-#       hand-edited — and `verify` proves the committed snapshot equals
-#       that output; `check` exits 1 while any migration is pending (the
-#       dev-server boot check, read-only). For pg, dump and verify
-#       replay into a throwaway schema on the target and drop it on
-#       exit.
+#       `load` initializes the database (create, load db/schema.sql,
+#       apply pending, refresh the snapshot); `dump` regenerates the
+#       snapshot (db/schema.sql — tables, indexes, views) from those
+#       migration files — generated output, never hand-edited — and
+#       `verify` proves the committed snapshot equals that output;
+#       `check` exits 1 while the database is uninitialized or a
+#       migration is pending (the dev-server boot check, read-only). For
+#       pg, dump and verify replay into a throwaway schema on the target
+#       and drop it on exit.
 #       (cli/migrate.sh — bash, executor = the adapter's own CLI).
 #
 #   bin/snails exec <command> [args...]
@@ -293,18 +295,21 @@ HELP
 
 help_migrate() {
   cat <<'HELP'
-Usage: snails migrate <status|plan|apply|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
+Usage: snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
 
-Manage schema migrations for an existing database.
+Manage schema migrations and database initialization.
 
 Commands:
   status   Show applied and pending migrations
   plan     Print the SQL of pending migrations
   apply    Apply pending migrations in order
+  load     Initialize the database: create it, load db/schema.sql, apply
+           pending migrations, then refresh the snapshot
   verify   Check the committed snapshot against the migration files
   dump     Regenerate db/schema.sql (tables, indexes, views) from the
            migration files — the snapshot is generated output
-  check    Exit 1 while a migration is pending (read-only)
+  check    Exit 1 while the database is uninitialized or a migration is
+           pending (read-only)
 
 Options:
   --app DIR          App root (default: nearest config/database.rb above $PWD)
@@ -315,6 +320,7 @@ Options:
 
 Examples:
   snails migrate status
+  snails migrate load
   snails migrate apply
 HELP
 }
@@ -342,6 +348,15 @@ Usage: snails migrate apply [--app DIR] [--database TARGET] [--verbose]
 Apply pending migrations in order and record each in the ledger.
 HELP
       ;;
+    load)
+      cat <<'HELP'
+Usage: snails migrate load [--app DIR] [--database TARGET] [--verbose]
+
+Initialize the database: create it, load db/schema.sql when one exists,
+apply pending migrations, then refresh the snapshot. An initialized
+database skips the snapshot load and only applies pending migrations.
+HELP
+      ;;
     verify)
       cat <<'HELP'
 Usage: snails migrate verify [--app DIR] [--database TARGET] [--verbose]
@@ -365,8 +380,9 @@ HELP
       cat <<'HELP'
 Usage: snails migrate check [--app DIR] [--database TARGET] [--verbose]
 
-Exit 1 while any migration is pending (read-only, the dev boot check).
---verbose adds the pending labels and the full repair command.
+Exit 1 while the database is uninitialized or any migration is pending
+(read-only, the dev boot check). --verbose adds the pending labels and the
+full repair command.
 HELP
       ;;
     *)
@@ -851,7 +867,7 @@ cmd_doctor() {
       printf '  ok    database directory is writable\n'
       ok=$((ok + 1))
     else
-      printf '  warn  database directory is missing or not writable: %s (bin/dev or snails migrate apply creates it)\n' "$db_dir"
+      printf '  warn  database directory is missing or not writable: %s (snails migrate load creates it)\n' "$db_dir"
       warn=$((warn + 1))
     fi
     if [[ -f $db_target ]]; then
@@ -863,7 +879,7 @@ cmd_doctor() {
         failed=$((failed + 1))
       fi
     else
-      printf '  skip  database file not created yet (bin/dev or snails migrate apply creates it)\n'
+      printf '  skip  database file not created yet (snails migrate load creates it)\n'
     fi
     if command -v sqlite3 >/dev/null 2>&1; then
       printf '  ok    sqlite3\n'
@@ -1574,9 +1590,10 @@ cmd_new() {
     mkdir -p "$dir"
   fi
   # The sqlite adapter's default database lives under storage/. Creating it
-  # with the tree lets the first `snails migrate apply` work before any boot;
-  # the folder is gitignored, so a clone still gets it from apply (and the
-  # dev runner). pg owns no app-side database directory.
+  # with the tree lets the first `snails migrate load` work before any boot;
+  # the folder is gitignored, so a clone still gets it from load/apply (the
+  # dev runner also creates the directory, not the database). pg owns no
+  # app-side database directory.
   if [[ $database_backend == sqlite ]]; then
     mkdir -p "$dir/storage"
   fi
@@ -1702,8 +1719,8 @@ cmd_new() {
   # gen/controllers.rb), so its versions win. `new` stamps the adapter's
   # DDL as the first migration under a UTC version and removes the
   # template's migration files. `db/schema.sql` is NOT written here — it
-  # is `migrate dump`'s output, generated by the explicit command
-  # printed below.
+  # is `migrate dump`'s output, generated by the explicit `migrate load`
+  # printed below (load calls dump after applying the files).
   if ((full)); then
     cp -R "$SNAILS_ROOT/scaffold/full/." "$dir/"
     local baseline_version
@@ -1733,8 +1750,7 @@ cmd_new() {
   fi
   echo "  cd $dir"
   if ((full)); then
-    echo "  snails migrate apply  provision the development database"
-    echo "  snails migrate dump   generate db/schema.sql from the migrations"
+    echo "  snails migrate load   create the database, load db/schema.sql, and apply the migrations"
   fi
   echo "  bin/dev          start the development server"
   echo "  bin/test         run the test suite"
@@ -1998,7 +2014,7 @@ cmd_migrate() {
     exit 0
   fi
   case "$1" in
-    status|plan|apply|verify|check|dump)
+    status|plan|apply|load|verify|check|dump)
       if [[ ${2:-} == -h || ${2:-} == --help ]]; then
         help_migrate_sub "$1" || exit 2
         exit 0

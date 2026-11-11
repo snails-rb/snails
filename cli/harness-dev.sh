@@ -16,8 +16,8 @@
 #                 or an unreachable pin; step 1 says so in one line
 #   --skip-build  serve the existing build/bin/<name> (no spin build)
 #   --fresh       recreate the adapter's development database first (see below)
-#   --verbose     print a failed schema load's full log, and list the
-#                 pending migration labels (default: one repair line)
+#   --verbose     list the pending migration labels and the full repair
+#                 command (default: one repair line)
 #
 # Environment:
 #   SPINEL_SRC=<dir>       spin root (default: <app_root>)
@@ -38,27 +38,26 @@
 #
 # DB adapter rules (read from the app's config/database.rb database configuration — the
 # anchored require line, via cli/database-adapter.sh):
-#   sqlite => storage/development.sqlite3 (persistent). The core loader
-#     (snails-core/snails/schema_loader.rb) applies db/schema.sql to a new
-#     file only when the app has no migrations (a schema-only app); an app
-#     with migrations is provisioned solely by the explicit `migrate apply`,
-#     so the pending check stops the first boot. An existing file is left
-#     alone so development data survives.
+#   sqlite => storage/development.sqlite3 (persistent). The runner never
+#     creates or loads the database — the boot check stops an uninitialized
+#     target and prints the explicit `migrate load` command. An existing
+#     file is left alone so development data survives.
 #   pg => with PG_URL the database is the developer's and used as-is: no
 #     container, no DDL, no loader (a shared/web database carries
 #     extensions and data this repo's snapshot would clobber), and --fresh
 #     is refused. Without PG_URL the runner starts (or reuses) a persistent
 #     development container named from APP_NAME (pins.toml — a definitive
-#     declaration, never the directory name), loads the schema into a newly
-#     created container only when the app has no migrations, and refuses to
-#     start if its port is taken.
+#     declaration, never the directory name), and refuses to start if its
+#     port is taken. The container is infrastructure only; the database
+#     inside it is initialized by the explicit `migrate load`.
 #
-# Before the build, every existing target is checked for pending migrations
-# (`migrate check`, read-only): a schema behind the app's db/migrate files
-# surfaces only as background-job failures, never as a failed request, so
-# the server stops with the repair line instead. The runner never applies
-# migrations itself — a fresh database starts with an empty ledger and the
-# check stops the boot until the developer runs the printed `migrate apply`.
+# Before the build, every target is checked (`migrate check`, read-only): an
+# uninitialized database or a schema behind the app's db/migrate files shows
+# up only as background-job failures, never as a failed request, so the
+# server stops with the repair line instead. The runner never creates, loads,
+# or applies anything — a fresh database has no ledger and the check stops
+# the boot until the developer runs the printed `migrate load` (or
+# `migrate apply` for pending migrations on an initialized database).
 #
 # The spinel build itself is pinned by the project pins file (SPINEL_REV):
 # cli/toolchain.sh (this engine's tree, versioned with the CLI) puts
@@ -98,7 +97,7 @@ shift
 HARNESS_DIR="$APP_ROOT/harness"
 SPIN_ROOT="${SPINEL_SRC:-$APP_ROOT}"
 PORT="${PORT:-3000}"
-TMP="$(mktemp -d)"
+
 
 SKIP_BUILD=0
 FRESH=0
@@ -135,61 +134,14 @@ snails_cli() {
   fi
 }
 
-# A tree with db/migrate files owns its schema through migrations. The dev
-# runner leaves its database alone: the explicit `migrate apply` is the only
-# provisioner. The snapshot loader below is for schema-only apps, where no
-# migration file can create the tables.
-has_migrations() {
-  set -- "$SPIN_ROOT"/db/migrate/*.sql
-  [[ -f $1 ]]
-}
-
-# Apply the app's schema through the core loader — the gate runner's
-# contract, same convention file (db/schema.sql, relative to the spin
-# root). No schema file, no load. Any loader
-# failure keeps its log and names the path — swallowing it would boot on
-# a half-applied schema.
-#
-# The compiled loader is cached under harness/build/ (gitignored state,
-# next to the bundle runner's output — shared with the gate engine for
-# the same tree): it is infrastructure, not app code. The cache is
-# rejected when any compile input is newer — the sources of the loader's
-# boot chain (snails-core/·config/·app/·gen/), spin.toml, the compiler, or
-# this engine file itself. harness/·tmp/·storage/ are not compile inputs
-# and stay out of the scan.
-load_schema() {
-  [[ -f "$SPIN_ROOT/db/schema.sql" ||
-     -f "$SPIN_ROOT/config/schema.sql" || -d "$SPIN_ROOT/config/views" ]] || return 0
-  local loader="$SPIN_ROOT/$SNAILS_VENDOR_DIR/snails/schema_loader.rb"
-  [[ -f $loader ]] || {
-    echo "[snails] schema files present but $loader is missing — bump SNALS_REV to a core with the schema loader" >&2
-    exit 1
-  }
-  local cached="$HARNESS_DIR/build/schema_loader"
-  if [[ ! -x $cached ]] ||
-    [[ -n "$(find "$SPIN_ROOT" -mindepth 1 \
-      \( -name build -o -name vendor -o -name harness -o -name tmp -o -name storage -o -name '.*' \) \
-      -prune -o -type f \
-      \( -name '*.rb' -o -name '*.rbs' -o -name '*.c' -o -name '*.h' -o -name spin.toml \) \
-      -newer "$cached" -print -quit)" ]] ||
-    [[ "$(command -v spinel)" -nt "$cached" ]] ||
-    [[ "${BASH_SOURCE[0]}" -nt "$cached" ]]; then
-    read -r -a flags <<<"$(cd "$SPIN_ROOT" && spin flags | head -1)"
-    mkdir -p "$HARNESS_DIR/build"
-    local built="$cached.tmp.$$"
-    rm -f "$built"
-    if ! ( cd "$SPIN_ROOT" && spinel "$loader" "${flags[@]}" -O 1 -o "$built" ) >>"$TMP/loader.log" 2>&1; then
-      rm -f "$built"
-      fail_with_log "[snails] schema loader failed to compile" "$TMP/loader.log"
-    fi
-    mv "$built" "$cached"
-  fi
-  if ! ( cd "$SPIN_ROOT" && "$cached" ) >>"$TMP/loader.log" 2>&1; then
-    fail_with_log "[snails] schema loader failed" "$TMP/loader.log"
-  fi
-}
-
-# The boot check: an existing schema behind the app's db/migrate files shows
+# The boot check: an uninitialized database or an existing schema behind the
+# app's db/migrate files shows up only as background-job failures, so stop
+# here instead. Read-only — the repair is the explicit `migrate load` or
+# `migrate apply` step, never this check. A database the runner started
+# itself (the pg dev container) is named in the repair line: the developer's
+# shell does not carry the runner's exported PG_URL.
+# (The gate engine owns its own snapshot loader; the dev runner never loads
+# or applies anything.)
 # up only as background-job failures, so stop here instead. Read-only — the
 # repair is the explicit `migrate apply` step, never this check. A database
 # the runner started itself (the pg dev container) is named in the repair
@@ -202,27 +154,6 @@ check_pending_migrations() {
   ((VERBOSE)) && args+=(--verbose)
   "$CLI" migrate check "${args[@]}"
 }
-
-# A failure keeps its log file and names the path on the failure line —
-# the full log is the --verbose detail. cleanup() must not delete it.
-fail_with_log() {
-  local message="$1" log="$2"
-  echo "$message — log kept: $log" >&2
-  FAIL_KEEP_LOG=1
-  if ((VERBOSE)); then
-    cat "$log" >&2
-  fi
-  exit 1
-}
-
-cleanup() {
-  # Only the compile scratch goes; a failed load keeps its log (named on
-  # the failure line, printed with --verbose).
-  if [[ -z ${FAIL_KEEP_LOG:-} ]]; then
-    rm -rf "$TMP"
-  fi
-}
-trap cleanup EXIT
 
 # Pin the spinel build to the project's SPINEL_REV before anything compiles.
 # The resolver lives in this engine's tree (core-owned, versioned with the
@@ -368,12 +299,8 @@ if [[ $DB_ADAPTER == pg ]]; then
       docker logs "$DEV_CONTAINER" >&2
       exit 1
     fi
-    # Load the schema only for a new container of a schema-only app — a
-    # reused one keeps its development data (change the schema with --fresh),
-    # and an app with migrations is provisioned only by the explicit apply.
-    if ((NEW_CONTAINER)) && ! has_migrations; then
-      load_schema
-    fi
+    # The container is infrastructure only; the database inside it is
+    # initialized by the explicit `migrate load` the boot check prints.
     echo "[snails] dev database: $DEV_CONTAINER @ 127.0.0.1:$DEV_PORT/$DEV_DB" >&2
   fi
 else
@@ -382,18 +309,15 @@ else
   if ((FRESH)); then
     rm -f "$DATABASE_PATH" "$DATABASE_PATH-wal" "$DATABASE_PATH-shm"
   fi
-  # A new file of a schema-only app gets the snapshot; an existing file
-  # keeps its data. An app with migrations is provisioned only by the
-  # explicit apply, so the pending check below stops the first boot.
-  if [[ ! -f "$DATABASE_PATH" ]] && ! has_migrations; then
-    load_schema
-  fi
+  # The runner never creates or loads the database; the boot check prints
+  # the explicit `migrate load` command for an uninitialized target.
 fi
 
-# 3. Pending migration check — read-only, and before the build so a stale
-#    schema costs seconds instead of a background-job failure under a serving
-#    server. Migrations are never applied here: the repair line is the
-#    developer's explicit `snails migrate apply`.
+# 3. Database readiness check — read-only, and before the build so an
+#    uninitialized or stale schema costs seconds instead of a background-job
+#    failure under a serving server. The runner never writes the database:
+#    the repair line is the developer's explicit `snails migrate load`
+#    (uninitialized) or `snails migrate apply` (pending).
 check_pending_migrations
 
 # 4. Build the server (incremental). gen/* is refreshed first
@@ -427,13 +351,10 @@ if [[ -f "$HARNESS_DIR/dev.env" ]]; then
 fi
 echo "[snails] serving $NAME on http://127.0.0.1:$PORT"
 # Hand the terminal to the binary: exec so Ctrl-C (and a caller's kill)
-# hit the server itself, and drop the compile scratch + trap first — the
-# loader already ran, and the adapter is external to this script anyway.
-# Output is mirrored to the app tree's tmp/development.log (append): the
-# tmp/ is gitignored, so the log is local state, never source.
+# hit the server itself. Output is mirrored to the app tree's
+# tmp/development.log (append): the tmp/ is gitignored, so the log is local
+# state, never source.
 LOG="$SPIN_ROOT/tmp/development.log"
 mkdir -p "$SPIN_ROOT/tmp"
-rm -rf "$TMP"
-trap - EXIT
 echo "[snails] log: tmp/development.log (append)"
 PORT="$PORT" exec "$BIN" "${BIN_ARGS[@]+"${BIN_ARGS[@]}"}" > >(tee -a "$LOG") 2>&1

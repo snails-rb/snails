@@ -3,9 +3,10 @@
 # half of the schema contract. Uses the sqlite adapter only (the pg adapter is
 # Phase 2).
 #
-# Cases: pending/applied status, idempotent apply + ledger, plan writes
-# nothing, adapter-file selection and not-applicable reporting, ambiguity and
-# ledger-gap detection, the DB_OWNER=external refusal, `dump` (the snapshot
+# Cases: pending/applied status, idempotent apply + ledger, `load` (fresh
+# create/load/apply/dump, schema-only reload, existing-data preservation),
+# plan writes nothing, adapter-file selection and not-applicable reporting,
+# ambiguity and ledger-gap detection, the DB_OWNER=external refusal, `dump` (the snapshot
 # writer: generated format, idempotent rerun, its guards — no history, no
 # tables, --database, an unsupported object), the `verify` byte-compare
 # gate (hand edit, forgotten dump, missing file, each with the dump
@@ -108,7 +109,7 @@ chk "status aligns the state column" "$(printf '%s\n' "$out" | awk '$0 !~ /^\[sn
 # name the repair — but checking is read-only, so it must not create the file.
 out=$(migrate check 2>&1); code=$?
 chk "check exits 1 on a missing database with migrations" "$code" "1"
-chk_has "check names the apply repair" "$out" "snails migrate apply"
+chk_has "check names the load repair" "$out" "snails migrate load"
 chk "check does not create the database" "$([[ -f $DB ]] && echo yes || echo no)" "no"
 
 # --- plan prints SQL and writes nothing (no database file created).
@@ -479,6 +480,98 @@ chk "apply on a missing storage dir exits 0" "$code" "0"
 chk "apply creates the sqlite storage dir" "$([[ -d $FRESH/storage ]] && echo yes || echo no)" "yes"
 chk "apply creates the default database file" "$([[ -f $FRESH/storage/development.sqlite3 ]] && echo yes || echo no)" "yes"
 
+# --- load: the explicit initialization command. A fresh target loads the
+# snapshot, replays the migrations into the ledger, and refreshes the
+# snapshot. An initialized target skips the snapshot load and applies only
+# new migrations.
+LOAD="$WORK/load"
+mkdir -p "$LOAD/db/migrate" "$LOAD/config"
+cat > "$LOAD/pins.toml" <<'PINS'
+APP_NAME="load-fixture"
+PINS
+cat > "$LOAD/config/database.rb" <<'RB'
+require_relative "../snails-core/database/sqlite"
+RB
+cat > "$LOAD/db/migrate/0001_baseline.sql" <<'SQL'
+CREATE TABLE IF NOT EXISTS load_items (id INTEGER PRIMARY KEY, name TEXT);
+SQL
+LOAD_DB="$LOAD/storage/load.sqlite3"
+bash "$ENGINE" dump --app "$LOAD" >/dev/null
+snapshot_before="$(cksum < "$LOAD/db/schema.sql")"
+
+out=$(bash "$ENGINE" check --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
+chk "check on an uninitialized database exits 1" "$code" "1"
+chk_has "check names the load repair" "$out" "snails migrate load"
+chk "check does not create the load database" "$([[ -f $LOAD_DB ]] && echo yes || echo no)" "no"
+
+out=$(bash "$ENGINE" load --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
+chk "load exits 0" "$code" "0"
+chk_has "load reports the ready database" "$out" "database ready"
+chk "load created the database" "$([[ -f $LOAD_DB ]] && echo yes || echo no)" "yes"
+chk "load created the snapshot table" "$(sqlite3 "$LOAD_DB" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='load_items';")" "1"
+chk "load recorded the ledger" "$(sqlite3 "$LOAD_DB" "SELECT count(*) FROM schema_migrations;")" "1"
+bash "$ENGINE" verify --app "$LOAD" --database "$LOAD_DB" >/dev/null 2>&1
+chk "load keeps the snapshot in step" "$?" "0"
+
+sqlite3 "$LOAD_DB" "INSERT INTO load_items (name) VALUES ('kept');"
+out=$(bash "$ENGINE" load --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
+chk "a second load exits 0" "$code" "0"
+chk "a second load keeps the data" "$(sqlite3 "$LOAD_DB" "SELECT name FROM load_items;")" "kept"
+chk "the second load keeps the snapshot byte-identical" "$(cksum < "$LOAD/db/schema.sql")" "$snapshot_before"
+
+printf 'CREATE TABLE IF NOT EXISTS load_extra (id INTEGER PRIMARY KEY);\n' > "$LOAD/db/migrate/0002_extra.sql"
+out=$(bash "$ENGINE" check --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
+chk "check on an initialized database with pending exits 1" "$code" "1"
+chk_has "an initialized database names the apply repair" "$out" "snails migrate apply"
+out=$(bash "$ENGINE" load --app "$LOAD" --database "$LOAD_DB" 2>&1); code=$?
+chk "load applies the new migration" "$code" "0"
+chk "the new table exists" "$(sqlite3 "$LOAD_DB" "SELECT count(*) FROM sqlite_master WHERE name='load_extra';")" "1"
+chk "load refreshed the snapshot" "$(grep -c 'CREATE TABLE IF NOT EXISTS load_extra' "$LOAD/db/schema.sql")" "1"
+chk "load kept the earlier row" "$(sqlite3 "$LOAD_DB" "SELECT name FROM load_items;")" "kept"
+
+# --- a schema-only app (no migration files) still needs the explicit load:
+# the snapshot is the only way to create its tables.
+SCHEMA_ONLY="$WORK/schema-only"
+mkdir -p "$SCHEMA_ONLY/db" "$SCHEMA_ONLY/config"
+cat > "$SCHEMA_ONLY/pins.toml" <<'PINS'
+APP_NAME="schema-only-fixture"
+PINS
+cat > "$SCHEMA_ONLY/config/database.rb" <<'RB'
+require_relative "../snails-core/database/sqlite"
+RB
+cat > "$SCHEMA_ONLY/db/schema.sql" <<'SQL'
+CREATE TABLE IF NOT EXISTS schema_items (id INTEGER PRIMARY KEY);
+SQL
+SCHEMA_DB="$SCHEMA_ONLY/storage/schema.sqlite3"
+out=$(bash "$ENGINE" check --app "$SCHEMA_ONLY" --database "$SCHEMA_DB" 2>&1); code=$?
+chk "check on an uninitialized schema-only app exits 1" "$code" "1"
+chk_has "the schema-only check names the load repair" "$out" "snails migrate load"
+out=$(bash "$ENGINE" load --app "$SCHEMA_ONLY" --database "$SCHEMA_DB" 2>&1); code=$?
+chk "schema-only load exits 0" "$code" "0"
+chk "schema-only load created the table" "$(sqlite3 "$SCHEMA_DB" "SELECT count(*) FROM sqlite_master WHERE name='schema_items';")" "1"
+chk "schema-only load created the ledger marker" "$(sqlite3 "$SCHEMA_DB" "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations';")" "1"
+out=$(bash "$ENGINE" check --app "$SCHEMA_ONLY" --database "$SCHEMA_DB" 2>&1); code=$?
+chk "the schema-only check passes after load" "$code" "0"
+printf 'CREATE TABLE IF NOT EXISTS schema_extra (id INTEGER PRIMARY KEY);\n' >> "$SCHEMA_ONLY/db/schema.sql"
+out=$(bash "$ENGINE" load --app "$SCHEMA_ONLY" --database "$SCHEMA_DB" 2>&1); code=$?
+chk "a schema-only reload exits 0" "$code" "0"
+chk "a schema-only reload applies the changed snapshot" "$(sqlite3 "$SCHEMA_DB" "SELECT count(*) FROM sqlite_master WHERE name='schema_extra';")" "1"
+
+# --- nothing to initialize: no snapshot and no migration files.
+EMPTY="$WORK/empty"
+mkdir -p "$EMPTY/config"
+cat > "$EMPTY/pins.toml" <<'PINS'
+APP_NAME="empty-fixture"
+PINS
+cat > "$EMPTY/config/database.rb" <<'RB'
+require_relative "../snails-core/database/sqlite"
+RB
+EMPTY_DB="$EMPTY/storage/empty.sqlite3"
+out=$(bash "$ENGINE" load --app "$EMPTY" --database "$EMPTY_DB" 2>&1); code=$?
+chk "load with nothing to initialize exits 0" "$code" "0"
+chk_has "load with nothing reports it" "$out" "nothing to load"
+chk "load with nothing creates no database" "$([[ -f $EMPTY_DB ]] && echo yes || echo no)" "no"
+
 # --- app root resolution: with --app omitted the walk starts at $PWD and
 # takes the nearest database configuration at or above. Moving off $PWD is announced; standing outside any
 # app root refuses with the fix. A repository root that holds the app in the
@@ -539,7 +632,7 @@ SQL
 out=$(cd "$PROJECT/src/storage" && bash "$ENGINE" check 2>&1); code=$?
 chk "check from a subdirectory resolves and finds the pending file" "$code" "1"
 repair_line="$(printf '%s\n' "$out" | awk '/run: / { print; exit }')"
-chk_has "the repair uses the shortest relative app path" "$repair_line" "run: snails migrate apply --app .."
+chk_has "the repair uses the shortest relative app path" "$repair_line" "run: snails migrate load --app .."
 if [[ $repair_line == *"$PROJECT"* ]]; then project_abs=1; else project_abs=0; fi
 chk "the repair carries no absolute app path" "$project_abs" "0"
 cmd="${repair_line#*run: }"

@@ -162,6 +162,10 @@ bash "$CLI" migrate apply --help > migrate-help.out 2>&1
 chk "migrate subcommand help" $? 0
 grep -q '^Usage: snails migrate apply' migrate-help.out
 chk "migrate subcommand help is command-specific" $? 0
+bash "$CLI" migrate load --help > migrate-load-help.out 2>&1
+chk "migrate load help" $? 0
+grep -q '^Usage: snails migrate load' migrate-load-help.out
+chk "migrate load help is command-specific" $? 0
 bash "$CLI" generate > generate-list.out 2>&1
 chk "generate without a generator lists generators" $? 0
 grep -q 'job_queue' generate-list.out

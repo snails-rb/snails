@@ -66,19 +66,25 @@ source "$MIGRATE_SCRIPTS/app-root.sh"
 
 LEDGER="schema_migrations"
 DEFAULT_SQLITE="storage/development.sqlite3"
+# Set by applied_versions: a database without the ledger has never been
+# initialized, so the boot check asks for `migrate load` rather than apply.
+LEDGER_PRESENT=0
 
 usage() {
   cat <<'USAGE'
-usage: snails migrate <status|plan|apply|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
+usage: snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
 
   status   applied/pending/not-applicable, plus a ledger gap check
   plan     print the SQL of every pending migration (dry run)
   apply    run pending migrations in order, recording each in the ledger
+  load     initialize the database: create it, load db/schema.sql, apply
+           pending migrations, then refresh the snapshot
   verify   check the committed snapshot against the migration files
   dump     regenerate db/schema.sql (tables, indexes, views) from the
            migration files — the snapshot is generated output
-  check    exit 1 when any migration is pending (read-only; the boot check);
-           --verbose lists the pending labels and the full repair command
+  check    exit 1 when the database is uninitialized or a migration is
+           pending (read-only; the boot check); --verbose lists the pending
+           labels and the full repair command
 
 Target resolution: --database, then the adapter env (DATABASE_PATH for
 sqlite, PG_URL for pg), then <app>/storage/development.sqlite3.
@@ -380,8 +386,8 @@ cmd_plan() {
 
 # The command the developer can paste back into the same shell. An empty
 # app_arg omits --app (the current directory is the app root).
-repair_command() { # <app-arg> <database-arg>
-  local app_arg="$1" database_arg="$2" command
+repair_command() { # <app-arg> <database-arg> <apply|load>
+  local app_arg="$1" database_arg="$2" subcommand="${3:-apply}" command
   if [[ -n ${SNAILS_MIGRATE_REPAIR:-} ]]; then
     # The deployment that runs this copy supplies the host-side command: the
     # shell that can reach the deployed database is not the one inside the
@@ -390,7 +396,7 @@ repair_command() { # <app-arg> <database-arg>
     command="$SNAILS_MIGRATE_REPAIR"
     app_arg=""
   else
-    command="snails migrate apply"
+    command="snails migrate $subcommand"
   fi
   [[ -n $app_arg ]] && command+=" --app $(shell_quote "$app_arg")"
   [[ -n $database_arg ]] && command+=" --database $(shell_quote "$database_arg")"
@@ -400,12 +406,32 @@ repair_command() { # <app-arg> <database-arg>
 # The boot check. Success is silent — the dev runner calls it on every boot
 # and has its own progress lines; a failure is the repair line alone, with
 # the pending labels behind --verbose. Read-only: the repair is the explicit
-# `migrate apply` step, never this command.
+# `migrate load` (uninitialized) or `migrate apply` (pending) step, never
+# this command.
 cmd_check() {
   local orphans n="${#PENDING[@]}" version i message app_arg="" command full_command
+  local subcommand=apply
   orphans="$(orphan_versions)"
   [[ -z $orphans ]] || die 1 "ledger has versions with no migration file:$orphans"
-  ((n == 0)) && return 0
+  ((LEDGER_PRESENT)) || subcommand=load
+
+  if ((n == 0)); then
+    # A schema-only app has no pending file to count. The missing ledger is
+    # the signal that the snapshot was never loaded, so the boot still asks
+    # for the explicit initialization instead of starting against an empty DB.
+    if ((LEDGER_PRESENT == 0)) && [[ -f $APP/db/schema.sql ]]; then
+      if [[ $OWNER == external ]]; then
+        message="database is not initialized — DB_OWNER=\"external\": another app owns this database, so provision it there"
+      else
+        app_arg="$(app_root_argument "$APP")"
+        command="$(repair_command "$app_arg" "$DB_OPTION" load)"
+        message="database is not initialized — run: $command"
+      fi
+      echo "[snails] $message" >&2
+      exit 1
+    fi
+    return 0
+  fi
 
   # The repair line leads even with --verbose: the labels are the detail
   # behind it, never the first thing the reader has to sort through.
@@ -415,14 +441,14 @@ cmd_check() {
     # An empty app argument means the current directory is the app root:
     # the shared resolver finds it again, so the shortest command omits --app.
     app_arg="$(app_root_argument "$APP")"
-    command="$(repair_command "$app_arg" "$DB_OPTION")"
+    command="$(repair_command "$app_arg" "$DB_OPTION" "$subcommand")"
     message="$n pending migration(s) — run: $command"
   fi
   echo "[snails] $message" >&2
   if ((VERBOSE)); then
     # Keep the full argument form for logs, where the reader's shell may be gone.
     if [[ $OWNER != external ]]; then
-      full_command="$(repair_command "$APP" "$DB_OPTION")"
+      full_command="$(repair_command "$APP" "$DB_OPTION" "$subcommand")"
       [[ $full_command == "$command" ]] || echo "  full: $full_command" >&2
     fi
     for version in "${PENDING[@]}"; do
@@ -453,6 +479,16 @@ INSERT INTO $LEDGER (version, applied_at) VALUES ('$version', '$stamp');
 COMMIT;"
 }
 
+# The default sqlite target lives under the app's storage/ (gitignored), so
+# a fresh clone has no directory for it. Write commands create it; the
+# read-only commands still never write one.
+ensure_target_dir() {
+  [[ $DB_ADAPTER == sqlite ]] || return 0
+  local target_dir
+  target_dir="$(dirname "$TARGET")"
+  mkdir -p "$target_dir" || die 1 "could not create the sqlite target directory: $target_dir"
+}
+
 cmd_apply() {
   local orphans
   orphans="$(orphan_versions)"
@@ -462,14 +498,7 @@ cmd_apply() {
     echo "nothing to apply"
     return 0
   fi
-  # The default sqlite target lives under the app's storage/ (gitignored), so
-  # a fresh clone has no directory for it. Apply creates it; the read-only
-  # commands still never write one.
-  if [[ $DB_ADAPTER == sqlite ]]; then
-    local target_dir
-    target_dir="$(dirname "$TARGET")"
-    mkdir -p "$target_dir" || die 1 "could not create the sqlite target directory: $target_dir"
-  fi
+  ensure_target_dir
   ensure_ledger
   local version i
   for version in "${PENDING[@]}"; do
@@ -478,6 +507,74 @@ cmd_apply() {
     transaction "${PATHS[$i]}" "$version" || die 1 "apply failed: ${LABELS[$i]}"
   done
   printf '%s applied\n' "${#PENDING[@]}"
+}
+
+# Load the committed snapshot into the target. A migration-owning app uses
+# this only before the ledger exists — replaying ALTER-style migrations over
+# an initialized database is not safe. A schema-only app reloads the snapshot
+# on every load because it has no migration path.
+load_snapshot() {
+  local snapshot="$APP/db/schema.sql"
+  [[ -f $snapshot ]] || return 0
+  echo "[snails] loading db/schema.sql" >&2
+  if [[ $DB_ADAPTER == sqlite ]]; then
+    {
+      printf '.timeout 30000\nBEGIN;\n'
+      cat "$snapshot"
+      printf '\nCOMMIT;\n'
+    } | sqlite3 -bail "$TARGET" || die 1 "schema load failed: db/schema.sql"
+  else
+    psql "$TARGET" -v ON_ERROR_STOP=1 -X -q --single-transaction -f "$snapshot" ||
+      die 1 "schema load failed: db/schema.sql"
+  fi
+}
+
+# The one writer of the snapshot is `migrate dump`; load delegates to it so
+# the file it just initialized from and the history stay in step.
+run_dump() {
+  local args=(dump --app "$APP")
+  if [[ $DB_ADAPTER == pg ]]; then
+    args+=(--database "$TARGET")
+  fi
+  ((VERBOSE)) && args+=(--verbose)
+  bash "$MIGRATE_SCRIPTS/migrate.sh" "${args[@]}"
+}
+
+# The explicit setup command: the equivalent of Rails' db:prepare. A fresh
+# database is created, the snapshot is loaded when one exists, pending
+# migrations are replayed to record the ledger, and the snapshot is
+# regenerated from the files. An initialized migration-owning database skips
+# the snapshot load and only applies pending migrations; a schema-only app
+# reloads its snapshot because it has no migration path.
+cmd_load() {
+  local orphans
+  orphans="$(orphan_versions)"
+  [[ -z $orphans ]] || die 1 "ledger has versions with no migration file:$orphans"
+
+  if ((${#VERSIONS[@]} == 0)) && [[ ! -f $APP/db/schema.sql ]]; then
+    echo "nothing to load"
+    return 0
+  fi
+
+  ensure_target_dir
+  # A schema-only app has no migration path, so its snapshot is the schema:
+  # reload it every time. A migration-owning app loads it only when the
+  # target has no ledger — replaying ALTER-style migrations over an
+  # initialized database is not safe.
+  if ((LEDGER_PRESENT == 0)) || ((${#VERSIONS[@]} == 0)); then
+    load_snapshot
+  fi
+  if ((${#PENDING[@]} > 0)); then
+    cmd_apply
+  else
+    # A schema-only app has no migration to create the ledger; the empty
+    # table still marks the database as initialized for the boot check.
+    ensure_ledger
+  fi
+  if ((${#VERSIONS[@]} > 0)); then
+    run_dump
+  fi
+  echo "[snails] database ready"
 }
 
 # --- snapshot generation ------------------------------------------------
@@ -773,7 +870,7 @@ case "$COMMAND" in
     usage
     exit 0
     ;;
-  status | plan | apply | verify | check | dump) ;;
+  status | plan | apply | load | verify | check | dump) ;;
   *)
     usage >&2
     die 2 "unknown command: $COMMAND"
@@ -862,13 +959,13 @@ resolve_target() { # <fatal: 0|1>
 
 TARGET=""
 case "$COMMAND" in
-  status | apply | verify | check) resolve_target 1 ;;
+  status | apply | load | verify | check) resolve_target 1 ;;
   plan) resolve_target 0 || true ;;
   dump)
     if [[ $DB_ADAPTER == pg ]]; then resolve_target 1; fi
     ;;
 esac
-if [[ $COMMAND == apply && $OWNER == external ]]; then
+if [[ ($COMMAND == apply || $COMMAND == load) && $OWNER == external ]]; then
   die 2 "DB_OWNER=\"external\": $PINS declares this database is owned by another app — migrate it there"
 fi
 
@@ -878,6 +975,13 @@ list_migrations
 APPLIED=""
 if [[ -n $TARGET ]]; then
   APPLIED="$(applied_versions)"
+  # applied_versions runs in a command substitution (a subshell), so the
+  # parent decides the flag: an existing ledger means the target has been
+  # initialized. A missing sqlite target is checked before ledger_exists so
+  # the read never creates the file.
+  if target_exists && ledger_exists; then
+    LEDGER_PRESENT=1
+  fi
 fi
 APPLIED_LIST=()
 PENDING=()
@@ -895,6 +999,7 @@ case "$COMMAND" in
   status) cmd_status ;;
   plan) cmd_plan ;;
   apply) cmd_apply ;;
+  load) cmd_load ;;
   verify) cmd_verify ;;
   check) cmd_check ;;
   dump) cmd_dump ;;

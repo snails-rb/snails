@@ -75,31 +75,34 @@ Examples:
   ok    database adapter: sqlite
   ok    database target: /tmp/tmp.g5AabIJpp7/demo/storage/development.sqlite3
   ok    database directory is writable
-  skip  database file not created yet (bin/dev or snails migrate apply creates it)
+  skip  database file not created yet (snails migrate load creates it)
   ok    sqlite3
   ok    compose.yml (docker available)
 [snails] 11 ok, 0 warnings, 0 failed
 ```
 
-A warning does not stop you — it says what will happen the first time you run `bin/dev`.
+A warning does not stop you — it names the command that repairs the state before the first boot.
 
 ## Getting help
 
 Every command explains itself. `snails help <command>` prints the usage, the sub-commands, and the options:
 
 ```text
-Usage: snails migrate <status|plan|apply|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
+Usage: snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
 
-Manage schema migrations for an existing database.
+Manage schema migrations and database initialization.
 
 Commands:
   status   Show applied and pending migrations
   plan     Print the SQL of pending migrations
   apply    Apply pending migrations in order
+  load     Initialize the database: create it, load db/schema.sql, apply
+           pending migrations, then refresh the snapshot
   verify   Check the committed snapshot against the migration files
   dump     Regenerate db/schema.sql (tables, indexes, views) from the
            migration files — the snapshot is generated output
-  check    Exit 1 while a migration is pending (read-only)
+  check    Exit 1 while the database is uninitialized or a migration is
+           pending (read-only)
 ```
 
 `snails --version` prints the release and the commit it was built from:
