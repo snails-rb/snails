@@ -249,6 +249,10 @@ canary_demo() {
   local APP="$WORK/demo"
   echo "[test-new] scaffolding $APP (--scaffold, default adapter)"
   "$ROOT/bin/snails" new "$APP" --scaffold >/dev/null
+  [[ -d "$APP/storage" ]] || {
+    echo "[test-new] new --scaffold did not create the sqlite storage directory" >&2
+    exit 1
+  }
   # The scaffold ships the baseline as a migration only: one UTC-versioned
   # file, both template variants gone, and no db/schema.sql — the
   # snapshot is `migrate dump`'s output (run further below).
@@ -494,8 +498,33 @@ RB
   # dev server, default adapter — bin/dev serves in the foreground and its DB
   # must survive (unlike the gate's throwaway database): the development
   # sqlite file is still there after the server stops. --skip-build: the
-  # gate just built the same binary.
-  echo "[test-new] dev server ($APP/bin/dev)"
+  # gate just built the same binary. The development database starts with an
+  # empty ledger: the first boot loads the snapshot, then the pending check
+  # stops it and prints the explicit apply command. The runner never applies
+  # migrations itself.
+  echo "[test-new] fresh dev stops on the pending baseline ($APP/bin/dev)"
+  if out=$(PORT="$DEV_PORT" SNAILS_DIR="$ROOT" "$APP/bin/dev" --skip-build 2>&1); then
+    echo "[test-new] dev served before the explicit apply (must stop)" >&2
+    exit 1
+  fi
+  grep -q 'pending migration' <<<"$out" &&
+    grep -q "snails migrate apply" <<<"$out" || {
+    echo "[test-new] the fresh-dev gate does not name the apply repair" >&2
+    printf '%s\n' "$out" >&2
+    exit 1
+  }
+  "$ROOT/bin/snails" migrate status --app "$APP" > "$WORK/dev-status.out" 2>&1
+  grep -q '0 applied' "$WORK/dev-status.out" || {
+    echo "[test-new] the dev runner applied migrations on its own (ledger is not empty)" >&2
+    cat "$WORK/dev-status.out" >&2
+    exit 1
+  }
+  [[ ! -f "$APP/storage/development.sqlite3" ]] || {
+    echo "[test-new] the dev runner provisioned the sqlite target before the explicit apply" >&2
+    exit 1
+  }
+  echo "[test-new] applying the baseline unblocks dev ($APP/bin/dev)"
+  "$ROOT/bin/snails" migrate apply --app "$APP" >/dev/null
   dev_probe "$DEV_PORT" "$WORK/dev.log" "$APP" \
     env PORT="$DEV_PORT" SNAILS_DIR="$ROOT" "$APP/bin/dev" --skip-build
   [[ -f "$APP/storage/development.sqlite3" ]] || {
@@ -560,10 +589,23 @@ SQL
   cat > "$APP/db/migrate/20261030000100_add_fresh_probe.sql" <<'SQL'
 CREATE TABLE IF NOT EXISTS fresh_probe (id INTEGER PRIMARY KEY);
 SQL
-  echo "[test-new] --fresh provisions a ledger-tracked database ($APP/bin/dev)"
-  dev_probe "$DEV_PORT" "$WORK/dev-fresh.log" "$APP" \
-    env PORT="$DEV_PORT" SNAILS_DIR="$ROOT" "$APP/bin/dev" --skip-build --fresh
-  echo "[test-new] the provisioned ledger keeps the next boot clean ($APP/bin/dev)"
+  echo "[test-new] --fresh recreates the database and stops for the explicit apply ($APP/bin/dev)"
+  if out=$(PORT="$DEV_PORT" SNAILS_DIR="$ROOT" "$APP/bin/dev" --skip-build --fresh 2>&1); then
+    echo "[test-new] --fresh served before the explicit apply (must stop)" >&2
+    exit 1
+  fi
+  grep -q 'pending migration' <<<"$out" &&
+    grep -q "snails migrate apply" <<<"$out" || {
+    echo "[test-new] the --fresh gate does not name the apply repair" >&2
+    printf '%s\n' "$out" >&2
+    exit 1
+  }
+  [[ ! -f "$APP/storage/development.sqlite3" ]] || {
+    echo "[test-new] --fresh provisioned the sqlite target before the explicit apply" >&2
+    exit 1
+  }
+  "$ROOT/bin/snails" migrate apply --app "$APP" >/dev/null
+  echo "[test-new] the applied ledger keeps the next boot clean ($APP/bin/dev)"
   dev_probe "$DEV_PORT" "$WORK/dev-fresh-rerun.log" "$APP" \
     env PORT="$DEV_PORT" SNAILS_DIR="$ROOT" "$APP/bin/dev" --skip-build
 
@@ -711,7 +753,9 @@ canary_pg() {
   # dev server, pg adapter — two paths. Without PG_URL the runner starts its
   # own persistent development container (named from the app's APP_NAME)
   # and loads the schema into it: the app's `posts` table appears, and a
-  # reused container keeps its data (the loader does not run again). With
+  # reused container keeps its data (the loader does not run again). The
+  # ledger stays empty, so the first boot stops and prints the explicit
+  # `migrate apply` command — the runner never applies migrations. With
   # PG_URL the database belongs to the developer: the pending gate stops
   # until they run `migrate apply` against it themselves, and after that
   # it is used as-is — no container, no loader, existing data survives.
@@ -736,14 +780,37 @@ canary_pg() {
     exit 1
   }
 
-  echo "[test-new] dev server auto-provisions a pg container without PG_URL ($PG_APP/bin/dev)"
+  echo "[test-new] pg dev container stops for the explicit apply ($PG_APP/bin/dev)"
   docker rm -fv "$AUTO_PG_CONTAINER" >/dev/null 2>&1 || true
+  local AUTO_URL="postgres://postgres:postgres@127.0.0.1:$DEV_PG_PORT/demopg_development"
+  if out=$(env -u PG_URL PORT="$DEV_PG_HTTP" PG_PORT="$DEV_PG_PORT" \
+    PG_CONTAINER_NAME="$AUTO_PG_CONTAINER" SNAILS_DIR="$ROOT" \
+    "$PG_APP/bin/dev" --skip-build 2>&1); then
+    echo "[test-new] pg dev served before the explicit apply (must stop)" >&2
+    exit 1
+  fi
+  grep -q 'pending migration' <<<"$out" &&
+    grep -q "snails migrate apply" <<<"$out" &&
+    grep -q -- "--database $AUTO_URL" <<<"$out" || {
+    echo "[test-new] the pg dev gate does not name the pasteable apply repair" >&2
+    printf '%s\n' "$out" >&2
+    exit 1
+  }
+  [[ "$(psql "$AUTO_URL" -tAc "SELECT to_regclass('schema_migrations')")" == "" ]] || {
+    echo "[test-new] the pg dev runner applied migrations on its own (ledger exists)" >&2
+    exit 1
+  }
+  [[ "$(psql "$AUTO_URL" -tAc "SELECT to_regclass('posts')")" == "" ]] || {
+    echo "[test-new] the pg dev runner loaded the snapshot before the explicit apply" >&2
+    exit 1
+  }
+  echo "[test-new] applying the pg baseline unblocks dev ($PG_APP/bin/dev)"
+  "$ROOT/bin/snails" migrate apply --app "$PG_APP" --database "$AUTO_URL" >/dev/null
   dev_probe "$DEV_PG_HTTP" "$WORK/dev-pg-auto.log" "$PG_APP" \
     env -u PG_URL PORT="$DEV_PG_HTTP" PG_PORT="$DEV_PG_PORT" \
     PG_CONTAINER_NAME="$AUTO_PG_CONTAINER" SNAILS_DIR="$ROOT" "$PG_APP/bin/dev" --skip-build
-  local AUTO_URL="postgres://postgres:postgres@127.0.0.1:$DEV_PG_PORT/demopg_development"
   [[ "$(psql "$AUTO_URL" -tAc "SELECT to_regclass('posts')")" == "posts" ]] || {
-    echo "[test-new] auto-provisioned pg dev DB did not get the schema (posts missing)" >&2
+    echo "[test-new] pg dev DB did not get the schema (posts missing)" >&2
     exit 1
   }
   # A reused container keeps its data: the second boot must not re-run the

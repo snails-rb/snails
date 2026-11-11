@@ -2,17 +2,6 @@
 
 When something is off, start with the symptom — each one below is a real error and the fix that unblocks it.
 
-### `could not create schema_migrations` when applying migrations
-
-`snails migrate apply` fails on a brand-new project because the database folder does not exist yet:
-
-```text
-Error: unable to open database ".../storage/development.sqlite3": unable to open database file
-[snails] could not create schema_migrations
-```
-
-Start `bin/dev` once (it creates `storage/` and the database) or create the folder, then run the migration again. `snails doctor` calls this out as a warning before you hit it.
-
 ### A route row will not parse
 
 `spinel could not parse it — Parse errors in 'config/routes.rb'` with `expected a ',' separator` means the rows in the route list have no commas — a newline is not a separator:

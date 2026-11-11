@@ -20,4 +20,4 @@ The first lines check that your project matches the version of Snails it pins, t
 
 The server does not watch files — after you edit, stop it and run `bin/dev` again; the rebuild is cached, so only what changed is recompiled. When you are iterating on the code and the build is already fresh, `bin/dev --skip-build` serves the existing binary without the compile step.
 
-The first run creates your database under `storage/` and loads `db/schema.sql` into it, so the app comes up against the same schema your tests use.
+`snails new` creates `storage/`; run `snails migrate apply` and `snails migrate dump` before the first boot. `bin/dev` never applies migrations — while anything is pending it stops and prints the command. Keep `db/schema.sql` current so the tests build from the same schema the migrations produce.

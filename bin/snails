@@ -851,7 +851,7 @@ cmd_doctor() {
       printf '  ok    database directory is writable\n'
       ok=$((ok + 1))
     else
-      printf '  warn  database directory is missing or not writable: %s (bin/dev creates it)\n' "$db_dir"
+      printf '  warn  database directory is missing or not writable: %s (bin/dev or snails migrate apply creates it)\n' "$db_dir"
       warn=$((warn + 1))
     fi
     if [[ -f $db_target ]]; then
@@ -863,7 +863,7 @@ cmd_doctor() {
         failed=$((failed + 1))
       fi
     else
-      printf '  skip  database file not created yet (bin/dev creates it)\n'
+      printf '  skip  database file not created yet (bin/dev or snails migrate apply creates it)\n'
     fi
     if command -v sqlite3 >/dev/null 2>&1; then
       printf '  ok    sqlite3\n'
@@ -1573,6 +1573,13 @@ cmd_new() {
   else
     mkdir -p "$dir"
   fi
+  # The sqlite adapter's default database lives under storage/. Creating it
+  # with the tree lets the first `snails migrate apply` work before any boot;
+  # the folder is gitignored, so a clone still gets it from apply (and the
+  # dev runner). pg owns no app-side database directory.
+  if [[ $database_backend == sqlite ]]; then
+    mkdir -p "$dir/storage"
+  fi
   local name db_name
   name="$(basename "$(cd "$dir" && pwd)")"
   # Sanitize the directory name so the pg database name (<app>_production)
@@ -1712,9 +1719,9 @@ cmd_new() {
   # the file, so generate it before the first boot (sync already
   # seeded a placeholder).
   bash "$SNAILS_ROOT/cli/gen-route-helpers.sh" "$dir" >/dev/null
-  # Model columns: generated from the snapshot, which only `migrate dump`
-  # writes — a fresh tree has none yet (neither scaffold nor minimal), so
-  # the bin/test gate owns the first generation after the user runs dump.
+  # Model columns: generated from the snapshot, which only the explicit
+  # `migrate dump` writes. A fresh tree has none yet, so this stays a no-op
+  # and the first build names the dump repair.
   if [[ -f $dir/db/schema.sql ]]; then
     bash "$SNAILS_ROOT/cli/gen-model-columns.sh" "$dir" >/dev/null
   fi

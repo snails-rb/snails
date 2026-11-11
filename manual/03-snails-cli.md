@@ -74,11 +74,11 @@ Examples:
   ok    snails-core and toolchain
   ok    database adapter: sqlite
   ok    database target: /tmp/tmp.g5AabIJpp7/demo/storage/development.sqlite3
-  warn  database directory is missing or not writable: /tmp/tmp.g5AabIJpp7/demo/storage (bin/dev creates it)
-  skip  database file not created yet (bin/dev creates it)
+  ok    database directory is writable
+  skip  database file not created yet (bin/dev or snails migrate apply creates it)
   ok    sqlite3
   ok    compose.yml (docker available)
-[snails] 10 ok, 1 warning, 0 failed
+[snails] 11 ok, 0 warnings, 0 failed
 ```
 
 A warning does not stop you — it says what will happen the first time you run `bin/dev`.

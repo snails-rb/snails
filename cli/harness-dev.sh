@@ -39,24 +39,26 @@
 # DB adapter rules (read from the app's config/database.rb database configuration — the
 # anchored require line, via cli/database-adapter.sh):
 #   sqlite => storage/development.sqlite3 (persistent). The core loader
-#     (snails-core/snails/schema_loader.rb) applies db/schema.sql
-#     when the file is new or --fresh asked for a reset; an existing file
-#     is left alone so development data survives.
+#     (snails-core/snails/schema_loader.rb) applies db/schema.sql to a new
+#     file only when the app has no migrations (a schema-only app); an app
+#     with migrations is provisioned solely by the explicit `migrate apply`,
+#     so the pending check stops the first boot. An existing file is left
+#     alone so development data survives.
 #   pg => with PG_URL the database is the developer's and used as-is: no
 #     container, no DDL, no loader (a shared/web database carries
 #     extensions and data this repo's snapshot would clobber), and --fresh
 #     is refused. Without PG_URL the runner starts (or reuses) a persistent
 #     development container named from APP_NAME (pins.toml — a definitive
 #     declaration, never the directory name), loads the schema into a newly
-#     created container only, and refuses to start if its port is taken.
+#     created container only when the app has no migrations, and refuses to
+#     start if its port is taken.
 #
 # Before the build, every existing target is checked for pending migrations
 # (`migrate check`, read-only): a schema behind the app's db/migrate files
 # surfaces only as background-job failures, never as a failed request, so
-# the server stops with the repair line instead. A database this runner
-# provisions itself (new file, --fresh, new container) records the ledger
-# through `migrate apply` after the snapshot load — the files are idempotent
-# by contract — so later boots can tell a stale schema from a current one.
+# the server stops with the repair line instead. The runner never applies
+# migrations itself — a fresh database starts with an empty ledger and the
+# check stops the boot until the developer runs the printed `migrate apply`.
 #
 # The spinel build itself is pinned by the project pins file (SPINEL_REV):
 # cli/toolchain.sh (this engine's tree, versioned with the CLI) puts
@@ -133,6 +135,15 @@ snails_cli() {
   fi
 }
 
+# A tree with db/migrate files owns its schema through migrations. The dev
+# runner leaves its database alone: the explicit `migrate apply` is the only
+# provisioner. The snapshot loader below is for schema-only apps, where no
+# migration file can create the tables.
+has_migrations() {
+  set -- "$SPIN_ROOT"/db/migrate/*.sql
+  [[ -f $1 ]]
+}
+
 # Apply the app's schema through the core loader — the gate runner's
 # contract, same convention file (db/schema.sql, relative to the spin
 # root). No schema file, no load. Any loader
@@ -178,21 +189,16 @@ load_schema() {
   fi
 }
 
-# A database this runner just provisioned from the snapshot has no migration
-# history. Applying the files records the ledger; they are idempotent by
-# contract, so the snapshot's objects stay as they are. Without this the next
-# boot would see every file as pending and stop.
-apply_migrations() {
-  set -- "$SPIN_ROOT"/db/migrate/*.sql
-  [[ -f $1 ]] || return 0
-  "$CLI" migrate apply --app "$SPIN_ROOT"
-}
-
 # The boot check: an existing schema behind the app's db/migrate files shows
 # up only as background-job failures, so stop here instead. Read-only — the
-# repair is the explicit `migrate apply` step, never this check.
+# repair is the explicit `migrate apply` step, never this check. A database
+# the runner started itself (the pg dev container) is named in the repair
+# line: the developer's shell does not carry the runner's exported PG_URL.
 check_pending_migrations() {
   local args=(--app "$SPIN_ROOT")
+  if [[ ${PG_URL_FROM_RUNNER:-0} -eq 1 ]]; then
+    args+=(--database "$PG_URL")
+  fi
   ((VERBOSE)) && args+=(--verbose)
   "$CLI" migrate check "${args[@]}"
 }
@@ -292,6 +298,7 @@ fi
 #    seconds, not after a full compile. sqlite owns a persistent file; the
 #    pg adapter uses PG_URL as-is, or starts its own development container.
 DB_ADAPTER="$(database_adapter_for "$SPIN_ROOT")" || exit 1
+PG_URL_FROM_RUNNER=0
 if [[ $DB_ADAPTER == pg ]]; then
   if [[ -n ${PG_URL:-} ]]; then
     # Developer-provided database — used as-is: no container, no DDL, no
@@ -305,6 +312,7 @@ if [[ $DB_ADAPTER == pg ]]; then
     # No PG_URL: bring up this app's persistent development database
     # container. APP_NAME (pins.toml) is the definitive app identity —
     # never the directory name (rename/worktree/clone would let it drift).
+    PG_URL_FROM_RUNNER=1
     pins="$(pins_discover "$SPIN_ROOT")"
     APP_NAME=""
     [[ -z $pins ]] || APP_NAME="$(pins_get "$pins" APP_NAME)"
@@ -360,11 +368,11 @@ if [[ $DB_ADAPTER == pg ]]; then
       docker logs "$DEV_CONTAINER" >&2
       exit 1
     fi
-    # Load the schema only for a new container — a reused one keeps its
-    # development data (change the schema with --fresh).
-    if ((NEW_CONTAINER)); then
+    # Load the schema only for a new container of a schema-only app — a
+    # reused one keeps its development data (change the schema with --fresh),
+    # and an app with migrations is provisioned only by the explicit apply.
+    if ((NEW_CONTAINER)) && ! has_migrations; then
       load_schema
-      apply_migrations
     fi
     echo "[snails] dev database: $DEV_CONTAINER @ 127.0.0.1:$DEV_PORT/$DEV_DB" >&2
   fi
@@ -374,16 +382,18 @@ else
   if ((FRESH)); then
     rm -f "$DATABASE_PATH" "$DATABASE_PATH-wal" "$DATABASE_PATH-shm"
   fi
-  # A new file gets the schema; an existing one keeps its data.
-  if [[ ! -f "$DATABASE_PATH" ]]; then
+  # A new file of a schema-only app gets the snapshot; an existing file
+  # keeps its data. An app with migrations is provisioned only by the
+  # explicit apply, so the pending check below stops the first boot.
+  if [[ ! -f "$DATABASE_PATH" ]] && ! has_migrations; then
     load_schema
-    apply_migrations
   fi
 fi
 
 # 3. Pending migration check — read-only, and before the build so a stale
 #    schema costs seconds instead of a background-job failure under a serving
-#    server. --fresh and a new container just recorded their ledger above.
+#    server. Migrations are never applied here: the repair line is the
+#    developer's explicit `snails migrate apply`.
 check_pending_migrations
 
 # 4. Build the server (incremental). gen/* is refreshed first

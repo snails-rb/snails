@@ -253,6 +253,8 @@ out="$(bash "$G" modelschema 2>&1)"
 chk "a model without a schema is refused" $? 2
 if [[ $out == *"no schema file"* ]]; then match=0; else match=1; fi
 chk "the refusal names the missing schema" "$match" 0
+if [[ $out == *"snails migrate dump"* ]]; then repair=0; else repair=1; fi
+chk "the refusal names the dump repair" "$repair" 0
 
 # 5d. A model that owns datetime_columns keeps its reader types; the
 #     generated rbs must not seed a conflicting Time? declaration.
