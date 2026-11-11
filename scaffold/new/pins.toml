@@ -2,7 +2,8 @@
 # `snails sync` discovers this file and `snails verify-pin` validates it.
 SPINEL_REV="__SPINEL_REV__"
 
-# Core commit — the vendored snails-core/ must match it.
+# Core pin — a release version (vX.Y.Z), or a full commit for an edge pin.
+# The vendored snails-core/ must match it.
 SNALS_REV="__SNALS_REV__"
 
 # Build source — "pin" vendors SNALS_REV; "checkout" vendors the core

@@ -299,12 +299,12 @@ chk "a version tag already on origin is refused" $? 1
 grep -q 'tag v1.2.3 already exists on origin' fakev-remote.out
 chk "the remote tag reuse is named" $? 0
 
-# 4. dist-mode `new`: an installed dist has no .git — the REV file is the
-#    pin source.
+# 4. dist-mode `new`: an installed dist has no .git. An unversioned dist
+#    falls back to its REV file — the edge channel.
 bash dist/bin/snails new demo > new.out 2>&1
 chk "dist-mode new scaffolds a project" $? 0
 grep -q "^SNALS_REV=\"$REV\"$" demo/pins.toml
-chk "new records the dist rev as the pin" $? 0
+chk "an unversioned dist records its rev as the pin" $? 0
 grep -q "^SPINEL_REV=\"$SPINEL_REV\"$" demo/pins.toml
 chk "new records the dist's declared spinel rev" $? 0
 grep -q '^SNALS_SOURCE="pin"$' demo/pins.toml
@@ -323,6 +323,31 @@ bash dist/bin/snails verify-pins demo > vp.out 2>&1
 chk "dist-mode verify-pins passes on a fresh project" $? 0
 grep -q 'pins ok' vp.out
 chk "the dist-mode ok line is printed" $? 0
+
+# 4b. a versioned dist pins its release version. The version is the
+#     release channel, and `new` resolves it locally from the dist's own
+#     stamped metadata — no API call. The prerelease asset keeps this
+#     version distinct from the fake release pin resolved in section 7.
+mkdir vdist
+tar -xzf "ver-rc-out/snails-dist-$REV.tar.gz" -C vdist
+grep -q '^  VERSION = "v9.9.9-rc.1"$' vdist/runtime/snails/version.rb
+chk "the versioned dist carries its release version" $? 0
+bash vdist/bin/snails new vdemo > vnew.out 2>&1
+chk "a versioned dist scaffolds a project" $? 0
+grep -q '^SNALS_REV="v9.9.9-rc.1"$' vdemo/pins.toml
+chk "new records the dist release version as the pin" $? 0
+grep -q "^SPINEL_REV=\"$SPINEL_REV\"$" vdemo/pins.toml
+chk "the version pin keeps the dist's spinel rev" $? 0
+grep -q '^SNALS_SOURCE="pin"$' vdemo/pins.toml
+chk "the version pin keeps the dist source" $? 0
+grep -q '^  VERSION = "v9.9.9-rc.1"$' vdemo/$SNAILS_VENDOR_DIR/snails/version.rb
+chk "the vendored metadata names the release version" $? 0
+grep -q "^  REV = \"$REV\"$" vdemo/$SNAILS_VENDOR_DIR/snails/version.rb
+chk "the vendored metadata keeps the packaged rev" $? 0
+vdist/bin/snails verify-pins vdemo > vvp.out 2>&1
+chk "the version pin verifies against the dist itself" $? 0
+grep -q 'pins ok (spinel='"$SPINEL_REV"' snails=v9.9.9-rc.1)' vvp.out
+chk "the ok line shows the declared version" $? 0
 
 # 5. serve the release layout locally: a dist for a synthetic rev (its
 #    REV rewritten), plus a rev whose checksum sidecar is wrong. FAKE2
@@ -470,6 +495,16 @@ SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 chk "dist-mode verify-pins resolves a vX.Y.Z pin" $? 0
 grep -q 'pins ok (spinel=abc1234 snails=v9.9.9)' pair-version.out
 chk "the dist ok line shows the declared version" $? 0
+[[ -f "$XDG_CACHE_HOME/snails/dist/versions/v9.9.9" && "$(cat "$XDG_CACHE_HOME/snails/dist/versions/v9.9.9")" == "$FAKE2" ]]
+chk "a resolved version is recorded in the local map" $? 0
+# Version tags are immutable, so the map is the answer: a dead API base
+# still resolves the pin.
+SNAILS_GIT_BASE_URL="http://127.0.0.1:9/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails verify-pins --pins papp-version.toml > pair-version-cache.out 2>&1
+chk "the local map resolves a version without the API" $? 0
+grep -q 'pins ok (spinel=abc1234 snails=v9.9.9)' pair-version-cache.out
+chk "the cached resolution keeps the declared version in the ok line" $? 0
 
 # A version tag the API does not know is loud, with the tag repair.
 cat > papp-noversion.toml <<CONF

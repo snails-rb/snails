@@ -5,8 +5,9 @@ When a new Snails ships, you change one version line in `pins.toml` and run one 
 ## The pin file
 
 ```toml
-# Core commit — the vendored snails-core/ must match it.
-SNALS_REV="d38ad49afaad06587f85a4afdce4c846d68d4aaf"
+# Core pin — a release version (vX.Y.Z), or a full commit for an edge pin.
+# The vendored snails-core/ must match it.
+SNALS_REV="v0.46.2"
 
 # Build source — "pin" vendors SNALS_REV; "checkout" vendors the core
 # checkout's working tree, so a build compiles it as it stands.
@@ -26,7 +27,7 @@ APP_NAME="demo"
 `snails pins check` reads the pin and tells you whether the project and the pin agree:
 
 ```text
-[snails] pins ok (spinel=92e3f26be snails=d38ad49)
+[snails] pins ok (spinel=858dde41b snails=v0.46.2)
 ```
 
 Exit code 0 means everything matches; a mismatch prints what disagrees and exits non-zero, so it works as a pre-flight on its own.
