@@ -39,6 +39,6 @@ Figures are medians over three 15-second runs at 32 concurrent connections; laun
 
 ## What it doesn't do
 
-Snails is API-only, and that's deliberate: there is no view layer, so nothing renders HTML. If you need server-rendered pages, other tools do that better. [Coming from Rails](04-coming-from-rails.md) lays out exactly which habits carry over, and the [FAQ](18-faq.md) is honest about the rest.
+Snails is API-only, and that's deliberate: there is no view layer, so nothing renders HTML. If you need server-rendered pages, other tools do that better. [Coming from Rails](04-coming-from-rails.md) lays out exactly which habits carry over, and the [FAQ](28-faq.md) is honest about the rest.
 
 Let's get started with the basics.

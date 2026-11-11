@@ -25,7 +25,7 @@ The first command that needs the toolchain assembles the pinned compiler. See [G
 
 ## Manual
 
-The manual is the product documentation. It lives in [`manual/`](manual/) and is written for people building an app.
+The manual is the product documentation. It lives in [`manual/`](manual/) and is written for developers building an app.
 
 **The Basics**
 
@@ -33,29 +33,42 @@ The manual is the product documentation. It lives in [`manual/`](manual/) and is
 - [Getting Started](manual/02-getting-started.md)
 - [Snails CLI](manual/03-snails-cli.md)
 - [Coming from Rails](manual/04-coming-from-rails.md)
+- [Your App's Structure](manual/05-your-app-structure.md)
 
 **Building Your App**
 
-- [Your App's Structure](manual/05-your-app-structure.md)
 - [Routes and Controllers](manual/06-routes-and-controllers.md)
-- [Database and Models](manual/07-database-and-models.md)
-- [Migrations](manual/08-migrations.md)
-- [Forms and Validation](manual/09-forms.md)
-- [Email](manual/10-email.md)
-- [Background Jobs](manual/11-background-jobs.md)
-- [Logging](manual/12-logging.md)
+- [Requests and Parameters](manual/07-requests-and-parameters.md)
+- [Authentication](manual/08-authentication.md)
+- [Database and Models](manual/09-database-and-models.md)
+- [Querying](manual/10-querying.md)
+- [Columns and Types](manual/11-columns-and-types.md)
+- [Migrations](manual/12-migrations.md)
+- [Forms and Validation](manual/13-forms.md)
+- [Email](manual/14-email.md)
+- [Background Jobs](manual/15-background-jobs.md)
+
+**Runtime Behavior**
+
+- [Configuration](manual/16-configuration.md)
+- [Time, Dates, and JSON](manual/17-time-dates-and-json.md)
+- [Caching](manual/18-caching.md)
+- [Ruby Helpers](manual/19-ruby-helpers.md)
+- [Error Handling](manual/20-error-handling.md)
+- [Logging](manual/21-logging.md)
 
 **Operating**
 
-- [Local Development](manual/13-local-development.md)
-- [Testing](manual/14-testing.md)
-- [Deploying](manual/15-deploying.md)
-- [Updating Snails](manual/16-updating-snails.md)
+- [Local Development](manual/22-local-development.md)
+- [Concurrency](manual/23-concurrency.md)
+- [Testing](manual/24-testing.md)
+- [Deploying](manual/25-deploying.md)
+- [Updating Snails](manual/26-updating-snails.md)
 
-**The Rest**
+**Reference**
 
-- [Troubleshooting](manual/17-troubleshooting.md)
-- [FAQ](manual/18-faq.md)
+- [Troubleshooting](manual/27-troubleshooting.md)
+- [FAQ](manual/28-faq.md)
 
 ## Layout
 
