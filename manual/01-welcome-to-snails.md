@@ -1,6 +1,6 @@
 # Welcome to Snails
 
-Snails is a small framework for building web apps that compile to a single native binary. You write ordinary Ruby — routes, controllers, models, forms — and Snails turns it into one binary that boots fast and runs anywhere a binary runs. There is no runtime to install on the server, no asset pipeline, and no view layer: your app answers with JSON.
+Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions — routes, controllers, models, forms, mailers, and jobs in Ruby; migrations in SQL — and compiles your app code, the framework, and the HTTP server into one native executable. The server does not depend on Ruby; the executable boots in single-digit milliseconds and handles requests concurrently without a GVL. There is no view layer or asset pipeline.
 
 ## Why it's fast
 
