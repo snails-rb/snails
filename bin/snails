@@ -618,18 +618,40 @@ cmd_help() {
   esac
 }
 
+# dist_own_version — the release version stamped into this dist, or empty
+# when the tree is a checkout or an unversioned dist.
+dist_own_version() {
+  local file="$SNAILS_ROOT/runtime/snails/version.rb" version=""
+  [[ -f $file ]] || return 0
+  version="$(sed -n 's/^  VERSION = "\(.*\)"/\1/p' "$file" | head -n1)"
+  [[ $version == unknown ]] && version=""
+  printf '%s' "$version"
+}
+
+# dist_own_rev — the full rev this dist was packaged from, or empty in a
+# checkout. The stamped metadata is authoritative; the REV file covers a
+# dist whose metadata was not stamped.
+dist_own_rev() {
+  local file="$SNAILS_ROOT/runtime/snails/version.rb" rev=""
+  if [[ -f $file ]]; then
+    rev="$(sed -n 's/^  REV = "\(.*\)"/\1/p' "$file" | head -n1)"
+  fi
+  if [[ -z $rev || $rev == unknown ]]; then
+    rev=""
+    [[ -f $SNAILS_ROOT/REV ]] && rev="$(<"$SNAILS_ROOT/REV")"
+  fi
+  printf '%s' "$rev"
+}
+
 # Version metadata comes from the packaged runtime when present; a checkout
 # has no stamped values, so it names its HEAD instead.
 cli_version_text() {
-  local file="$SNAILS_ROOT/runtime/snails/version.rb" version="" rev=""
-  if [[ -f $file ]]; then
-    version="$(sed -n 's/^  VERSION = "\(.*\)"/\1/p' "$file" | head -n1)"
-    rev="$(sed -n 's/^  REV = "\(.*\)"/\1/p' "$file" | head -n1)"
-  fi
+  local version rev
+  version="$(dist_own_version)"
+  rev="$(dist_own_rev)"
   if [[ -z $version || $version == unknown ]]; then
-    if ((DIST_MODE)) && [[ -f $SNAILS_ROOT/REV ]]; then
+    if ((DIST_MODE)); then
       version="dist"
-      rev="$(<"$SNAILS_ROOT/REV")"
     elif git -C "$SNAILS_ROOT" rev-parse --short HEAD >/dev/null 2>&1; then
       version="checkout"
       rev="$(git -C "$SNAILS_ROOT" rev-parse --short HEAD)"
@@ -870,12 +892,12 @@ pins_rev() {
   pins_get "$1" SNALS_REV
 }
 
-# pins_rev_is_full <rev> — the SNALS_REV declaration format gate: a full
-# 40-hex commit id, the only form that names the same content in every
-# mode (a dist release tag and asset name derive from the full form; a
-# git checkout also accepts an abbreviation, which would let one pins file
-# mean two things). Checked where the pin is read (sync, verify-pins) so
-# the refusal lands before any mode logic.
+# pins_rev_is_full <rev> — the edge form of an SNALS_REV declaration: a
+# full 40-hex commit id. A dist release tag and asset name derive from the
+# full form; a git checkout also accepts an abbreviation, which would let
+# one pins file mean two things. The release form is a vX.Y.Z version
+# (pins_rev_is_version); both are checked where the pin is read (sync,
+# verify-pins) so the refusal lands before any mode logic.
 pins_rev_is_full() {
   [[ $1 =~ ^[0-9a-f]{40}$ ]]
 }
@@ -976,12 +998,48 @@ dist_git_base() {
   printf '%s' "${SNAILS_GIT_BASE_URL:-https://api.github.com/repos/$(dist_repo)}"
 }
 
+# dist_version_cache_file <version> — the local map from a version tag to
+# the rev it names. Version tags are immutable, so a recorded mapping never
+# goes stale and repeat pin checks stay off the API.
+dist_version_cache_file() {
+  printf '%s' "${XDG_CACHE_HOME:-$HOME/.cache}/snails/dist/versions/$1"
+}
+
+# dist_version_rev_store <version> <rev> — record a resolved mapping. The
+# map is an optimization: an unwritable cache must not fail a pin that
+# already resolved.
+dist_version_rev_store() {
+  local version="$1" rev="$2" cache
+  cache="$(dist_version_cache_file "$version")"
+  mkdir -p "$(dirname "$cache")" 2>/dev/null || return 0
+  printf '%s\n' "$rev" > "$cache" 2>/dev/null || true
+}
+
 # dist_version_rev <version> — the source rev a version tag names in
-# `snails-rb/dist`. The tag is annotated on the release-target commit and
-# its message carries `REV=<source rev>` (publish-dist writes it). Prints
-# the full rev; fails when the tag or the marker is missing.
+# `snails-rb/dist`. This dist's own version resolves locally; any other
+# version reads the local map, then the annotated tag (the message carries
+# `REV=<source rev>`, publish-dist writes it). Prints the full rev; fails
+# when the tag or the marker is missing.
 dist_version_rev() {
-  local version="$1" ref_json object_sha object_type tag_json rev
+  local version="$1" cache rev own_version
+  local ref_json object_sha object_type tag_json
+  cache="$(dist_version_cache_file "$version")"
+  if [[ -f $cache ]]; then
+    rev="$(<"$cache")" || rev=""
+    if [[ $rev =~ ^[0-9a-f]{40}$ ]]; then
+      printf '%s' "$rev"
+      return 0
+    fi
+  fi
+  own_version="$(dist_own_version)"
+  if [[ -n $own_version && $version == "$own_version" ]]; then
+    rev="$(dist_own_rev)"
+    if [[ $rev =~ ^[0-9a-f]{40}$ ]]; then
+      dist_version_rev_store "$version" "$rev"
+      printf '%s' "$rev"
+      return 0
+    fi
+  fi
   ref_json="$(curl -fsSL "$(dist_git_base)/git/ref/tags/$version")" || return 1
   object_sha="$(printf '%s' "$ref_json" | tr -d '[:space:]' \
     | grep -o '"sha":"[0-9a-f]\{40\}"' | head -n1 | grep -o '[0-9a-f]\{40\}')"
@@ -991,6 +1049,7 @@ dist_version_rev() {
   tag_json="$(curl -fsSL "$(dist_git_base)/git/tags/$object_sha")" || return 1
   rev="$(printf '%s' "$tag_json" | grep -o 'REV=[0-9a-f]\{40\}' | head -n1 | cut -d= -f2)"
   [[ -n $rev ]] || return 1
+  dist_version_rev_store "$version" "$rev"
   printf '%s' "$rev"
 }
 
@@ -1548,15 +1607,18 @@ cmd_new() {
   # copy of it — a copy drifts from the core engine.
   # (Previously stamped into <dir>/scripts/; bin/test·bin/dev call the CLI.)
 
-  # Values for the pins.toml template: the core commit this project was
-  # generated from (an installed dist carries a REV file written at
-  # publish time and no git checkout; a dev checkout has no REV and
-  # resolves HEAD — the pin must name published content, so REV wins when
-  # present) and the spinel rev this core rev declares it was validated
-  # with (the same value CI builds — `snails verify-pins` later checks the
-  # pair against that declaration).
-  local core_rev spinel_rev core_source
-  if [[ -f $SNAILS_ROOT/REV ]]; then
+  # Values for the pins.toml template: the core release this project was
+  # generated from and the spinel rev that release declares it was
+  # validated with. An installed dist names its release version — the pin
+  # must name published content, and a version is the release channel. An
+  # unversioned dist falls back to its packaged rev, and a dev checkout
+  # resolves HEAD (both are the edge channel). `snails verify-pins` later
+  # checks the spinel pair against the pinned rev's declaration.
+  local core_rev spinel_rev core_source core_version=""
+  ((DIST_MODE)) && core_version="$(dist_own_version)"
+  if pins_rev_is_version "$core_version"; then
+    core_rev="$core_version"
+  elif [[ -f $SNAILS_ROOT/REV ]]; then
     core_rev="$(<"$SNAILS_ROOT/REV")"
   elif git -C "$SNAILS_ROOT" rev-parse HEAD >/dev/null 2>&1; then
     core_rev="$(git -C "$SNAILS_ROOT" rev-parse HEAD)"
@@ -1564,8 +1626,8 @@ cmd_new() {
     echo "[snails] cannot resolve the core rev: no REV file and no git checkout at $SNAILS_ROOT" >&2
     exit 1
   fi
-  if [[ ! $core_rev =~ ^[0-9a-f]{7,40}$ ]]; then
-    echo "[snails] invalid core rev: $core_rev" >&2
+  if ! pins_rev_is_version "$core_rev" && [[ ! $core_rev =~ ^[0-9a-f]{7,40}$ ]]; then
+    echo "[snails] invalid core pin: $core_rev — expected a vX.Y.Z release or a full hex rev" >&2
     exit 1
   fi
   # A dist is a released source; a checkout is the development working
