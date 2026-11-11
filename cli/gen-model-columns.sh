@@ -118,7 +118,10 @@ candidate_count="$(wc -l <"$model_files" | tr -d ' ')"
 # placeholder, so a no-op keeps that file intact.
 if [[ ! -f $schema_file ]]; then
   if [[ -d $models_dir ]] && grep -R -q 'Sqlx' "$models_dir"; then
-    die 2 "Sqlx::Base model found but no schema file: $schema_file"
+    repair_arg="$(app_root_argument "$app_root")"
+    dump_command="snails migrate dump"
+    [[ -n $repair_arg ]] && dump_command+=" $(shell_quote "$repair_arg")"
+    die 2 "Sqlx::Base model found but no schema file: $schema_file — run: $dump_command"
   fi
   exit 0
 fi

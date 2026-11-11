@@ -652,6 +652,8 @@ grep -Fq 'mkdir -p "$(dirname "$COMPOSE_FILE")/storage"' "$ROOT/cli/compose.sh" 
 chk "the compose engine creates the sqlite storage dir as the calling user" $? 0
 [[ ! -e newapp/bin/__APP_NAME__.rb ]] && grep -q 'build/bin/newapp' newapp/bin/newapp.rb
 chk "the template compile root is renamed and substituted" $? 0
+[[ -d newapp/storage ]]
+chk "new creates the sqlite storage directory" $? 0
 [[ -f newapp/Dockerfile && -f newapp/.dockerignore && -f newapp/bin/build-image && -f newapp/bin/build-binary && -f newapp/bin/compose && -f newapp/compose.yml && -f newapp/deploy/Caddyfile && ! -e newapp/container-entrypoint ]]
 chk "new stamps the image build and deploy assets (no entrypoint shim)" $? 0
 [[ -x newapp/bin/build-image && -x newapp/bin/build-binary && -x newapp/bin/compose ]]
@@ -685,6 +687,8 @@ bash "$CLI" new newpg --database=postgresql >/dev/null 2>&1
 chk "new --database=postgresql" $? 0
 grep -Fq "require_relative \"../$SNAILS_VENDOR_DIR/database/postgresql\"" newpg/config/database.rb
 chk "new stamps the pg database configuration" $? 0
+[[ ! -e newpg/storage ]]
+chk "new leaves no sqlite storage directory on the pg adapter" $? 0
 grep -q 'postgresql-client' newpg/Dockerfile && grep -q 'PG_URL is provided' newpg/Dockerfile && ! grep -q 'VOLUME /snails/storage' newpg/Dockerfile
 chk "the pg image template stamps the pg client package" $? 0
 grep -q 'postgres:18-alpine' newpg/compose.yml && grep -q 'PG_URL' newpg/compose.yml && ! grep -q 'DATABASE_PATH' newpg/compose.yml
@@ -707,6 +711,8 @@ bash "$CLI" new >/dev/null 2>&1
 chk "new missing arg" $? 2
 bash "$CLI" new newfull --scaffold >/dev/null 2>&1
 chk "new --scaffold scaffolds project" $? 0
+[[ -d newfull/storage ]]
+chk "new --scaffold creates the sqlite storage directory" $? 0
 [[ -f newfull/app/models/post.rb && -f newfull/app/models/comment.rb && -f newfull/app/forms/post_form.rb && -f newfull/app/controllers/api/posts_controller.rb && -f newfull/app/controllers/api/posts_controller.rbs && -f newfull/app/controllers/api/comments_controller.rb && -f newfull/app/controllers/api/comments_controller.rbs && -f newfull/harness/test/posts_test.rb && -f newfull/harness/test/posts_test.rb.expected && -f newfull/harness/test/comments_test.rb && -f newfull/harness/test/comments_test.rb.expected && -f newfull/harness/test/post_form_test.rb && -f newfull/harness/test/post_form_test.rb.expected && -f newfull/harness/test/adapter_test.rb && -f newfull/harness/test/adapter_test.rb.expected ]]
 chk "new --scaffold writes the full template" $? 0
 cmp -s "$MAIN" newfull/main.rb

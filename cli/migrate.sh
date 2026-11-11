@@ -462,6 +462,14 @@ cmd_apply() {
     echo "nothing to apply"
     return 0
   fi
+  # The default sqlite target lives under the app's storage/ (gitignored), so
+  # a fresh clone has no directory for it. Apply creates it; the read-only
+  # commands still never write one.
+  if [[ $DB_ADAPTER == sqlite ]]; then
+    local target_dir
+    target_dir="$(dirname "$TARGET")"
+    mkdir -p "$target_dir" || die 1 "could not create the sqlite target directory: $target_dir"
+  fi
   ensure_ledger
   local version i
   for version in "${PENDING[@]}"; do

@@ -458,6 +458,27 @@ out=$(bash "$ENGINE" apply --app "$APP" 2>&1); code=$?
 chk "default target apply exits 0" "$code" "0"
 chk "default target file created" "$([[ -f $APP/storage/development.sqlite3 ]] && echo yes || echo no)" "yes"
 
+# --- a fresh clone has no storage/ (it is gitignored): apply creates the
+# target's parent directory, while the read-only commands still write nothing.
+FRESH="$WORK/fresh"
+mkdir -p "$FRESH/db/migrate" "$FRESH/config"
+cat > "$FRESH/pins.toml" <<'PINS'
+APP_NAME="fresh-fixture"
+PINS
+cat > "$FRESH/config/database.rb" <<'RB'
+require_relative "../snails-core/database/sqlite"
+RB
+cat > "$FRESH/db/migrate/0001_baseline.sql" <<'SQL'
+CREATE TABLE IF NOT EXISTS fresh_app (id INTEGER PRIMARY KEY);
+SQL
+out=$(bash "$ENGINE" status --app "$FRESH" 2>&1); code=$?
+chk "status on a missing storage dir exits 0" "$code" "0"
+chk "status does not create storage" "$([[ -d $FRESH/storage ]] && echo yes || echo no)" "no"
+out=$(bash "$ENGINE" apply --app "$FRESH" 2>&1); code=$?
+chk "apply on a missing storage dir exits 0" "$code" "0"
+chk "apply creates the sqlite storage dir" "$([[ -d $FRESH/storage ]] && echo yes || echo no)" "yes"
+chk "apply creates the default database file" "$([[ -f $FRESH/storage/development.sqlite3 ]] && echo yes || echo no)" "yes"
+
 # --- app root resolution: with --app omitted the walk starts at $PWD and
 # takes the nearest database configuration at or above. Moving off $PWD is announced; standing outside any
 # app root refuses with the fix. A repository root that holds the app in the

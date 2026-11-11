@@ -21,7 +21,7 @@ applying 20261107203440_baseline
 [snails] snapshot regenerated (3 statements)
 ```
 
-If `apply` fails with `unable to open database`, the `storage/` folder does not exist yet — start `bin/dev` once, or create the folder, and run it again.
+A sqlite app gets its `storage/` directory with the project, so `apply` works before the first boot. Migrations are always explicit: `bin/dev` never applies them. While anything is pending it stops before the build and prints the `snails migrate apply` command. For an app with migrations, that apply is what creates the database; the snapshot is for the tests. After you change a migration, run `snails migrate dump` so the snapshot matches the history.
 
 ## Change the schema
 
@@ -54,6 +54,8 @@ The tests load `db/schema.sql`, so regenerate it after every change:
 ```text
 [snails] snapshot regenerated (3 statements)
 ```
+
+`bin/dev` does not regenerate the snapshot either. It stops while any migration is pending and prints the apply command; generating the snapshot stays an explicit `snails migrate dump`, so a forgotten dump stays visible to `snails migrate verify`.
 
 The file header says it plainly — generated output, do not edit it:
 
