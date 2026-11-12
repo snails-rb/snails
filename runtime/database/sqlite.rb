@@ -148,9 +148,15 @@ module Sqlx
       ffi_read_ptr :read_ptr, 0
     end
 
+    # `SQLite3.db_out` is one static 8-byte out-buffer for the whole process,
+    # the same shape as the prepare out-buffer. Pool shards open independently,
+    # so two simultaneous first requests would read each other's handle. Opens
+    # happen once per connection at boot, never on the request path.
+    OPEN_LOCK = Mutex.new
+
     # One cache entry: the composed SQL and its prepared stmt ptr. A concrete
-    # class rather than a bare ptr, so an Array of them types concretely and
-    # `length`/`[]` resolve.
+    # class rather than a bare ptr, so a Hash of them types concretely and
+    # `each`/`[]` resolve.
     class Stmt
       def initialize(sql, ptr)
         @sql = sql
@@ -172,8 +178,9 @@ module Sqlx
     # each other. The pool leases a connection to one fiber at a time, so the
     # cache needs no mutex.
     #
-    # The key is the composed SQL: the static shape (`WHERE id = ?`) when the
-    # bind gate is on, per-value when the lowerer inlines literals.
+    # The key is the composed SQL. Core-assembled reads bind condition values
+    # and keep one shape; a caller-written statement keeps whatever shape it
+    # wrote.
     class DatabaseConnection
       CAP = 128
       # `SQLite3.stmt_out` is ONE 8-byte out-buffer for the whole process (an
@@ -184,16 +191,16 @@ module Sqlx
 
       def initialize(dbh)
         @dbh = dbh
-        @entries = []
+        @entries = {}
       end
 
       def dbh
         @dbh
       end
 
-      # the prepared stmt for `sql`, from the cache on a hit and freshly
-      # prepared and cached on a miss. The scan is linear: the hit rate matters,
-      # not the lookup's constant.
+      # the prepared stmt for `sql`, from the cache on a hash hit and freshly
+      # prepared and cached on a miss. A hit moves to the end of the insertion
+      # order, so `trim!`'s first entry is the least recently used.
       #
       # EVERY prepared stmt goes into @entries, with no cap check — that is what
       # makes `finalize`'s reset-don't-close correct for all of them, since every
@@ -202,11 +209,13 @@ module Sqlx
       # @param sql [String] the composed SQL to prepare
       # @return [Object] the statement's driver handle
       def prepare_cached(sql)
-        i = 0
-        while i < @entries.length
-          e = @entries[i]
-          return e.ptr if e.sql == sql
-          i += 1
+        entry = @entries[sql]
+        if !entry.nil?
+          # Ruby Hash keeps insertion order; deleting before re-inserting is
+          # what makes a hit count as recent.
+          @entries.delete(sql)
+          @entries[sql] = entry
+          return entry.ptr
         end
         # `SQLite3.stmt_out` is ONE 8-byte out-buffer for the whole process (an
         # `ffi_buffer`, static C storage), so two connections preparing at once
@@ -223,7 +232,7 @@ module Sqlx
           raise Sqlx::Busy, SQLite3.sqlite3_errmsg(@dbh) if busy_result?(rc)
           raise "Sqlx::Database.prepare failed (" + rc.to_s + "): " + SQLite3.sqlite3_errmsg(@dbh) + " — sql: " + sql
         end
-        @entries.push(Stmt.new(sql, st))
+        @entries[sql] = Stmt.new(sql, st)
         st
       end
 
@@ -232,24 +241,18 @@ module Sqlx
       # stmt an open cursor still holds must not be closed, and between requests
       # there are none.
       #
-      # The CAP most-recent entries survive — the tail, since `prepare_cached`
-      # appends, and recency is the best available proxy for reuse.
+      # Insertion order is recency order (a hit moves to the end), so the first
+      # key is the oldest entry. One miss past the cap drops exactly one.
       #
       # @return [void]
       def trim!
         return nil if @entries.length <= CAP
-        keep = []
-        drop_before = @entries.length - CAP
-        i = 0
-        while i < @entries.length
-          if i < drop_before
-            SQLite3.sqlite3_finalize(@entries[i].ptr)
-          else
-            keep.push(@entries[i])
-          end
-          i += 1
+        while @entries.length > CAP
+          oldest = @entries.keys[0]
+          entry = @entries[oldest]
+          SQLite3.sqlite3_finalize(entry.ptr)
+          @entries.delete(oldest)
         end
-        @entries = keep
       end
 
       # advance one real statement by one row. The connection owns the driver
@@ -309,10 +312,8 @@ module Sqlx
       #
       # @return [void]
       def finalize_all
-        i = 0
-        while i < @entries.length
-          SQLite3.sqlite3_finalize(@entries[i].ptr)
-          i += 1
+        @entries.each do |sql, entry|
+          SQLite3.sqlite3_finalize(entry.ptr)
         end
       end
     end
@@ -380,14 +381,18 @@ module Sqlx
           if !@opened
             i = 0
             while i < @size && failure.nil?
-              rc = SQLite3.sqlite3_open_v2(@path, SQLite3.db_out, SQLite3::OPEN_URI_RWC, nil)
+              rc = 0
+              dbh = 0
+              OPEN_LOCK.synchronize do
+                rc = SQLite3.sqlite3_open_v2(@path, SQLite3.db_out, SQLite3::OPEN_URI_RWC, nil)
+                dbh = SQLite3.read_ptr(SQLite3.db_out) if rc == SQLite3::OK
+              end
               if rc != SQLite3::OK
                 # Best-effort error surface — sqlite3_errmsg requires a valid
                 # db handle, which we don't have on open failure. The numeric
                 # rc + path are the only signals we can raise pre-handle.
                 failure = "Sqlx::Database.configure: sqlite3_open(" + @path + ") failed (" + rc.to_s + ")"
               else
-                dbh = SQLite3.read_ptr(SQLite3.db_out)
                 # Deliberately not raising on a refused pragma. Every one of
                 # these is an optimization or a politeness; none changes a
                 # query's RESULT, so a build that declines one

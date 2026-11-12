@@ -37,6 +37,8 @@ ok test_where_clause_array_operator_hash_loud
 ok test_find_by_empty_loud
 ok test_find_by_via_where_clause
 ok test_find_by_is_not_null_condition
+ok test_find_by_time_condition_binds_to_the_stored_form
+ok test_find_by_binds_a_quoted_string
 ok test_find_by_quotes_reserved_column
 ok test_find_by_bang_miss_raises
 ok test_count_returns_row_count
@@ -179,4 +181,4 @@ ok test_undeclared_json_column_stays_raw_text
 ok test_update_encodes_json_column
 ok test_update_all_encodes_json_column
 ok test_upsert_all_encodes_json_column
-SqlxTest: 181 tests passed
+SqlxTest: 183 tests passed

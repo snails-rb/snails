@@ -1,0 +1,2 @@
+ok test_concurrent_first_use_opens_a_valid_handle_on_every_shard
+DatabaseOpenRaceTest: 1 tests passed
