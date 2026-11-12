@@ -1,7 +1,7 @@
 #!/bin/bash
-# Install the snails CLI from the published dist releases.
+# Install the snails CLI from the source repository's published dist releases.
 #
-#   curl -fsSL https://raw.githubusercontent.com/snails-rb/dist/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash
 #
 # The script downloads the dist for the latest release (or a rev you
 # name), verifies its sha256 sidecar, unpacks it under
@@ -14,14 +14,16 @@
 #
 # Environment:
 #   SNAILS_DIST_BASE_URL  asset base URL (default: the repo's releases)
+#   SNAILS_API_BASE_URL   API base URL (default: the repo's GitHub API)
 #   SNAILS_HOME           install root (default ~/.local/share/snails)
 #   SNAILS_BIN_DIR        symlink location (default ~/.local/bin)
 set -euo pipefail
 
-REPO="snails-rb/dist"
+REPO="snails-rb/snails"
 SNAILS_HOME="${SNAILS_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/snails}"
 SNAILS_BIN_DIR="${SNAILS_BIN_DIR:-$HOME/.local/bin}"
 BASE="${SNAILS_DIST_BASE_URL:-https://github.com/$REPO/releases/download}"
+API="${SNAILS_API_BASE_URL:-https://api.github.com/repos/$REPO}"
 
 usage() {
   cat <<'USAGE'
@@ -43,7 +45,7 @@ command -v curl >/dev/null 2>&1 || { echo "[snails] curl is required" >&2; exit 
 command -v tar >/dev/null 2>&1 || { echo "[snails] tar is required" >&2; exit 1; }
 
 # download_asset <tag> <asset> <out> — fetch one release asset from the
-# public release repo.
+# source repository.
 download_asset() {
   local tag="$1" asset="$2" out="$3"
   curl -fsSL -o "$out" "$BASE/$tag/$asset"
@@ -57,12 +59,18 @@ sha256_check() {
   fi
 }
 
-# Latest release via the API: the tag names the rev to install.
+# The default install follows the Latest release, whose tag names the rev
+# to install. A fresh channel has no stable release yet, so fall back to
+# the newest published release; without either, name a rev explicitly.
 if [[ -z $rev ]]; then
-  body="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")" || {
-    echo "[snails] could not resolve the latest release of $REPO — pass --rev <full-rev>" >&2
+  body="$(curl -fsSL "$API/releases/latest")" || body=""
+  if [[ -z $body ]]; then
+    body="$(curl -fsSL "$API/releases?per_page=1")" || body=""
+  fi
+  if [[ -z $body ]]; then
+    echo "[snails] could not resolve a release of $REPO — pass --rev <full-rev>" >&2
     exit 1
-  }
+  fi
   tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p')"
   rev="${tag#rev-}"
 fi

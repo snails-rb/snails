@@ -5,13 +5,13 @@ This chapter takes you from nothing to a running Snails app: install the CLI, cr
 ## Install the CLI
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/snails-rb/dist/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash
 ```
 
 The installer puts `snails` on your path and keeps the release under `~/.local/share/snails`. If you manage tools with [mise](https://mise.jdx.dev/), install the same release as a tool instead:
 
 ```sh
-mise use -g 'github:snails-rb/dist[asset_pattern=snails-dist-*.tar.gz,version_prefix=rev-]'
+mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_prefix=rev-]'
 ```
 
 A project calls the CLI through its own `bin/` scripts most days. Run `snails` with no arguments to see every command it offers.

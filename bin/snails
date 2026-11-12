@@ -930,7 +930,7 @@ pins_rev_is_version() {
 # resolve_pin_rev <rev> [pins_label] — the declared pin turned into the
 # full 40-hex commit id every downstream step keys on: a full rev passes
 # through untouched; a vX.Y.Z pin resolves through its release tag — git
-# in a checkout, the tag annotation in `snails-rb/dist` for an
+# in a checkout, the tag's commit in the source repository for an
 # installed dist (SNAILS_GIT_BASE_URL overrides the API base for tests,
 # like SNAILS_DIST_BASE_URL). Prints the full rev on stdout; an
 # unresolvable version fails loud naming the tag and the repair.
@@ -987,10 +987,10 @@ pins_declared_spinel() {
   printf '%s' "$value"
 }
 
-# dist_repo — the repo whose releases carry the dist assets. The source
-# repository publishes here; installs read only this release channel.
+# dist_repo — the repository whose releases carry the dist assets. Releases
+# publish from the source repository; there is no separate release repository.
 dist_repo() {
-  printf '%s' "snails-rb/dist"
+  printf '%s' "snails-rb/snails"
 }
 
 # dist_base — the download base for the direct URL layout
@@ -1001,7 +1001,7 @@ dist_base() {
 }
 
 # dist_download <tag> <asset> <out> — fetch one release asset from the
-# public release repo. SNAILS_DIST_BASE_URL overrides the base so a
+# source repository. SNAILS_DIST_BASE_URL overrides the base so a
 # mirror — or a test — can serve the same layout.
 dist_download() {
   local tag="$1" asset="$2" out="$3"
@@ -1031,14 +1031,14 @@ dist_version_rev_store() {
   printf '%s\n' "$rev" > "$cache" 2>/dev/null || true
 }
 
-# dist_version_rev <version> — the source rev a version tag names in
-# `snails-rb/dist`. This dist's own version resolves locally; any other
-# version reads the local map, then the annotated tag (the message carries
-# `REV=<source rev>`, publish-dist writes it). Prints the full rev; fails
-# when the tag or the marker is missing.
+# dist_version_rev <version> — the source rev a version tag names. The
+# release repository is the source repository, so the tag points at the
+# rev (annotated or lightweight). This dist's own version resolves locally;
+# any other version reads the local map, then the tag. Prints the full rev;
+# fails when the tag is missing or names something other than a commit.
 dist_version_rev() {
   local version="$1" cache rev own_version
-  local ref_json object_sha object_type tag_json
+  local ref_json object_sha object_type tag_json tag_sha tag_type
   cache="$(dist_version_cache_file "$version")"
   if [[ -f $cache ]]; then
     rev="$(<"$cache")" || rev=""
@@ -1058,13 +1058,27 @@ dist_version_rev() {
   fi
   ref_json="$(curl -fsSL "$(dist_git_base)/git/ref/tags/$version")" || return 1
   object_sha="$(printf '%s' "$ref_json" | tr -d '[:space:]' \
-    | grep -o '"sha":"[0-9a-f]\{40\}"' | head -n1 | grep -o '[0-9a-f]\{40\}')"
+    | sed -n 's/.*"object":{[^}]*"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
   object_type="$(printf '%s' "$ref_json" | tr -d '[:space:]' \
-    | grep -o '"type":"[a-z]*"' | head -n1 | sed 's/.*"type":"\([a-z]*\)".*/\1/')"
-  [[ -n $object_sha && $object_type == "tag" ]] || return 1
-  tag_json="$(curl -fsSL "$(dist_git_base)/git/tags/$object_sha")" || return 1
-  rev="$(printf '%s' "$tag_json" | grep -o 'REV=[0-9a-f]\{40\}' | head -n1 | cut -d= -f2)"
-  [[ -n $rev ]] || return 1
+    | sed -n 's/.*"object":{[^}]*"type":"\([a-z]*\)".*/\1/p')"
+  case "$object_type" in
+    commit)
+      rev="$object_sha"
+      ;;
+    tag)
+      tag_json="$(curl -fsSL "$(dist_git_base)/git/tags/$object_sha")" || return 1
+      tag_sha="$(printf '%s' "$tag_json" | tr -d '[:space:]' \
+        | sed -n 's/.*"object":{[^}]*"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
+      tag_type="$(printf '%s' "$tag_json" | tr -d '[:space:]' \
+        | sed -n 's/.*"object":{[^}]*"type":"\([a-z]*\)".*/\1/p')"
+      [[ $tag_type == "commit" ]] || return 1
+      rev="$tag_sha"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+  [[ $rev =~ ^[0-9a-f]{40}$ ]] || return 1
   dist_version_rev_store "$version" "$rev"
   printf '%s' "$rev"
 }

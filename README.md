@@ -15,7 +15,7 @@ This is not a Rails replacement. It is API-only: no views, no asset pipeline, no
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/snails-rb/dist/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash
 snails new demo
 demo/bin/test
 ```
@@ -23,7 +23,7 @@ demo/bin/test
 Or let mise manage the CLI:
 
 ```sh
-mise use -g 'github:snails-rb/dist[asset_pattern=snails-dist-*.tar.gz,version_prefix=rev-]'
+mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_prefix=rev-]'
 snails new demo
 ```
 
