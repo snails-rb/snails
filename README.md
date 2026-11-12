@@ -37,7 +37,7 @@ Reproduce from that repository with `bin/bench`, `bin/boottime`, and `bin/images
 
 ## Manual
 
-The manual is the product documentation. It lives in [`manual/`](manual/), is written for developers building an app, and is published at [snails-rb.github.io/snails-site](https://snails-rb.github.io/snails-site/).
+The manual is the product documentation. It lives in [`manual/`](manual/), is written for developers building an app, and is published at [snails-rb.org](https://snails-rb.org/).
 
 **The Basics**
 
