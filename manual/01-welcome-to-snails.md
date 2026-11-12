@@ -35,7 +35,7 @@ Memory is where the two architectures diverge most. Cluster Mode runs 12 worker 
 
 Launch time does not follow the memory story. Cluster Mode is not meaningfully slower to start than single-process Rails, because each worker pays for loading the framework rather than for the worker count. Both land around 1.0 s. A Snails binary is answering requests in 9 ms.
 
-The same benchmark also runs one application scenario: a single-row primary-key read over SQLite (`GET /items/:id`). At 32 connections Snails answers about 1.5× the requests of Rails Cluster Mode; the database path is the shared bottleneck. That scenario is separate from the `/up` microbenchmark and does not change the numbers above.
+The same benchmark also runs one application scenario: a single-row primary-key read over SQLite (`GET /items/:id`). At 32 connections Snails answers about 3.1× the requests of Rails Cluster Mode (35,610 vs 11,509 RPS; p95 1.87 ms vs 6.46 ms). That is close to the `/up` ratio, so the database path no longer narrows the framework comparison. That scenario is separate from the `/up` microbenchmark and does not change the numbers above.
 
 Figures are medians over three 15-second runs at 32 concurrent connections; launch and idle memory use five rounds, and the under-load memory figure comes from the three throughput runs. Absolute numbers belong to this hardware — the ratios are what transfer. The harness, the raw result files and the method are in [snails-benchmark](https://github.com/snails-rb/snails-benchmark), which is where these figures come from and where corrections land.
 
