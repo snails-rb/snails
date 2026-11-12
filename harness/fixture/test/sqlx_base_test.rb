@@ -453,6 +453,19 @@ class SqlxTest < TestBase
     assert_equal "beta", SqlxDeclaredModel.find_by({ seen_at: nil }).name
   end
 
+  # A Time condition binds in the runtime's stored form, so the lookup
+  # matches the row the stored text names.
+  def test_find_by_time_condition_binds_to_the_stored_form
+    assert_equal "alpha", SqlxDeclaredModel.find_by({ seen_at: Time.utc(2026, 10, 6, 8, 0, 0) }).name
+  end
+
+  # A value carrying a quote reaches the driver as a bound value, not
+  # spliced SQL text, and the lookup still finds the row.
+  def test_find_by_binds_a_quoted_string
+    Sqlx::Database.exec("INSERT INTO samples (name) VALUES ('it''s')")
+    assert_equal "it's", SqlxCaptureModel.find_by({ name: "it's" })
+  end
+
   # Core quotes every identifier it assembles: `order` is a
   # reserved word that fails the SQL parse when unquoted (it cannot
   # even be a DDL column name without quotes), so the row can only
@@ -2181,6 +2194,8 @@ FixtureRunner.run(SqlxTest, [
   "test_find_by_empty_loud",
   "test_find_by_via_where_clause",
   "test_find_by_is_not_null_condition",
+  "test_find_by_time_condition_binds_to_the_stored_form",
+  "test_find_by_binds_a_quoted_string",
   "test_find_by_quotes_reserved_column",
   "test_find_by_bang_miss_raises",
   "test_count_returns_row_count",

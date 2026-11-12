@@ -195,6 +195,11 @@ module Sqlx
     #   (`< NULL` never matches, a nested Hash would stringify into
     #   the comparison), or gives `is_not` a bound other than nil
     #   (`IS NOT <value>` is not SQL — the operator is the null test)
+    # The core read and write entries bind condition values through `?` so one
+    # SQL shape serves every value; this method stays the literal renderer for
+    # a caller that assembles its own SQL and needs the clause text. The two
+    # forms share the same validation and produce the same predicates.
+    #
     # @example
     #   where_clause({ email: "a@example.com", deleted_at: nil })
     #   # => "email = 'a@example.com' AND deleted_at IS NULL"
@@ -208,26 +213,7 @@ module Sqlx
       raise ArgumentError, "where_clause: conditions must not be empty" if conditions.empty?
       parts = []
       conditions.each do |key, value|
-        if value.nil?
-          parts << (key.to_s + " IS NULL")
-        elsif value.is_a?(Array)
-          raise ArgumentError, "where_clause: #{key} array must not be empty" if value.empty?
-          elements = []
-          value.each do |element|
-            if element.nil?
-              raise ArgumentError, "where_clause: #{key} array must not carry nil"
-            end
-            if element.is_a?(Hash)
-              raise ArgumentError, "where_clause: #{key} array must not carry an operator hash — a condition is a key of its own"
-            end
-            elements << Sqlx.quote(element)
-          end
-          parts << (key.to_s + " IN (" + elements.join(", ") + ")")
-        elsif value.is_a?(Hash)
-          parts.concat(operator_predicates(key.to_s, value))
-        else
-          parts << (key.to_s + " = " + Sqlx.quote(value))
-        end
+        parts << condition_predicate(key.to_s, value, false)[0]
       end
       parts.join(" AND ")
     end
@@ -284,13 +270,12 @@ module Sqlx
     #   carries comparisons (`{ lt: cutoff }`) and the null test
     #   (`{ is_not: nil }` → `IS NOT NULL`); an Array means membership
     #   on it (`IN (...)` — the `where_clause` contract); anything else
-    #   means equality on it, rendered through `Sqlx.quote` — values are
-    #   data (they arrive from request params) and are never interpolated
-    #   raw. Keys are code, not input, and core does not validate them: an
-    #   unknown column surfaces as a loud SQL error, never as nil —
-    #   a typo'd key must not read as a miss. An empty hash is
-    #   allowed only together with `order:` (the table's first/last
-    #   row as above).
+    #   means equality on it, bound through `?` — values are data (they
+    #   arrive from request params) and never interpolated raw. Keys are
+    #   code, not input, and core does not validate them: an unknown column
+    #   surfaces as a loud SQL error, never as nil — a typo'd key must not
+    #   read as a miss. An empty hash is allowed only together with
+    #   `order:` (the table's first/last row as above).
     # @param order [Symbol, nil] `:desc` or `:asc` — the `id`
     #   direction that picks the row; nil leaves the row
     #   implementation-defined (the pre-order contract)
@@ -302,9 +287,8 @@ module Sqlx
     # @raise [ArgumentError] an empty conditions hash with no
     #   `order:` — there is no clause to build and no row question
     #   to ask; or an `order:` other than `:asc`/`:desc` (a typo
-    #   must fail loud, not silently pick a row); or the
-    #   `where_clause` value contract — an empty Array value or an
-    #   Array carrying nil
+    #   must fail loud, not silently pick a row); or the conditions
+    #   value contract — an empty Array value or an Array carrying nil
     # @example call
     #   Model.find_by({ email: "a@example.com", deleted_at: nil })
     #   InvoiceItem.find_by({ invoice_id: 42 }, order: :desc)
@@ -325,9 +309,14 @@ module Sqlx
       end
       quoted_table = '"' + table_name + '"'
       sql = "SELECT " + projection + " FROM " + quoted_table
-      sql += " WHERE " + where_clause(conditions) unless conditions.empty?
+      values = []
+      unless conditions.empty?
+        pair = where_clause_values(conditions)
+        sql += " WHERE " + pair[0]
+        values = pair[1]
+      end
       sql += ' ORDER BY "id" ' + (order == :asc ? "ASC" : "DESC") unless order.nil?
-      one_by_sql(sql + " LIMIT 1")
+      one_by_sql(sql + " LIMIT 1", values)
     end
 
     # the bang counterpart of `find_by`: no match RAISES instead of returning
@@ -380,7 +369,7 @@ module Sqlx
     #   conditions contract, unchanged (a nil VALUE inside a condition
     #   means `IS NULL`, an operator hash carries comparisons and the
     #   null test (`{ is_not: nil }` → `IS NOT NULL`), an Array means
-    #   `IN (...)` membership, anything else escaped equality — keys
+    #   `IN (...)` membership, anything else bound equality — keys
     #   are code, not input, and an unknown column surfaces as a loud
     #   SQL error from the driver). nil CONDITIONS (the argument
     #   itself) mean the whole table: no WHERE clause at all.
@@ -402,7 +391,7 @@ module Sqlx
     #   typo must fail loud, not silently return unordered rows); a
     #   `limit:` that is not a positive Integer; an `offset:` that is
     #   not a non-negative Integer, or that arrives without `limit:` or
-    #   `order:`; or the `where_clause` value contract — an empty Array
+    #   `order:`; or the conditions value contract — an empty Array
     #   value or an Array carrying nil
     # @raise [NotImplementedError] the model has not declared
     #   `table_name` / `only_columns` (the declaration stubs raise)
@@ -435,13 +424,22 @@ module Sqlx
       end
       quoted_table = '"' + table_name + '"'
       sql = "SELECT " + projection + " FROM " + quoted_table
-      sql += " WHERE " + where_clause(conditions) unless conditions.nil?
+      values = []
+      unless conditions.nil?
+        pair = where_clause_values(conditions)
+        sql += " WHERE " + pair[0]
+        values = pair[1]
+      end
       sql += ' ORDER BY "id" ' + (order == :asc ? "ASC" : "DESC") unless order.nil?
       unless limit.nil?
-        sql += " LIMIT " + Sqlx.quote(limit)
-        sql += " OFFSET " + Sqlx.quote(offset) unless offset.nil?
+        sql += " LIMIT ?"
+        values << limit
+        unless offset.nil?
+          sql += " OFFSET ?"
+          values << offset
+        end
       end
-      find_by_sql(sql)
+      find_by_sql(sql, values)
     end
 
     # the whole-table per-record walk. It uses the same keyset walk as
@@ -499,18 +497,28 @@ module Sqlx
         raise ArgumentError, "find_each: only_columns must include id"
       end
       quoted_table = '"' + table_name + '"'
-      base_clause = conditions.nil? ? nil : where_clause(conditions)
+      base_clause = nil
+      base_values = []
+      unless conditions.nil?
+        pair = where_clause_values(conditions)
+        base_clause = pair[0]
+        base_values = pair[1]
+      end
       cursor = nil
       while true
         sql = "SELECT " + projection + " FROM " + quoted_table
         predicate = base_clause
+        values = []
+        base_values.each { |value| values << value }
         unless cursor.nil?
-          cursor_predicate = '"id" > ' + Sqlx.quote(cursor)
+          cursor_predicate = '"id" > ?'
           predicate = predicate.nil? ? cursor_predicate : predicate + " AND " + cursor_predicate
+          values << cursor
         end
         sql += " WHERE " + predicate unless predicate.nil?
-        sql += ' ORDER BY "id" ASC LIMIT ' + Sqlx.quote(batch_size)
-        rows = rows_by_sql(sql)
+        sql += ' ORDER BY "id" ASC LIMIT ?'
+        values << batch_size
+        rows = rows_by_sql(sql, values)
         break if rows.empty?
         rows.each do |row|
           row_id = row["id"]
@@ -569,18 +577,28 @@ module Sqlx
         raise ArgumentError, "find_in_batches: only_columns must include id"
       end
       quoted_table = '"' + table_name + '"'
-      base_clause = conditions.nil? ? nil : where_clause(conditions)
+      base_clause = nil
+      base_values = []
+      unless conditions.nil?
+        pair = where_clause_values(conditions)
+        base_clause = pair[0]
+        base_values = pair[1]
+      end
       cursor = nil
       while true
         sql = "SELECT " + projection + " FROM " + quoted_table
         predicate = base_clause
+        values = []
+        base_values.each { |value| values << value }
         unless cursor.nil?
-          cursor_predicate = '"id" > ' + Sqlx.quote(cursor)
+          cursor_predicate = '"id" > ?'
           predicate = predicate.nil? ? cursor_predicate : predicate + " AND " + cursor_predicate
+          values << cursor
         end
         sql += " WHERE " + predicate unless predicate.nil?
-        sql += ' ORDER BY "id" ASC LIMIT ' + Sqlx.quote(batch_size)
-        rows = rows_by_sql(sql)
+        sql += ' ORDER BY "id" ASC LIMIT ?'
+        values << batch_size
+        rows = rows_by_sql(sql, values)
         break if rows.empty?
         records = []
         rows.each do |row|
@@ -607,8 +625,8 @@ module Sqlx
     # id that missed, which is the diagnostic a 404 log needs.
     #
     # @param id [Integer, String] the `id` column value to match —
-    #   treated as a condition value: it is escaped through
-    #   `where_clause` like any other
+    #   treated as a condition value: it is bound through the
+    #   conditions path like any other
     # @return [Object] the matching record — never nil
     # @raise [Sqlx::RecordNotFound] no row has that `id`
     # @raise [NotImplementedError] the model has not declared
@@ -650,8 +668,13 @@ module Sqlx
     #   # => 7
     def count(conditions = {})
       sql = 'SELECT COUNT(*) AS total FROM "' + table_name + '"'
-      sql += " WHERE " + where_clause(conditions) unless conditions.empty?
-      rows = Sqlx::Database.exec_read(sql, [])
+      values = []
+      unless conditions.empty?
+        pair = where_clause_values(conditions)
+        sql += " WHERE " + pair[0]
+        values = pair[1]
+      end
+      rows = Sqlx::Database.exec_read(sql, values)
       rows.empty? ? 0 : rows[0]["total"].to_i
     end
 
@@ -660,7 +683,7 @@ module Sqlx
     # argument (or an empty hash) asks whether the table has any row at all — an
     # empty question here is well-defined, unlike `find_by({})`'s "which row?";
     # a conditions hash is the `find_by` conditions contract through the
-    # inherited `where_clause`; a scalar is shorthand for an `id` lookup — the
+    # inherited conditions path; a scalar is shorthand for an `id` lookup — the
     # same `id` column `find` uses, so an `exists?(user_id)` call site needs no
     # rewrite; `nil` and `false` answer false without running a query — there is
     # no row to look for.
@@ -679,8 +702,13 @@ module Sqlx
       return false unless conditions
       conditions = { id: conditions } unless conditions.is_a?(Hash)
       sql = 'SELECT 1 FROM "' + table_name + '"'
-      sql += " WHERE " + where_clause(conditions) unless conditions.empty?
-      exists_by_sql(sql + " LIMIT 1")
+      values = []
+      unless conditions.empty?
+        pair = where_clause_values(conditions)
+        sql += " WHERE " + pair[0]
+        values = pair[1]
+      end
+      exists_by_sql(sql + " LIMIT 1", values)
     end
 
     # insert one row from a column/value hash and hand back the persisted
@@ -804,7 +832,7 @@ module Sqlx
     # its conditions and values instead of hand-writing the same
     # `UPDATE <table> SET ... WHERE <clause>` — the assembly never varies by
     # model: the table comes from the declaration, the WHERE body from the
-    # inherited `where_clause`, the SET half from the attrs keys.
+    # inherited conditions path, the SET half from the attrs keys.
     #
     # No timestamp is stamped: `update!` stamps because it hands back
     # a re-read record, and here the caller passes `updated_at` when
@@ -820,7 +848,7 @@ module Sqlx
     #   means `IS NULL`, an operator hash carries comparisons and the
     #   null test (`{ is_not: nil }` → `IS NOT NULL`), an Array means
     #   `IN (...)` membership, a Hash means a comparison like
-    #   `{ lt: cutoff }`, anything else escaped equality — keys are
+    #   `{ lt: cutoff }`, anything else bound equality — keys are
     #   code, not input, and an unknown column surfaces as a loud
     #   SQL error from the driver). nil CONDITIONS (the argument
     #   itself) mean the whole table: no WHERE clause at all.
@@ -855,7 +883,13 @@ module Sqlx
         values << bound_value(name, value)
       end
       sql = 'UPDATE "' + table_name + '" SET ' + sets.join(", ")
-      sql += " WHERE " + where_clause(conditions) unless conditions.nil?
+      condition_values = []
+      unless conditions.nil?
+        pair = where_clause_values(conditions)
+        sql += " WHERE " + pair[0]
+        condition_values = pair[1]
+      end
+      condition_values.each { |value| values << value }
       Sqlx::Database.exec_write(sql, values)["count"]
     end
 
@@ -974,7 +1008,7 @@ module Sqlx
 
     # remove every row matching the conditions hash: the multi-row counterpart
     # of `delete!`, assembled from the model's `table_name` and the inherited
-    # `where_clause`. It exists so an association cascade or a scope-shaped
+    # conditions path. It exists so an association cascade or a scope-shaped
     # cleanup carries only its conditions instead of hand-writing the same
     # `DELETE FROM <table> WHERE <clause>` — the assembly never varies by model.
     # nil conditions mean the whole table: "every row" is an explicit nil, never
@@ -986,15 +1020,15 @@ module Sqlx
     #   conditions contract, unchanged (a nil VALUE inside a condition
     #   means `IS NULL`, an operator hash carries comparisons and the
     #   null test (`{ is_not: nil }` → `IS NOT NULL`), an Array means
-    #   `IN (...)` membership, anything else escaped equality —
-    #   keys are code, not input, and an unknown column surfaces as
-    #   a loud SQL error from the driver). nil CONDITIONS (the
-    #   argument itself) mean the whole table: no WHERE clause at all.
+    #   `IN (...)` membership, anything else bound equality — keys are
+    #   code, not input, and an unknown column surfaces as a loud SQL
+    #   error from the driver). nil CONDITIONS (the argument itself)
+    #   mean the whole table: no WHERE clause at all.
     # @return [Integer] the number of rows deleted — 0 when no row
     #   matched
     # @raise [ArgumentError] an empty conditions hash — the
     #   whole-table DELETE is spelled nil, so an empty hash means
-    #   the condition builder broke; or the `where_clause` value
+    #   the condition builder broke; or the conditions value
     #   contract — an empty Array value or an Array carrying nil
     # @raise [NotImplementedError] the model has not declared
     #   `table_name`
@@ -1008,8 +1042,13 @@ module Sqlx
         raise ArgumentError, "delete_all!: conditions must not be an empty hash — pass nil to delete the whole table"
       end
       sql = 'DELETE FROM "' + table_name + '"'
-      sql += " WHERE " + where_clause(conditions) unless conditions.nil?
-      Sqlx::Database.exec_write(sql, [])["count"]
+      values = []
+      unless conditions.nil?
+        pair = where_clause_values(conditions)
+        sql += " WHERE " + pair[0]
+        values = pair[1]
+      end
+      Sqlx::Database.exec_write(sql, values)["count"]
     end
 
     # the single-row half of `find_by_sql`: walk the caller's SELECT and hand
@@ -1050,20 +1089,89 @@ module Sqlx
       !Sqlx::Database.exec_read(sql, bound).empty?
     end
 
-    # the predicates for one operator-hash condition value:
-    # `column <op> <bound>` per whitelisted comparison (`lt`/`lte`/`gt`/`gte`),
-    # each bound rendered through `Sqlx.quote` like every other value, plus the
-    # null test (`is_not: nil` → `column IS NOT NULL`). The whitelist and the
-    # bound checks are the entry validation: an unknown operator raises instead
-    # of rendering a predicate nobody meant, an empty hash raises instead of
-    # dropping the condition silently, a nil or structured comparison bound
-    # raises because `quote` would render it into the comparison as text (`<
-    # NULL` matches nothing; a nested Hash would stringify), and `is_not` with
-    # any bound but nil raises because SQL's `IS NOT` is the null test here, not
-    # a general negation.
-    def operator_predicates(column, operators)
+    # The bind companion of `where_clause`: the same conditions contract with
+    # every value replaced by a `?` placeholder and returned alongside the
+    # clause. Core entries use it so a lookup across many values keeps one
+    # prepared-statement shape; the public `where_clause` keeps the literal
+    # form for caller-written SQL.
+    #
+    # @param conditions [Hash{Symbol => Object}] the `where_clause`
+    #   conditions contract
+    # @return [Array] the clause body and one value per placeholder, in
+    #   statement order
+    # @raise [ArgumentError] on an empty conditions hash or the
+    #   `where_clause` value contract
+    def where_clause_values(conditions)
+      raise ArgumentError, "where_clause: conditions must not be empty" if conditions.empty?
+      parts = []
+      values = []
+      conditions.each do |key, value|
+        pair = condition_predicate(key.to_s, value, true)
+        parts << pair[0]
+        values.concat(pair[1])
+      end
+      [parts.join(" AND "), values]
+    end
+
+    # One condition as its predicate and the values that predicate binds.
+    # `bind` picks the form: true emits `?` placeholders for the core entries,
+    # false renders through `Sqlx.quote` for the public `where_clause`. Both
+    # forms run the same validation, so a malformed condition fails identically
+    # whichever entry the caller uses.
+    #
+    # @param column [String] the condition's column name
+    # @param value [Object] the condition value in the `where_clause` contract
+    # @param bind [Boolean] true to emit placeholders, false to inline values
+    # @return [Array] the predicate and the values it binds (empty when inline)
+    # @raise [ArgumentError] the value violates the conditions contract
+    def condition_predicate(column, value, bind)
+      if value.nil?
+        [column + " IS NULL", []]
+      elsif value.is_a?(Array)
+        raise ArgumentError, "where_clause: #{column} array must not be empty" if value.empty?
+        elements = []
+        value.each do |element|
+          if element.nil?
+            raise ArgumentError, "where_clause: #{column} array must not carry nil"
+          end
+          if element.is_a?(Hash)
+            raise ArgumentError, "where_clause: #{column} array must not carry an operator hash — a condition is a key of its own"
+          end
+          elements << (bind ? "?" : Sqlx.quote(element))
+        end
+        [column + " IN (" + elements.join(", ") + ")", bind ? value : []]
+      elsif value.is_a?(Hash)
+        operator_predicates(column, value, bind)
+      elsif bind
+        [column + " = ?", [ value ]]
+      else
+        [column + " = " + Sqlx.quote(value), []]
+      end
+    end
+
+    # The predicates for one operator-hash condition value:
+    # `column <op> <bound>` per whitelisted comparison (`lt`/`lte`/`gt`/`gte`)
+    # plus the null test (`is_not: nil` → `column IS NOT NULL`). With `bind`
+    # true each comparison bound becomes a `?` placeholder and its value is
+    # returned; with false the bound is rendered through `Sqlx.quote`.
+    #
+    # The whitelist and the bound checks are the entry validation: an unknown
+    # operator raises instead of rendering a predicate nobody meant, an empty
+    # hash raises instead of dropping the condition silently, a nil or
+    # structured comparison bound raises (`< NULL` matches nothing; a nested
+    # Hash would stringify), and `is_not` with any bound but nil raises because
+    # SQL's `IS NOT` is the null test here, not a general negation.
+    #
+    # @param column [String] the condition's column name
+    # @param operators [Hash{Symbol => Object}] the operator predicates
+    # @param bind [Boolean] true to emit placeholders, false to inline values
+    # @return [Array] the joined predicates and the values they bind
+    # @raise [ArgumentError] an empty operator hash, an unknown operator, or
+    #   an invalid bound
+    def operator_predicates(column, operators, bind)
       raise ArgumentError, "where_clause: #{column} operator hash must not be empty" if operators.empty?
       predicates = []
+      values = []
       operators.each do |operator, bound|
         if operator == :is_not
           if !bound.nil?
@@ -1086,9 +1194,14 @@ module Sqlx
         if bound.is_a?(Hash) || bound.is_a?(Array)
           raise ArgumentError, "where_clause: #{column} #{operator.inspect} bound must be a value"
         end
-        predicates << (column + " " + operator_sql + " " + Sqlx.quote(bound))
+        if bind
+          predicates << (column + " " + operator_sql + " ?")
+          values << bound
+        else
+          predicates << (column + " " + operator_sql + " " + Sqlx.quote(bound))
+        end
       end
-      predicates
+      [predicates.join(" AND "), values]
     end
 
     # one column's bound value: a declared json column serializes through
@@ -1156,6 +1269,6 @@ module Sqlx
     # `one_by_sql`, `exists?` on `exists_by_sql`, and the supported entries
     # are the public methods above — including the `find_by_sql` escape
     # hatch for joins and other caller-written SQL.
-    private :one_by_sql, :exists_by_sql, :operator_predicates, :values_for_placeholders, :placeholder_count, :bound_value
+    private :one_by_sql, :exists_by_sql, :where_clause_values, :condition_predicate, :operator_predicates, :values_for_placeholders, :placeholder_count, :bound_value
   end
 end
