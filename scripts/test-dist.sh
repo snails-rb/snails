@@ -5,9 +5,9 @@
 # notes, stable/prerelease/unversioned channel flags), dist-mode `snails new` (the
 # REV file is the pin source), the dist-mode fetch path (`snails sync` on a
 # pin that is not the dist's own rev downloads, verifies, caches, and reuses
-# the published dist), the version-pin resolution through the target repo's
-# tag annotation, `verify-pin` in dist mode (publication check), and
-# install.sh (download, verify, unpack, symlink).
+# the published dist), the version-pin resolution through the release
+# repository's tag, `verify-pin` in dist mode (publication check), and
+# install.sh (download, verify, unpack, symlink, and latest resolution).
 #
 # The distribution base is a local HTTP server serving the same layout
 # as the GitHub releases, so no network is touched; the GitHub-specific
@@ -119,7 +119,7 @@ bash "$PUB" HEAD --dry-run --out out > dry.out 2>&1
 chk "dry-run builds the assets" $? 0
 grep -q "release tag: rev-$REV" dry.out
 chk "the release tag prefixes the rev" $? 0
-grep -q "target repo: snails-rb/dist" dry.out
+grep -q "target repo: snails-rb/snails" dry.out
 chk "the dry run names the target repo" $? 0
 grep -q "built out/pins.toml" dry.out
 chk "the dry run builds the pins asset" $? 0
@@ -476,15 +476,17 @@ grep -q "run 'git rev-parse ${FAKE2:0:7}'" pair-abbrev.out
 chk "the dist-mode repair names the expand command" $? 0
 
 # The release channel in dist mode: a vX.Y.Z pin resolves through the
-# target repo's tag. The repo carries no source commits, so the tag
-# is annotated on the release-target commit and its message carries
-# REV=<source rev>; the CLI reads the tag object.
+# release repository's tag. That repository is the source repository, so
+# the tag points at the rev itself — annotated here, resolved through the
+# tag object; a lightweight tag is read as its commit directly.
 mkdir -p serve/api/git/ref/tags serve/api/git/tags
 TAGOBJ="$(printf 'e%.0s' {1..40})"
 printf '{"ref":"refs/tags/v9.9.9","object":{"sha":"%s","type":"tag"}}\n' "$TAGOBJ" \
   > serve/api/git/ref/tags/v9.9.9
-printf '{"tag":"v9.9.9","message":"snails v9.9.9 REV=%s","object":{"sha":"%s","type":"commit"}}\n' "$FAKE2" "$FAKE" \
+printf '{"tag":"v9.9.9","message":"snails v9.9.9","object":{"sha":"%s","type":"commit"}}\n' "$FAKE2" \
   > "serve/api/git/tags/$TAGOBJ"
+printf '{"ref":"refs/tags/v9.9.10","object":{"sha":"%s","type":"commit"}}\n' "$FAKE2" \
+  > serve/api/git/ref/tags/v9.9.10
 cat > papp-version.toml <<CONF
 SPINEL_REV="abc1234"
 SNALS_REV="v9.9.9"
@@ -497,6 +499,17 @@ grep -q 'pins ok (spinel=abc1234 snails=v9.9.9)' pair-version.out
 chk "the dist ok line shows the declared version" $? 0
 [[ -f "$XDG_CACHE_HOME/snails/dist/versions/v9.9.9" && "$(cat "$XDG_CACHE_HOME/snails/dist/versions/v9.9.9")" == "$FAKE2" ]]
 chk "a resolved version is recorded in the local map" $? 0
+# A lightweight tag names its commit directly, with no tag object read.
+cat > papp-light.toml <<CONF
+SPINEL_REV="abc1234"
+SNALS_REV="v9.9.10"
+CONF
+SNAILS_GIT_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails verify-pins --pins papp-light.toml > pair-light.out 2>&1
+chk "dist-mode verify-pins resolves a lightweight tag" $? 0
+grep -q 'pins ok (spinel=abc1234 snails=v9.9.10)' pair-light.out
+chk "the lightweight tag's version is shown" $? 0
 # Version tags are immutable, so the map is the answer: a dead API base
 # still resolves the pin.
 SNAILS_GIT_BASE_URL="http://127.0.0.1:9/api" \
@@ -578,6 +591,27 @@ chk "no install survives a mismatch" $? 0
 SNAILS_HOME="$WORK/ihome-short" SNAILS_BIN_DIR="$WORK/ibin-short" \
   bash "$INSTALL" --rev "deadbee" >/dev/null 2>&1
 chk "install.sh refuses an abbreviated rev" $? 1
+
+# The default install follows the Latest release; a channel with no stable
+# release yet falls back to the newest published one. Two API bases keep
+# the Latest object and the release list on separate paths.
+mkdir -p serve/api-latest/releases serve/api-list
+printf '{"tag_name":"rev-%s"}\n' "$FAKE" > serve/api-latest/releases/latest
+printf '[{"tag_name":"rev-%s"}]\n' "$FAKE" > serve/api-list/releases
+SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-latest" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-latest" SNAILS_BIN_DIR="$WORK/ibin-latest" \
+  bash "$INSTALL" > inst-latest.out 2>&1
+chk "install.sh installs the Latest release" $? 0
+grep -q "\[snails\] dist $FAKE -> " inst-latest.out
+chk "the Latest install is reported" $? 0
+SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-list" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-fresh" SNAILS_BIN_DIR="$WORK/ibin-fresh" \
+  bash "$INSTALL" > inst-fresh.out 2>&1
+chk "install.sh falls back to the newest release with no Latest" $? 0
+grep -q "\[snails\] dist $FAKE -> " inst-fresh.out
+chk "the fallback install is reported" $? 0
 
 # 10. the cache serves a repeat sync with the server gone.
 kill "$SERVER_PID" 2>/dev/null || true
