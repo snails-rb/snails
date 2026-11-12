@@ -14,6 +14,8 @@ The installer puts `snails` on your path and keeps the release under `~/.local/s
 mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_prefix=rev-]'
 ```
 
+While the repository has only release candidates, add `prerelease=true` to that tool entry.
+
 A project calls the CLI through its own `bin/` scripts most days. Run `snails` with no arguments to see every command it offers.
 
 ## Create a project

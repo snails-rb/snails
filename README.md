@@ -27,6 +27,8 @@ mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_
 snails new demo
 ```
 
+While the repository has only release candidates, add `prerelease=true` to that tool entry.
+
 The first command that needs the toolchain assembles the pinned compiler. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
 
 ## Benchmark
