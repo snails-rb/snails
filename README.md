@@ -31,9 +31,9 @@ The first command that needs the toolchain assembles the pinned compiler. See [G
 
 ## Benchmark
 
-The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. Snails does ~3× the throughput of Rails in cluster mode with over 20× less memory under load, and ~12× a default Rails app.
+The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. Snails does about 3× the throughput of Rails in cluster mode on that microbenchmark, with roughly 10× or more peak memory savings under load, and ~12× a default Rails app. A separate single-row DB read now measures about 3.1×, close to the microbenchmark ratio.
 
-Reproduce from that repository with `bin/bench`, `bin/boottime`, and `bin/imagesize`. The raw result files are under [`results/`](https://github.com/snails-rb/snails-benchmark/tree/main/results).
+Reproduce from that repository with `bin/bench`, `bin/bench-scenario`, `bin/boottime`, and `bin/imagesize`. The result tables are under [`results/`](https://github.com/snails-rb/snails-benchmark/tree/main/results).
 
 ## Manual
 
