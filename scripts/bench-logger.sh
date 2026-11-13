@@ -1,12 +1,12 @@
 #!/bin/bash
-# Logger cost bench — MEASUREMENTS, not a gate. It decomposes one
-# production-shaped logger call into its parts so an optimization can be
-# ranked by measured share instead of by how visible the code looks.
+# Logger cost bench — MEASUREMENTS, not a gate. It breaks one
+# production-like logger call into its parts, so an optimization can be
+# ranked by measured cost rather than by what looks expensive.
 #
 # The driver (harness/fixture/bench/logger_cost.rb) runs each case on one
 # thread and on several at once: a part that is cheap alone but serialized
-# shows up in the multi-thread columns, which is the shape the request path
-# has. Numbers are per call, median of the rounds.
+# shows up in the multi-thread columns, which matches the request path.
+# Numbers are per call, median of the rounds.
 #
 # Usage: bash scripts/bench-logger.sh [--threads 1,8] [--rounds 5]
 #        [--iterations 20000] [--output null|devnull]

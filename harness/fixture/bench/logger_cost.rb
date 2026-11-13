@@ -1,10 +1,10 @@
 # Logger cost bench — measurements only, no assertions. It splits one
-# production-shaped logger call into its parts so an optimization can be
-# ranked by measured share instead of by how visible the code looks.
+# production-like logger call into its parts so an optimization can be
+# ranked by measured cost rather than by what looks expensive.
 #
 # Every case runs on one thread and on several at once. A part that is cheap
 # alone but serialized across threads shows up in the multi-thread columns,
-# which is the shape the request path has: one thread per request.
+# which matches the request path: one thread per request.
 #
 # Two outputs answer different questions:
 #

@@ -1,5 +1,5 @@
 # Adapter contract — a condition the scaffold builds must be valid on the app's
-# backend. This file runs in the sqlite demo and the pg canary, so a spelling
+# backend. This file runs in the sqlite demo and the pg canary, so a form
 # that only one adapter compares fails before a consumer pins the core.
 require_relative "../boot"
 

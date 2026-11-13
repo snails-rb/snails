@@ -43,8 +43,8 @@ jobs:
     steps:
       - name: Checkout snails
         uses: actions/checkout@v7
-      # tomllib keeps the reader honest against the pins format contract
-      # instead of grepping KEY=VALUE lines (same reader as ci.yml).
+      # tomllib parses the pins file against its format contract instead of
+      # grepping KEY=VALUE lines (same reader as ci.yml).
       - name: Read the spinel pin
         id: pin
         run: |

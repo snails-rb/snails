@@ -2,9 +2,9 @@
 
 [![ci](https://github.com/snails-rb/snails/actions/workflows/ci.yml/badge.svg)](https://github.com/snails-rb/snails/actions/workflows/ci.yml)
 
-Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions — routes, controllers, models, forms, mailers, and jobs in Ruby; migrations in SQL — and compiles your app code, the framework, and the HTTP server into one native executable. The server does not depend on Ruby; the executable boots in single-digit milliseconds and handles requests concurrently without a GVL. There is no view layer or asset pipeline.
+Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions — routes, controllers, models, forms, mailers, and jobs in Ruby, migrations in SQL — and compiles your app code, the framework, and the HTTP server into one native executable. The server does not depend on Ruby; the executable boots in single-digit milliseconds and handles requests concurrently without a GVL. There is no view layer or asset pipeline.
 
-The project is split into parts: the API-only, Rails-like runtime for [Spinel](https://github.com/matz/spinel) (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). A consuming app vendors the runtime as `snails-core/` and pins the revision in `pins.toml`.
+The project is split into parts: the API-only, Rails-like runtime for [Spinel](https://github.com/matz/spinel) (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). A consumer app vendors the runtime as `snails-core/` and pins the revision in `pins.toml`.
 
 Status: 1.0 release candidate. The public API may still change before 1.0.
 
@@ -31,11 +31,11 @@ snails new demo
 
 While the repository has only release candidates, add `prerelease=true` to that tool entry.
 
-The first command that needs the toolchain assembles the pinned compiler, so install the system packages listed under [Requirements](manual/02-getting-started.md#requirements) first. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
+The first command that needs the toolchain builds the pinned compiler, so install the system packages listed under [Requirements](manual/02-getting-started.md#requirements) first. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
 
 ## Benchmark
 
-The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode, with peak-memory savings of 10× or more under load, and about 12× the throughput of a default Rails app. A separate single-row DB read measures about 3.1×, close to the microbenchmark ratio.
+The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode, with peak-memory savings of 10× or more under load, and about 12× the throughput of a default Rails app. A separate single-row database read is about 3.1× faster than Rails, close to the microbenchmark ratio.
 
 Reproduce from that repository with `bin/bench`, `bin/bench-scenario`, `bin/boottime`, and `bin/imagesize`. The result tables are under [`results/`](https://github.com/snails-rb/snails-benchmark/tree/main/results).
 
@@ -121,4 +121,4 @@ Bug reports and focused pull requests are welcome. Read [`CONTRIBUTING.md`](CONT
 
 MIT. See [`LICENSE`](LICENSE).
 
-`runtime/` began as a fork of the Spinel scaffold emit and has been substantially rewritten. The derived portions live in `runtime/action_controller/` and `runtime/action_dispatch/`; each carries the upstream notice in its `NOTICE` file. `runtime/tep/` follows tep's notice in `runtime/tep/NOTICE`. The rest of the runtime is Snails' own work.
+`runtime/` began as a fork of Spinel's scaffold output and has been substantially rewritten. The derived portions live in `runtime/action_controller/` and `runtime/action_dispatch/`; each carries the upstream notice in its `NOTICE` file. `runtime/tep/` follows tep's notice in `runtime/tep/NOTICE`. The rest of the runtime is Snails' own work.

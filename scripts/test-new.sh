@@ -36,7 +36,7 @@
 # picked free and distinct up front — gate ports, dev ports, the guarded
 # foreign listeners, and the docker host ports — so parallel test-new runs
 # (and anything else on the machine) cannot collide; a shared fixed port
-# lets a foreign listener answer the readiness probe and silence a broken
+# lets a foreign listener answer the readiness probe and mask a broken
 # app. Each role keeps an env override to pin an exact port for debugging.
 # Output is tagged [demo]/[pg].
 #
@@ -175,7 +175,7 @@ read -r OCCUPIED_PORT STRAY_PORT DEV_PORT PORT_DEMO PORT_PG DEV_PG_HTTP DEV_PG_P
 
 # The two foreign listeners bind right after the pick — the gap between
 # picking and binding is where a parallel run could claim the same port,
-# and a loud bind failure beats a confusing assert much later. Their PIDs
+# and a clear bind failure beats a confusing assertion much later. Their PIDs
 # are recorded so cleanup takes them down even when a canary dies first.
 start_listener() {
   local port="$1" role="$2" pid
@@ -201,8 +201,8 @@ probe_up() {
   fi
 }
 
-# Boot bin/dev in the background, wait for /up, then stop it. Fails loud
-# with the server log when the boot never answers or the process dies.
+# Boot bin/dev in the background, wait for /up, then stop it. A failed boot
+# reports the server log when the boot never answers or the process dies.
 # The stop is a contract: the stamped wrapper execs into the CLI, the
 # CLI execs into the engine, and the engine execs into the server — one
 # PID for the whole chain — so this kill must reach the server; the probe
@@ -406,7 +406,7 @@ RB
     exit 1
   fi
   cp "$WORK/demo-pins.bak" "$APP/pins.toml"
-  grep -q 'is not the rev declared' <<<"$out" &&
+  grep -q 'is not the revision declared' <<<"$out" &&
     grep -q 'set SPINEL_REV=' <<<"$out" &&
     grep -q "snails sync $APP" <<<"$out" || {
     echo "[test-new] the pin gate does not name the declared rev and the repair" >&2
@@ -546,12 +546,12 @@ RB
     exit 1
   fi
 
-  # Pending migrations stop the dev server before the build. A consumer
-  # dev DB answered /up while background jobs failed on a missing table, so
-  # the gate must name the repair and keep the labels behind --verbose; the
-  # apply step then lets the same DB serve, and --fresh recreates the DB so
-  # the explicit load records its ledger (the next boot must not see it as
-  # pending).
+  # Pending migrations stop the dev server before the build. A consumer's
+  # dev database answered /up while background jobs failed on a missing
+  # table, so the gate must name the repair and show the labels only with
+  # --verbose. The apply step then lets the same database serve, and --fresh
+  # recreates it so the explicit load records its ledger (the next boot must
+  # not see it as pending).
   echo "[test-new] dev stops on a pending migration ($APP/bin/dev)"
   mkdir -p "$APP/db/migrate"
   cat > "$APP/db/migrate/20261030000000_add_dev_probe.sql" <<'SQL'
@@ -620,7 +620,7 @@ SQL
     exit 1
   fi
   cp "$WORK/demo-pins.bak" "$APP/pins.toml"
-  grep -q 'is not the rev declared' <<<"$out" || {
+  grep -q 'is not the revision declared' <<<"$out" || {
     echo "[test-new] the dev pin gate: no pair-mismatch report" >&2
     printf '%s\n' "$out" >&2
     exit 1
@@ -703,7 +703,7 @@ canary_pg() {
   local PG_APP="$WORK/demopg"
   echo "[test-new] scaffolding $PG_APP (--scaffold, pg adapter)"
   "$ROOT/bin/snails" new "$PG_APP" --scaffold --database=postgresql >/dev/null
-  # Same shape as the sqlite scaffold: baseline as a UTC migration, no
+  # Same form as the sqlite scaffold: baseline as a UTC migration, no
   # schema dump — and on pg `migrate dump` needs a server to replay into
   # (a throwaway schema), so a scratch container carries that one command
   # and is dropped before the dev scenarios start their own.
@@ -851,8 +851,8 @@ canary_pg() {
   psql "$MARKER_URL" -v ON_ERROR_STOP=1 -c \
     "CREATE TABLE dev_marker (id integer); INSERT INTO dev_marker VALUES (42);" >/dev/null
   # A provided database is the developer's to initialize: with no ledger the
-  # gate stops and names the load step — the explicit load is what consents
-  # to writing DDL into their database. Only then does the runner serve it
+  # gate stops and names the load step — the explicit load is what authorizes
+  # writing DDL into their database. Only then does the runner serve it
   # as-is.
   echo "[test-new] pending gate stops on a never-migrated provided PG_URL ($PG_APP/bin/dev)"
   if out=$(env PORT="$DEV_PG_HTTP" PG_URL="$MARKER_URL" SNAILS_DIR="$ROOT" \

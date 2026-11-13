@@ -4,7 +4,7 @@ require_relative "harness_runner"
 # SNAILS_ENV mode (core) — `Snails.env` reads ENV["SNAILS_ENV"] once and
 # memoizes the predicates the logger's debug gate and app-side dev-only
 # branches read. Development is the unset (or empty) default; a name
-# outside the vocabulary answers every predicate false rather than
+# outside the vocabulary returns false for every predicate rather than
 # raising (mode is read on the request path). `Snails.env=` replaces the
 # mode in-process, which these cases use instead of mutating ENV.
 class EnvModeTest < TestBase

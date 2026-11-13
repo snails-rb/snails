@@ -160,7 +160,7 @@ chk "the dist version names the packaged rev" $? 0
 grep -q "^  REV = \"$REV\"$" dist/runtime/snails/version.rb
 chk "the dist revision names the packaged rev" $? 0
 
-# 3. a rev without the core paths is rejected loud.
+# 3. a revision without the core paths is rejected with a clear error.
 mkdir -p fake/scripts
 cp "$PUB" fake/scripts/
 git -C fake init -q
@@ -178,7 +178,7 @@ chk "the missing path is named" $? 0
 bash "$PUB" HEAD --version 9.9.9 --dry-run --out ver-out > ver-format.out 2>&1
 chk "--version rejects a non-SemVer value" $? 1
 grep -q -- '--version must look like v0.1.0' ver-format.out
-chk "the bad version is named with the expected shape" $? 0
+chk "the bad version is named with the expected form" $? 0
 bash "$PUB" HEAD --version v9.9.9 --dry-run --out ver-out > ver-dry.out 2>&1
 chk "--version dry-run builds the assets" $? 0
 grep -q "version tag: v9.9.9" ver-dry.out
@@ -316,9 +316,10 @@ chk "new keeps the dist version metadata" $? 0
 grep -q 'def self.up_path' demo/gen/route_helpers.rb
 chk "new reads the route table through the pinned parser" $? 0
 
-# The dist-mode pin declaration gate: the dist's own rev is trivially
-# usable and the SPINEL_REV a fresh project records equals the rev the
-# dist's own pins declares (read locally — no network).
+# The distribution-mode pin declaration gate: the distribution's own
+# revision is always usable, and the SPINEL_REV a fresh project records equals
+# the revision the distribution's own pins file declares (read locally, with
+# no network).
 bash dist/bin/snails verify-pins demo > vp.out 2>&1
 chk "dist-mode verify-pins passes on a fresh project" $? 0
 grep -q 'pins ok' vp.out
@@ -519,7 +520,8 @@ chk "the local map resolves a version without the API" $? 0
 grep -q 'pins ok (spinel=abc1234 snails=v9.9.9)' pair-version-cache.out
 chk "the cached resolution keeps the declared version in the ok line" $? 0
 
-# A version tag the API does not know is loud, with the tag repair.
+# A version tag the API does not know fails with a clear error and the tag
+# repair.
 cat > papp-noversion.toml <<CONF
 SPINEL_REV="abc1234"
 SNALS_REV="v0.0.0"
@@ -530,7 +532,7 @@ chk "dist-mode verify-pins fails an unknown vX.Y.Z" $? 1
 grep -q 'names no release tag v0.0.0' pair-noversion.out
 chk "the dist-mode unknown version names the tag" $? 0
 
-# 8. loud failures: a checksum mismatch leaves no cache, an abbreviated
+# 8. clear failures: a checksum mismatch leaves no cache, an abbreviated
 #    pin cannot resolve in dist mode.
 cat > bapp-pins.toml <<CONF
 SPINEL_REV="1d26ef6"
@@ -554,7 +556,7 @@ chk "an abbreviated pin fails in dist mode" $? 1
 grep -q "full 40-hex" short.out
 chk "the abbreviated pin is named" $? 0
 
-# 9. install.sh: download, verify, unpack, symlink — and the same loud
+# 9. install.sh: download, verify, unpack, symlink — and the same clear
 #    failures as the fetch path.
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" SNAILS_HOME="$WORK/ihome" SNAILS_BIN_DIR="$WORK/ibin" \
   bash "$INSTALL" --rev "$FAKE" > inst.out 2> inst.err

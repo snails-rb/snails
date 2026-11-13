@@ -1,8 +1,8 @@
 # Validates the input for a post before the controller writes it.
 #
 # A form holds no persistence: it projects the request hash onto its declared
-# fields, runs the rules in declaration order, and answers the ordered message
-# list a 422 body carries.
+# fields, runs the rules in declaration order, and returns the ordered message
+# list that a 422 body carries.
 class PostForm < Snails::Form
   FIELDS = %w[title body].each { |n| define_method(n) { read_attribute(n) } }
 

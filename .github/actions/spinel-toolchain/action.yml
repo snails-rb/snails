@@ -4,15 +4,16 @@ description: >
   of the job. Call it after checkout; the caller owns the system packages the
   build needs (clang, libclang, sqlite3, libpq, jemalloc).
 
-  A per-rev, pin-exact install: the gates materialize their toolchain from this
-  PATH install and accept it only while it reports the pinned rev. This is not a
-  human-managed global toolchain — nobody maintains this rev by hand.
+  A per-revision, pin-exact install: the gates materialize their toolchain
+  from this PATH install and accept it only while it reports the pinned
+  revision. This is not a human-managed global toolchain; this revision is
+  not maintained by hand.
 
 runs:
   using: composite
   steps:
-    # tomllib keeps the reader honest against the pins format contract
-    # instead of grepping KEY=VALUE lines.
+    # tomllib parses the pins file against its format contract instead of
+    # grepping KEY=VALUE lines.
     - name: Load tool pin
       shell: bash
       run: |
@@ -48,9 +49,9 @@ runs:
       shell: bash
       working-directory: .spinel
       run: make install PREFIX="$HOME/.local"
-    # A cache hit skips the build and install, so the PATH entry and the rev
-    # check belong here, where both paths meet. A cache that reports another
-    # rev is a loud failure, never a silent unpinned build.
+    # A cache hit skips the build and install, so the PATH entry and the
+    # revision check belong here, where both paths meet. A cache that reports
+    # another revision is a clear failure, never a silent unpinned build.
     - name: Expose the pinned toolchain
       shell: bash
       run: |

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Format gate for pins files — the pins.toml contract: every value is a
 # quoted basic string on a flat KEY="value" line (no tables, no arrays,
-# no spaces around `=`). That shape is valid TOML AND a declaration the
+# no spaces around `=`). That form is valid TOML AND a declaration the
 # CLI reads, so the same bytes serve a TOML parser, `source`, and
 # bin/snails. This script asserts the repo pins file and a scaffolded
 # project's pins file satisfy all three, and that the CLI enforces the

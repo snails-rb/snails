@@ -2,7 +2,7 @@ name: app-image-test
 
 # The app image test (scripts/test-image.sh): a new app builds its image from
 # the published spinel pin image, serves GET /up, runs migrations in the image,
-# and the src/ layout builder scripts work.
+# and checks that the src/ layout builder scripts work.
 #
 # Callable instead of triggered directly, because the test needs the pin image
 # to exist. spinel-image calls it after publishing a pin image; platform-ci

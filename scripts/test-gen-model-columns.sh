@@ -2,11 +2,11 @@
 # Regression test for the schema-derived column generator
 # (cli/gen-model-columns.sh; bin/snails gen-model-columns).
 #
-# Every Sqlx::Base model under app/models is generated automatically. The
-# cases pin the schema grammar it accepts, the type-to-rbs mapping, model
-# discovery (subfolders; the declared class name is the authority), override
-# exclusion, and every loud refusal — a silently dropped column would
-# surface only as a missing API field.
+# Column metadata is generated automatically for every Sqlx::Base model under
+# app/models. The cases pin the schema grammar it accepts, the type-to-rbs
+# mapping, model discovery (subfolders; the declared class name is the
+# authority), override exclusion, and every clear refusal — a silently
+# dropped column would surface only as a missing API field.
 #
 # Usage: bash scripts/test-gen-model-columns.sh
 # Exit: 0=all cases pass, 1=failure.

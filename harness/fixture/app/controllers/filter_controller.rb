@@ -33,8 +33,8 @@ class HarnessHaltController < ApplicationController
   end
 end
 
-# Registered name with no matching method — the send dispatch must
-# fail loudly (NoMethodError), not silently skip the filter.
+# Registered name with no matching method — method dispatch must fail with
+# a clear error (NoMethodError), not silently skip the filter.
 class HarnessMissingMethodController < ApplicationController
   before_action :unmapped_filter
 end
@@ -87,9 +87,9 @@ class HarnessExceptController < ApplicationController
   def all_ran?; !@all_ran.nil?; end
 end
 
-# The filter METHOD lives on the parent; the child registers the
-# name — the shared-filter pattern (registration cannot auto-propagate,
-# but the send dispatch reaches ancestors).
+# The filter method lives on the parent; the child registers the name —
+# the shared-filter pattern (registration cannot propagate automatically,
+# but method dispatch reaches ancestors).
 class HarnessParentController < ApplicationController
   def shared_filter
     @shared = true

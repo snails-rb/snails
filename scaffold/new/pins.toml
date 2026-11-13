@@ -1,5 +1,6 @@
 # Tool pins — flat TOML: every value is a quoted string; no tables, no arrays.
-# `snails sync` discovers this file and `snails verify-pin` validates it.
+# `snails sync` discovers this file, and `snails pins check` validates the
+# declaration.
 SPINEL_REV="__SPINEL_REV__"
 
 # Core pin — a release version (vX.Y.Z), or a full commit for an edge pin.

@@ -40,9 +40,9 @@ if Snails::Harness.file_selected?
       assert_equal created.id, data["id"]
     end
 
-    # The JSON time columns are the ext's ISO8601 spelling — the model
-    # hands back Time and `render json:` spells it, with no controller
-    # formatter in the scaffold.
+    # The JSON time columns use the ext's ISO8601 format: the model returns
+    # Time and `render json:` formats it, with no controller formatter in the
+    # scaffold.
     test "posts show renders the time columns as ISO8601" do
       created = Post.create!({ title: "stamped", body: "body" })
       get("/posts/" + created.id.to_s)

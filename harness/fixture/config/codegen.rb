@@ -3,7 +3,8 @@
 # app/ has no autoload and spinel's AOT graph follows literal requires only,
 # so every app file is reached through a gen/* load list listed here. App
 # files carry no require_relative of their own; the exception is a load-time
-# constant that names another file's constant — that file requires its source.
+# constant that names another file's constant — that file requires the file
+# that defines it.
 #
 # Seeded once; app-owned afterwards.
 require_relative "../gen/lib"

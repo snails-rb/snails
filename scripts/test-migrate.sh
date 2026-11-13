@@ -1,7 +1,7 @@
 #!/bin/bash
 # Regression test for `snails migrate` (cli/migrate.sh) — the incremental
-# half of the schema contract. Uses the sqlite adapter only (the pg adapter is
-# Phase 2).
+# half of the schema contract. Runs on sqlite by default; the pg cases run
+# when a PostgreSQL server is reachable at PG_URL or the local default.
 #
 # Cases: pending/applied status, idempotent apply + ledger, `load` (fresh
 # create/load/apply/dump, schema-only reload, existing-data preservation),
@@ -247,7 +247,7 @@ cp "$WORK/pins.bak" "$APP/pins.toml"
 migrate apply >/dev/null 2>&1
 
 # --- plan is a dry run: it reads the ledger when a target is resolvable
-# (default path here), and says so out loud when none is.
+# (default path here), and says so when none is.
 out=$(bash "$ENGINE" plan --app "$APP" 2>&1); code=$?
 chk "plan works with the default target" "$code" "0"
 chk_has "plan prints a pending migration" "$out" "-- 0002_views"

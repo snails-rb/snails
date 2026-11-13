@@ -11,7 +11,7 @@ class Post < Sqlx::Base
   # declared time columns.
 
   # Every post, newest first. The conditions-hash entries refuse an empty hash
-  # (that question belongs to `all`), so the whole-table read lives here.
+  # (that query is `all`'s job), so the whole-table read lives here.
   def self.all
     find_by_sql("SELECT " + projection + " FROM \"posts\" ORDER BY \"id\" DESC")
   end
@@ -23,10 +23,10 @@ class Post < Sqlx::Base
     Comment.fetch_many({ post_id: id }, order: :asc)
   end
 
-  # Remove a post and its comments — this scaffold's cascade. The sqlite adapter
-  # enforces no foreign keys, so the cascade is app SQL: the child half rides
-  # the inherited `Comment.delete_all!`, and the parent half writes its own
-  # DELETE (an override cannot reach the core body through `super` on the
+  # Remove a post and its comments — this scaffold's cascade. The sqlite
+  # adapter enforces no foreign keys, so the cascade is app SQL: the child half
+  # uses the inherited `Comment.delete_all!`, and the parent half writes its
+  # own DELETE (an override cannot reach the core body through `super` on the
   # extend chain). Silent on an unknown id — the caller's lookup decides
   # whether that is a 404.
   def self.delete!(id)

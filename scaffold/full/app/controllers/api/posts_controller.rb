@@ -56,7 +56,7 @@ module Api
       @post = Post.find(params["id"])
     end
 
-    # A failed form answers its ordered messages as 422 — the one shape
+    # A failed form answers its ordered messages as 422 — the same response
     # every invalid request gets, whether create or update.
     def render_form_errors(form)
       render(json: { errors: form.errors.full_messages }, status: :unprocessable_entity)

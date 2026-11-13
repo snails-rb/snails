@@ -4,11 +4,11 @@
 #
 # The pin check, the gen/* refresh, and the build all belong to the engine
 # (its step 0 checks the pair before the toolchain is materialized, and
-# cli/generators.sh refreshes gen/* in front of every build). This wrapper
+# cli/generators.sh refreshes gen/* before every build). This wrapper
 # only resolves the CLI and names the app.
 #
-# The CLI is resolved without a machine path: SNAILS_DIR (a checkout) wins,
-# else `snails` on PATH.
+# The CLI is resolved without hardcoding a local path: SNAILS_DIR (a checkout)
+# wins, else `snails` on PATH.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ -n ${SNAILS_DIR:-} ]]; then
   SNAILS_CLI="$SNAILS_DIR/bin/snails"

@@ -1,6 +1,6 @@
 # Contributing to Snails
 
-Thanks for taking the time to improve Snails. Bug reports, focused pull requests, and manual fixes are all welcome.
+Thanks for taking the time to improve Snails. Bug reports, focused pull requests, and documentation fixes are all welcome.
 
 ## Before you open an issue
 
@@ -19,9 +19,9 @@ bash scripts/test-cli.sh
 bash scripts/test-migrate.sh
 ```
 
-The scripts materialize the pinned spinel toolchain themselves; a global `spinel` install is not required. The CI workflow in `.github/workflows/ci.yml` is the authoritative gate. Platform and PostgreSQL coverage runs in `platform-ci.yml` after merge.
+The scripts materialize the pinned spinel toolchain themselves; a global `spinel` install is not required. The CI workflow in `.github/workflows/ci.yml` is the authoritative gate. Platform and PostgreSQL coverage run in `platform-ci.yml` after merge.
 
-For a manual-only change, keep the examples and links valid and run any command a chapter tells the reader to run. Do not invent output.
+For a change to the manual only, keep the examples and links valid and run any command a chapter tells the reader to run. Do not invent output.
 
 ## Pull requests
 
