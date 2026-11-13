@@ -799,10 +799,20 @@ SQL
 
   pgmigrate() { bash "$ENGINE" "$@" --app "$PGAPP" --database "$PG_TARGET"; }
 
-  # A dry run with nothing resolvable: PG_URL unset and no --database.
+  # A dry run with nothing resolvable: PG_URL unset and no --database. With no
+  # target the ledger cannot be read, so every applicable migration is listed
+  # and none is filtered out as already applied. The notice should name that
+  # cause; its remaining wording is not part of the contract.
   out=$(env -u PG_URL bash "$ENGINE" plan --app "$PGAPP" 2>&1); code=$?
   chk "pg plan without a target exits 0" "$code" "0"
-  chk_has "pg plan says the ledger was not read" "$out" "ledger is not read"
+  chk_has "pg plan without a target names the cause" "$out" "no target resolved"
+  missing=""
+  for version in 0001_baseline 0002_views 0003_pg_only; do
+    [[ $out == *"$version"* ]] || missing+=" $version"
+  done
+  chk "pg plan without a target lists every applicable migration" "$missing" ""
+  [[ $out == *0004_sqlite_only* ]]
+  chk "pg plan without a target skips the sqlite-only file" "$?" "1"
 
   out=$(pgmigrate status 2>&1); code=$?
   chk "pg status exits 0" "$code" "0"
