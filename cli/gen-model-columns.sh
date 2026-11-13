@@ -3,20 +3,20 @@
 #
 # Why generate: spinel AOT unrolls `define_method` only for a literal array
 # in a class body, so Sqlx::Base cannot create per-model readers from a
-# constant. The schema is the one source for column names; a hand-written
-# list drifts. Every Sqlx::Base model under app/models is generated
+# constant. The schema is the single source for column names; a hand-written
+# list would drift. Every Sqlx::Base model under app/models is generated
 # automatically; the model keeps only its table name and domain methods.
 #
 # What it reads: db/schema.sql (CREATE TABLE only) and the model files under
 # app/models (subfolders included). Ruby is read by the pinned spinel's
-# parser — `spinel --dump-ast` — not by this script, so a heredoc or a block
+# parser (`spinel --dump-ast`), not by this script, so a heredoc or block
 # comment can never be mistaken for a declaration. The generated file reopens
-# the class where it was declared, so a model's folder is a layout choice; a
-# model anywhere else under app/ is reported, not generated. The generated file reopens each model to extend
-# the column metadata module and include the reader module. A method the
-# model defines itself wins over an included module method, so domain readers
-# stay; they are also excluded from the generated reader and rbs so the types
-# do not collide.
+# the class where it was declared, so the model's folder is only a layout
+# choice; a model anywhere else under app/ is reported, not generated.
+# Reopening extends the column metadata module and includes the reader
+# module. A method the model defines itself wins over an included module
+# method, so domain readers stay; those names are also excluded from the
+# generated reader and the rbs file so the types do not collide.
 #
 # The parser is part of the toolchain the app already builds with: the pins
 # file's SPINEL_REV decides which spinel reads the models. A tree without a
@@ -35,8 +35,9 @@
 #   bash cli/gen-model-columns.sh [<app_root>] --check  freshness check only
 #   <app_root> omitted resolves through cli/app-root.sh.
 #
-# Exit: 0 in sync · 1 stale (--check) · 2 structural error (usage, unreadable schema/model,
-#       model whose declared namespace disagrees with its path, unparseable model file)
+# Exit: 0 = in sync · 1 = stale (--check) · 2 = structural error (usage,
+#       unreadable schema or model, model whose declared namespace disagrees
+#       with its path, unparseable model file)
 set -euo pipefail
 
 GEN_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -77,8 +78,8 @@ done
 if [[ -z $app_root ]]; then
   app_root="$(resolve_app_root '[snails]' '<app_root>')" || exit 2
 else
-  # An explicit argument may be the repository root of a src/ layout; the
-  # omitted case resolves the same root through resolve_app_root.
+  # An explicit argument may be the repository root of a src/ layout; when
+  # the argument is omitted, resolve_app_root applies the same rule.
   app_root="$(app_root_for "$app_root")"
 fi
 [[ -d $app_root ]] || die 2 "no such app_root: $app_root"
@@ -104,8 +105,8 @@ if [[ ! -d $app_dir ]]; then
 fi
 
 # A Sqlx::Base model must name its superclass, so a file that never mentions
-# Sqlx cannot be one. This keeps the parser off every unrelated app file
-# without reading Ruby text here.
+# Sqlx cannot be one. This keeps the parser away from every unrelated app
+# file without reading Ruby text here.
 while IFS= read -r file; do
   if grep -q 'Sqlx' "$file"; then
     printf '%s\n' "$file" >>"$model_files"
@@ -166,8 +167,8 @@ parse_models() {
 
 # The attach target comes from the path under app/models, so a model filed
 # anywhere else would never get its columns. Report it instead of letting it
-# vanish from the output. The probe stays silent on a file it cannot read: a
-# stray is a layout mistake, not a parse contract.
+# disappear from the output. The probe stays silent on a file it cannot read:
+# a stray is a layout mistake, not a parse contract.
 probe_strays() {
   local file dump="$tmp/dump"
   while IFS= read -r file; do
@@ -184,7 +185,7 @@ if ((candidate_count > 0)); then
   stray_count="$(wc -l <"$stray_file" | tr -d ' ')"
   if ((stray_count > 0)); then
     stray_paths="$(cut -f1 "$stray_file" | sed 's/^/ /' | tr -d '\n')"
-    echo "[snails] ignored $stray_count Sqlx::Base model(s) outside app/models:$stray_paths — move them under app/models/" >&2
+    echo "[snails] ignored $stray_count Sqlx::Base model(s) outside app/models: $stray_paths — move them under app/models/" >&2
   fi
 fi
 

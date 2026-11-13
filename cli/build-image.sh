@@ -47,9 +47,9 @@ done
 [[ -d $ROOT ]] || { echo "[snails] repo root not found: $ROOT" >&2; exit 1; }
 ROOT="$(cd "$ROOT" && pwd)"
 
-# The app root is the repo root, or src/ when the app lives there — the
-# shared rule (cli/app-root.sh), the same one every caller-named directory
-# argument gets. SPINEL_SRC overrides it.
+# The app root is the repository root, or src/ when the app lives there.
+# This is the shared rule (cli/app-root.sh) that applies to every
+# caller-named directory argument. SPINEL_SRC overrides it.
 APP_ROOT="${SPINEL_SRC:-$(app_root_for "$ROOT")}"
 [[ -d $APP_ROOT ]] || { echo "[snails] app root not found: $APP_ROOT" >&2; exit 1; }
 APP_ROOT="$(cd "$APP_ROOT" && pwd)"
@@ -62,8 +62,8 @@ fi
 source "$ENGINE_DIR/pins.sh"
 
 # Parse the pins file instead of sourcing it (pins are declarations, never
-# shell code), and discover it with the same walk verify-pins uses so the
-# verified file and the read file are always the same one.
+# shell code). Discover it with the same walk verify-pins uses, so the file
+# that was verified is always the file that gets read.
 pins_file="$(pins_discover "$APP_ROOT")"
 [[ -n $pins_file ]] || { echo "[snails] no pins file at or above $APP_ROOT — add pins.toml (snails new stamps one)" >&2; exit 1; }
 SPINEL_REV="$(pins_get "$pins_file" SPINEL_REV "[snails]")" || exit 1
@@ -73,14 +73,15 @@ APP_NAME="$(pins_get "$pins_file" APP_NAME "[snails]")" || exit 1
 : "${SNALS_REV:?pins.toml is missing SNALS_REV}"
 : "${APP_NAME:?pins.toml is missing APP_NAME}"
 
-# A build compiles the core its declared source provides — "pin" restores
-# SNALS_REV, "checkout" takes the working tree as it stands, uncommitted
-# changes included; the vendored copy records that itself. An unknown
-# value still fails loudly, so a typo never picks a source silently.
+# A build compiles the core that its declared source provides: `pin`
+# restores SNALS_REV, while `checkout` takes the working tree as it stands,
+# including uncommitted changes. The vendored copy records the source it
+# came from. An unknown value still fails with a clear error, so a typo
+# never selects a source silently.
 pins_source "$pins_file" "[snails]" >/dev/null || exit 1
 
-# The image build consumes the pinned core from the context. Check first so a
-# current tree does not churn file mtimes and invalidate the Docker cache.
+# The image build consumes the pinned core from the context. Check first, so
+# a current tree does not rewrite file mtimes and invalidate the Docker cache.
 if ! "$SNAILS_CLI" sync --check --skip-toolchain "$APP_ROOT" >/dev/null 2>&1; then
   echo "[snails] core is missing or stale — syncing the pinned core" >&2
   "$SNAILS_CLI" sync --skip-toolchain "$APP_ROOT" >/dev/null
@@ -88,8 +89,9 @@ fi
 
 # gen/* is refreshed before the context is read (cli/generators.sh): the
 # Dockerfile compiles whatever the context carries, so a tree whose gen/* is
-# stale would bake a stale require list into the image. Content-gated, so an
-# unchanged tree keeps its mtimes and the cache above holds.
+# stale would bake a stale require list into the image. Writes are
+# content-gated, so an unchanged tree keeps its mtimes and the cache described
+# above stays valid.
 run_generators "$SNAILS_CLI" "$APP_ROOT"
 
 # The Dockerfile COPYs the snails CLI and db/migrate from the context —

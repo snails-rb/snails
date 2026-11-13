@@ -1,5 +1,5 @@
-# Read one `spinel --dump-ast` output for config/routes.rb and print the items
-# the path-helper generator needs, one tab-separated line:
+# Read one `spinel --dump-ast` output for config/routes.rb and print the
+# items the path-helper generator needs, one tab-separated line each:
 #
 #   helper    <name> <verb> <default action>
 #   call      <helper> <pattern> <controller> <action> <line>
@@ -10,8 +10,8 @@
 # — the generator never guesses a path.
 #
 # Rows are the literal array elements of `def self.table`: a verb-helper call,
-# a Route.new call, or a resources call (bare or splatted). Anything else —
-# a computed path, a method call, a loop — is not statically resolvable and is
+# a Route.new call, or a resources call (bare or splatted). Anything else — a
+# computed path, a method call, a loop — cannot be resolved statically and is
 # refused. Local helper definitions are learned from their parameters and the
 # Route.new call in their body, so an `if` inside one no longer hides it.
 #

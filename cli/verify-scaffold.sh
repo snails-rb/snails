@@ -6,7 +6,7 @@
 # core-owned, the profile selection (config/boot.rb) is app-owned, the
 # health controller is core-owned (snails-core/), and the app declares only
 # the route. The database configuration and require-all files are
-# app-owned; the contract on them is existence.
+# app-owned; the contract for them is that they exist.
 #
 # This script only compares and never writes, so drift surfaces here
 # instead of being silently overwritten.
@@ -20,11 +20,11 @@
 #      harness target boot that still requires the retired app boot is
 #      named too.
 #   2. the core-default require-all files, config/application.rb,
-#      config/environment.rb, and the
-#      app's database configuration (config/database.rb) exist — the core boot
-#      chain requires them; config/database.rb requires exactly one
-#      backend. A stray retired name (config/db.rb) is an error. Their
-#      content is app-owned, so the contract is existence only.
+#      config/environment.rb, and the app's database configuration
+#      (config/database.rb) exist — the core boot chain requires them;
+#      config/database.rb requires exactly one backend. A stray retired name
+#      (config/db.rb) is an error. Their content is app-owned, so the
+#      contract only requires that they exist.
 #   3. the /up contract holds: config/routes.rb declares GET /up, and no
 #      app file requires the health controller (the core boot loads its
 #      definition — a stale require points at a deleted file)
@@ -34,9 +34,9 @@
 #
 # usage: snails verify-scaffold <app_root>
 #
-# exit: 0 in contract, 1 violation (missing/drifted canonical, missing
-#       require-all/config file, broken /up contract, stray health
-#       definition), 2 structural error (usage, unreadable tree).
+# exit: 0 = contract satisfied, 1 = violation (missing or drifted canonical,
+#       missing require-all/config file, broken /up contract, stray health
+#       definition), 2 = structural error (usage, unreadable tree).
 set -euo pipefail
 
 ENGINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,8 +48,8 @@ source "$ENGINE_DIR/vendor-dir.sh"
 MAIN_CANONICAL="$ROOT/scaffold/main.rb"
 CORE_HEALTH_RB="$SNAILS_VENDOR_DIR/snails/health_controller.rb"
 # The core boot chain's require-all files — one file per folder group.
-# Each app's file lists its own classes, so the contract is existence —
-# content stays app-owned.
+# Each app's file lists its own classes, so the contract only requires that
+# the file exists; content stays app-owned.
 REQUIRED_APP_FILES=(gen/lib.rb gen/controllers.rb gen/helpers.rb gen/mailers.rb gen/models.rb gen/model_columns.rb gen/forms.rb gen/jobs.rb gen/services.rb gen/route_helpers.rb)
 # The definition the core runtime owns: a class statement whose name is
 # exactly `HealthController` (word boundaries, so `HealthControllerFoo` is
@@ -162,22 +162,22 @@ done
 # 2b. the app's database configuration: the core boot chain requires
 #     `config/database`, which requires exactly one adapter
 #     (snails-core/database/sqlite or snails-core/database/postgresql). Which
-#     backend, and any app comments, are app-owned — so the contract here
-#     is existence. Sync seeds a missing file once from the retired DB=
-#     declaration (sqlite default) and migrates the retired name
-#     (`config/db.rb`) in place, so an adopting tree is not bricked.
-#     A stray retired file is loud: nothing reads it, yet it would read
-#     as the database configuration to a human.
+#     backend, and any app comments, are app-owned, so the contract here is
+#     that the file exists. Sync seeds a missing file once from the retired
+#     DB= declaration (sqlite default) and migrates the retired name
+#     (`config/db.rb`) in place, so an existing app is not broken by the
+#     change. A stray retired file is a hard error: nothing reads it, but a
+#     human would mistake it for the database configuration.
 if [[ -f "$app_root/config/db.rb" ]]; then
   errors+=("config/db.rb: the retired configuration name — rename it to config/database.rb (run: $sync_command to migrate the anchored require line)")
 fi
 if [[ ! -f "$app_root/config/database.rb" ]]; then
-  errors+=("config/database.rb: missing (the app's database configuration — the boot chain requires it; require exactly one of $SNAILS_VENDOR_DIR/database/sqlite·postgresql, or rerun 'snails new' for the shape)")
+  errors+=("config/database.rb: missing (the app's database configuration — the boot chain requires it; require exactly one of $SNAILS_VENDOR_DIR/database/sqlite or $SNAILS_VENDOR_DIR/database/postgresql, or rerun 'snails new' for the expected layout)")
 fi
 
-# 3. /up contract: routes declares GET /up, and nothing app-side requires
-#    the health controller — the core definition loads from the boot
-#    chain, so a stale require is drift (the file it names is gone).
+# 3. /up contract: routes declares GET /up, and no app-side file requires
+#    the health controller. The core definition loads from the boot chain,
+#    so a stale require is drift (the file it names is gone).
 routes="$app_root/config/routes.rb"
 for rel in gen/controllers.rb config/routes.rb; do
   f="$app_root/$rel"
@@ -187,8 +187,8 @@ for rel in gen/controllers.rb config/routes.rb; do
 done
 
 if [[ -f $routes ]]; then
-  # A GET /up row reads as Route.new("GET", "/up", ...) or a verb helper —
-  # bare `get "/up"` or parenthesized `get("/up", ...)`.
+  # A GET /up row is written either as Route.new("GET", "/up", ...) or
+  # through a verb helper: bare `get "/up"` or `get("/up", ...)`.
   if ! grep -Eq 'Route\.new\("GET",[[:space:]]*"/up"' "$routes" \
     && ! grep -Eq '(^|[^A-Za-z0-9_])get([[:space:]]+|\()"?/up"?' "$routes"; then
     errors+=("config/routes.rb declares no GET /up route")
@@ -197,8 +197,8 @@ else
   errors+=("config/routes.rb missing")
 fi
 
-# 4. one definition, core side: snails-core/snails/health_controller.rb defines
-#    Snails::HealthController; an app/** definition is the retired
+# 4. one definition, core side: snails-core/snails/health_controller.rb
+#    defines Snails::HealthController; an app/** definition is the retired
 #    scaffold copy.
 app_definers=()
 while IFS= read -r file; do
@@ -219,7 +219,7 @@ if (( ${#core_definers[@]} != 1 )) || [[ ${core_definers[0]:-} != "$CORE_HEALTH_
 fi
 
 if (( ${#errors[@]} == 0 )); then
-  echo "[snails] $app_root in contract"
+  echo "[snails] $app_root satisfies the scaffold contract"
   exit 0
 fi
 

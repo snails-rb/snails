@@ -1,6 +1,6 @@
 # spinel toolchain resolver — pins.toml's SPINEL_REV decides which spinel
-# build an app tree may compile with; this file is where that pin meets
-# the build.
+# build an app tree may compile with; this file turns that pin into the
+# toolchain the build uses.
 #
 # Two audiences, one implementation:
 #   - the harness engines (cli/harness-test.sh, cli/harness-dev.sh)
@@ -24,11 +24,10 @@ source "$_toolchain_dir/app-root.sh"
 # shellcheck source=pins.sh
 source "$_toolchain_dir/pins.sh"
 
-# spinel_snails_cli — locate the snails CLI without embedding a machine
-# path: the CLI that set SNAILS_CLI (the one running the harness engine)
-# is authoritative, else SNAILS_DIR (the checkout), else `snails` on PATH.
-# Callers
-# print their own guidance when this comes back empty.
+# spinel_snails_cli — locate the snails CLI without hardcoding a local path:
+# the CLI that set SNAILS_CLI (the one running the harness engine) is
+# authoritative; otherwise SNAILS_DIR (the checkout), otherwise `snails` on
+# PATH. Callers print their own guidance when this comes back empty.
 spinel_snails_cli() {
   if [[ -n ${SNAILS_CLI:-} ]]; then
     printf '%s\n' "$SNAILS_CLI"
@@ -41,11 +40,11 @@ spinel_snails_cli() {
 
 # spinel_pins_rev <pins> — the SPINEL_REV declaration, validated at the
 # entry point. The rev becomes part of a filesystem path (cache layout),
-# so anything but a hex commit rev fails here instead of being probed
-# into a path. Absence fails too: a pins file that exists but never
-# declares the toolchain rev is the hole this contract closes. The read
-# is the shared pins parser (cli/pins.sh), speaking in this engine's
-# voice.
+# so anything other than a hexadecimal commit revision fails here instead of
+# being used in a path. A missing value fails too: a pins file that exists
+# but never declares the toolchain revision is the gap this check closes.
+# The read uses the shared pins parser (cli/pins.sh) with this engine's
+# message prefix.
 spinel_pins_rev() {
   local pins="$1" pin
   pin="$(pins_get "$pins" SPINEL_REV "[snails]")" || return 1
@@ -66,8 +65,9 @@ spinel_toolchain_dir() {
   printf '%s' "$(dirname "$1")/.spinel/toolchain"
 }
 
-# spinel_toolchain_cache <rev> — the per-rev backing store: survives a
-# project rebuild, shared across checkouts of the same machine.
+# spinel_toolchain_cache <rev> — the per-revision backing store: it
+# survives a project rebuild and is shared by checkouts on the same
+# machine.
 spinel_toolchain_cache() {
   printf '%s' "${XDG_CACHE_HOME:-$HOME/.cache}/snails/spinel/$1/toolchain"
 }
@@ -89,8 +89,8 @@ spinel_toolchain_cache_lookup() {
   done
 }
 
-# spinel_toolchain_rev <binary> — the commit rev `--version` reports, or
-# empty when the output carries none (unverifiable is never "fresh").
+# spinel_toolchain_rev <binary> — the commit revision `--version` reports,
+# or empty when the output has none (unverifiable is never "fresh").
 spinel_toolchain_rev() {
   "$1" --version 2>/dev/null | grep -oE '[0-9a-f]{7,40}' | head -n1 || true
 }
@@ -133,8 +133,8 @@ spinel_realpath() {
   fi
 }
 
-# spinel_toolchain_path_source <pin> — a directory holding a complete toolchain
-# whose binaries report the pin (the unit `make install` lays out).
+# spinel_toolchain_path_source <pin> — a directory holding a complete
+# toolchain whose binaries report the pin (the unit `make install` lays out).
 # Prints nothing when no PATH install qualifies: a half-installed or
 # unpinned layout must not become the materialization source.
 spinel_toolchain_path_source() {
@@ -153,8 +153,9 @@ spinel_toolchain_path_source() {
   printf '%s' "$dir"
 }
 
-# spinel_toolchain_store <src> <dest> — copy the toolchain into place without
-# ever leaving a half-written destination (the cache is a shared tree).
+# spinel_toolchain_store <src> <dest> — copy the toolchain into place
+# without ever leaving a half-written destination (the cache is a shared
+# tree).
 spinel_toolchain_store() {
   local src="$1" dest="$2" tmp
   mkdir -p "$(dirname "$dest")"
@@ -178,7 +179,7 @@ spinel_ncpu() {
 
 # spinel_toolchain_build <pin> <cache> — last resort: clone spinel at the
 # pin, build it, and store the installed toolchain in the cache. A compiler
-# toolchain is a real dependency, so every failure is loud — a silent
+# toolchain is a real dependency, so every failure is reported — a silent
 # skip here would put an unpinned build back on PATH.
 spinel_toolchain_build() {
   local pin="$1" cache="$2" work unit
@@ -194,7 +195,7 @@ spinel_toolchain_build() {
   fi
   if ! git -C "$work/src" checkout -q "$pin"; then
     rm -rf "$work"
-    echo "[snails] no spinel commit ${pin} upstream" >&2
+    echo "[snails] spinel has no commit ${pin} upstream" >&2
     return 1
   fi
   if ! (cd "$work/src" && make deps && make -j"$(spinel_ncpu)" &&
@@ -213,7 +214,7 @@ spinel_toolchain_build() {
   fi
   if ! spinel_toolchain_fresh "$unit" "$pin"; then
     rm -rf "$work"
-    echo "[snails] the build at ${pin} reports a different rev than pinned" >&2
+    echo "[snails] the build at ${pin} reports a different revision than the pinned one" >&2
     return 1
   fi
   if ! spinel_toolchain_store "$unit" "$cache"; then
@@ -225,9 +226,9 @@ spinel_toolchain_build() {
 
 # spinel_toolchain_ensure <pins> — materialize the pinned toolchain into
 # the project copy: an existing cache entry first (a differently spelled
-# pin of the same rev reuses one copy), then a PATH install already at
-# the pin, then a source build. Each source is version-checked before it
-# is copied.
+# pin of the same revision reuses one copy), then a PATH install already at
+# the pin, then a source build. Each source is version-checked before it is
+# copied.
 spinel_toolchain_ensure() {
   local pins="$1" pin dest cache src reused
   pin="$(spinel_pins_rev "$pins")" || return 1
@@ -260,9 +261,9 @@ spinel_toolchain_ensure() {
 }
 
 # spinel_toolchain_check <pins> [<app_root>] — the `--check` view: report
-# only, never write. A missing copy and a stale copy fail the same way —
-# the gate must not pass while builds would run an unpinned toolchain. The
-# report's repair names the app root (the pins file may live outside it).
+# only, never write. A missing copy and a stale copy fail the same way: the
+# gate must not pass while builds would run an unpinned toolchain. The repair
+# line names the app root (the pins file may live outside it).
 spinel_toolchain_check() {
   local pins="$1" app_root="${2:-}" pin dest sync_arg sync_command
   [[ -n $app_root ]] || app_root="$(dirname "$pins")"
@@ -280,8 +281,8 @@ spinel_toolchain_check() {
 }
 
 # spinel_toolchain_env <spin_root> — put the pinned toolchain on PATH.
-# Contract: a fresh project copy never touches the CLI (a synced app keeps
-# the "CLI not needed" property); a miss goes through `snails sync`. Without
+# Contract: a fresh project copy never touches the CLI (a synced app needs
+# no CLI); a miss goes through `snails sync`. Without
 # a CLI, the PATH install is accepted only while it reports the pin — an
 # unpinned PATH never becomes the build silently.
 spinel_toolchain_env() {
@@ -302,7 +303,7 @@ spinel_toolchain_env() {
         return 1
       fi
     elif ! spinel_path_matches "$pin"; then
-      echo "[snails] project toolchain for spinel ${pin} is missing and no snails CLI is available." >&2
+      echo "[snails] the project toolchain for spinel ${pin} is missing and no snails CLI is available." >&2
       echo "[snails] set SNAILS_DIR to the snails checkout (or put snails on PATH) so sync can materialize it." >&2
       return 1
     fi

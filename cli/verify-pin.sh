@@ -3,17 +3,17 @@
 #
 # A pin is a DECLARATION ("this app vendors the core content at <rev>"),
 # not a condition on this checkout. `bin/snails sync --pins` restores the
-# core from <rev>, so the vendored bytes and the `sync --check --pins`
-# reference both come from the pin — this working tree decides neither.
+# core from <rev>, so both the vendored bytes and the `sync --check --pins`
+# reference come from the pin; this working tree decides neither.
 #
-# Check: <rev> exists and every core path (runtime/ cli/ scaffold/ bin/
-# plus a pins file) restores from it.
+# Check: <rev> exists and every core path (runtime/ cli/ scaffold/ bin/,
+# plus a pins file) can be restored from it.
 # Notice (stdout, never fails): this checkout's core content differs from
-# <rev> — the counts, plus the core-touching commit subjects with
-# --verbose, because a checkout that moved on must inform, not block.
+# <rev> — the commit counts, plus the subjects of core-touching commits with
+# --verbose, because a checkout that has moved on must inform, not block.
 #
 # Usage: cli/verify-pin.sh <rev> [--verbose]
-# Exit: 0=usable pin, 1=unknown rev / core paths not restorable.
+# Exit: 0 = a usable pin, 1 = unknown rev or core paths not restorable.
 set -euo pipefail
 
 REV="${1:-}"
@@ -30,11 +30,11 @@ if [[ $# -gt 2 ]]; then
 fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Core paths a usable pin must carry. The engine directory was renamed
-# twice (script -> scripts -> cli), so a rev carries one name from that
-# family; the pins file is pins.toml (the pre-2026-10-11 pins.conf is no
-# longer a usable pin). The diff/log pathspecs list every generation (a
-# pathspec that matches nothing is inert there); the restore check probes
-# what the rev must carry today.
+# twice (script -> scripts -> cli), so a rev carries one of those three
+# names; the pins file is pins.toml (the pre-2026-10-11 pins.conf is no
+# longer a usable pin). The diff and log pathspecs list every historical
+# name (a pathspec that matches nothing is inert there); the restore check
+# probes what the rev must carry today.
 CORE_PATHS=(runtime cli scripts script scaffold bin pins.toml)
 
 if [[ -z $REV ]]; then

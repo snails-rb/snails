@@ -1,12 +1,12 @@
 #!/bin/bash
 # Generate literal path helpers from an app's route table.
 #
-# Why generate: a path string must have one source — the route declaration.
-# A hand-written helper module drifts from it, and a runtime lookup over the
-# table answers with the wrong path whenever two patterns derive the same
-# name (a collection and its member, say). Generated helpers are literals:
-# a caller never pays a lookup, and a name can never quietly point at
-# another route.
+# Why generate: a path string must have a single source — the route
+# declaration. A hand-written helper module drifts from it, and a runtime
+# lookup over the table returns the wrong path whenever two patterns derive
+# the same name (a collection and its member, say). Generated helpers
+# are literals: a caller never pays for a lookup, and a name can never quietly
+# point at another route.
 #
 # What it reads: config/routes.rb, parsed by the pinned spinel
 # (`spinel --dump-ast`) — the same parser the app compiles with. The table is
@@ -26,16 +26,16 @@
 # joined by "_", falling back to controller/action when the pattern has
 # none. `resources` names its collection after the last static segment and
 # its member after the naive singular. A row that needs a different name
-# carries the build-time marker `# as: <name>` (the same idea as the
-# the load-list region's generated lines): the runtime ignores comments, so the
-# marker costs no runtime surface. The marker names the row that starts on
-# its line. A derived name that is not a Ruby identifier (say, a path with a
-# `#` in it) is refused rather than emitted.
+# carries the build-time marker `# as: <name>` (the same pattern as the
+# generated lines in the load-list region): the runtime ignores comments, so
+# the marker adds nothing to the runtime surface. The marker belongs to the
+# row that starts on that line. A derived name that is not a Ruby identifier
+# (say, a path with a `#` in it) is refused rather than emitted.
 #
 # Collisions: two rows deriving the same name from *different* patterns
 # are refused. One of them would have to win, and a helper that quietly
-# answers with the other row's path is the failure this generator exists
-# to prevent. Give one row the `# as: <name>` marker.
+# returns the other row's path is the failure this generator exists to
+# prevent. Give one row the `# as: <name>` marker.
 #
 # Content-gated write: an identical result leaves the file untouched (the
 # app's test runner decides its cache from source mtimes).
@@ -43,10 +43,10 @@
 # Usage:
 #   bash cli/gen-route-helpers.sh [<app_root>]          regenerate (writes only on change)
 #   bash cli/gen-route-helpers.sh [<app_root>] --check  freshness check only
-#   <app_root> omitted resolves through cli/app-root.sh (nearest adapter
-#   entry at or above $PWD; outside the app, pass it).
+#   <app_root> omitted resolves through cli/app-root.sh (nearest app root
+#   at or above $PWD; outside the app, pass it).
 #
-# Exit: 0 in sync · 1 stale (--check) · 2 structural error (usage, unreadable row, collision)
+# Exit: 0 = in sync · 1 = stale (--check) · 2 = structural error (usage, unreadable row, collision)
 set -euo pipefail
 
 # App-root resolution is shared with the CLI and the other engines.
@@ -184,8 +184,8 @@ emit_row() {
   printf '%s\t%s\t%s\n' "$1" "$2" "$3" >>"$ROWS"
 }
 
-# The `# as:` marker rides a comment, so it is read from the line the row
-# starts on — the AST carries start lines only, and comments are not nodes.
+# The `# as:` marker is a comment, so it is read from the line the row starts
+# on; the AST carries start lines only, and comments are not nodes.
 load_markers() {
   local lineno=0 line
   MARKERS=()
@@ -224,8 +224,8 @@ emit_route_row() {
 }
 
 # emit_resources_row <pattern> <controller> <only> <line> — the five RESTful
-# rows of one resource, `only:` subset. The rows come out in REST order
-# regardless of the order named.
+# rows of one resource, with the `only:` subset. The rows come out in REST
+# order regardless of the order in `only:`.
 emit_resources_row() {
   local pattern="$1" controller="$2" only="$3" line="$4"
   local base member wanted="" action name verb row_pattern
@@ -290,8 +290,8 @@ done
 if [[ -z $app_root ]]; then
   app_root="$(resolve_app_root '[snails]' '<app_root>')" || exit 2
 else
-  # An explicit argument may be the repository root of a src/ layout; the
-  # omitted case resolves the same root through resolve_app_root.
+  # An explicit argument may be the repository root of a src/ layout; when
+  # the argument is omitted, resolve_app_root applies the same rule.
   app_root="$(app_root_for "$app_root")"
 fi
 [[ -d $app_root ]] || die 2 "no such app_root: $app_root"
@@ -335,8 +335,8 @@ read_items
 [[ -s $ROWS ]] || die 2 "no route rows read from $routes_file"
 
 # Dedupe identical rows and refuse colliding names (same name, different
-# pattern) — one of them would have to win, and a helper that answers with
-# the other row's path is the silent wrong this generator replaces.
+# pattern). One of them would have to win, and a helper that returns the other
+# row's path is the silent failure this generator exists to prevent.
 if ! awk -F'\t' '
   {
     name = $1
@@ -351,7 +351,7 @@ if ! awk -F'\t' '
   }
   END {
     if (length(bad) > 0) {
-      for (k in bad) printf "config/routes.rb: :%s is derived from more than one pattern (%s%s)\n", k, firstline[k], bad[k] > "/dev/stderr"
+      for (k in bad) printf "config/routes.rb: %s is derived from more than one pattern (%s%s)\n", k, firstline[k], bad[k] > "/dev/stderr"
       exit 3
     }
     for (i = 1; i <= n; i++) print kept[order[i]]

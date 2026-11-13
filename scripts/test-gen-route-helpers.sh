@@ -248,7 +248,7 @@ RB
 mk_app collide collide.rb
 out="$(bash "$G" collide 2>&1)"
 chk "colliding names are refused" $? 2
-[[ $out == *":devices is derived from more than one pattern"* ]]
+[[ $out == *"config/routes.rb: devices is derived from more than one pattern"* ]]
 chk "the collision names the routes" $? 0
 [[ $out == *'two routes derive the same helper name — add `# as: <name>` to one of them'* ]]
 chk "the collision message names the marker" $? 0
