@@ -39,7 +39,7 @@ snails new demo
 
 While the repository has only release candidates, add `prerelease=true` to that tool entry.
 
-The first command that needs the toolchain builds the pinned compiler, so install the system packages listed under [Requirements](manual/02-getting-started.md#requirements) first. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
+The first command that needs the toolchain builds the pinned compiler. Install the system packages listed under [Requirements](manual/02-getting-started.md#requirements) first. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
 
 ## Benchmark
 
