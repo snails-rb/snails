@@ -15,6 +15,7 @@ module GeneratedModelColumns
     def date_columns = %w[published_on]
     def boolean_columns = %w[published]
     def json_columns = %w[detail]
+    def integer_columns = %w[id]
   end
 end
 
@@ -51,8 +52,11 @@ The generated lists are the type contract between the database and Ruby:
 | `date_columns` | `DATE` | `Date` | `Date` |
 | `boolean_columns` | `BOOL*` | `true` / `false` | `true` / `false` |
 | `json_columns` | `JSON`, `JSONB` | decoded Hash/Array/scalar | any JSON value |
+| `integer_columns` | `INTEGER`, `BIGINT`, `SMALLINT`, `SERIAL`, `BIGSERIAL` | raw adapter value | raw value; String condition values cast |
 
 A `datetime` column read from SQLite text goes through the stored-time parser and comes back in the app's time zone. A `date` column reads through `String#to_date`; the generator loads the optional date codec only when some model projects a `DATE` column. A boolean is stored as `1`/`0` on SQLite and read back as `true`/`false`. A JSON column is encoded on every write and decoded on every read, so app code hands over a Hash and reads a Hash. A value JSON cannot represent — a `Time`, for example — raises at the write instead of being stringified into the column.
+
+`integer_columns` is the condition cast list, not a hydration conversion. A String condition value for a declared column is parsed as a decimal integer before it binds; a non-decimal value raises `Sqlx::CastError`. The literal `where_clause` renderer and raw SQL do not apply the cast. A model that declares a boolean, datetime, date, or json column keeps that type even when the schema backs it with `INTEGER`; its declaration list wins.
 
 The built-in timestamp pair is special in one way: `create!` and `update!` fill a declared `created_at`/`updated_at` the caller left out. A table without those columns is legal and gets no stamp.
 

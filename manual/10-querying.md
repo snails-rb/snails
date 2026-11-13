@@ -17,6 +17,8 @@ Post.find_by({ deleted_at: { is_not: nil } })     # IS NOT NULL
 
 The comparison operators are `lt`, `lte`, `gt`, and `gte`. The only null operator is `is_not: nil`; there is no general negation and no `eq`. A comparison bound cannot be nil, an operator hash cannot be empty, and an `IN` list cannot be empty or carry nil. Those shapes raise `ArgumentError` instead of producing SQL that quietly matches nothing. Values are escaped; keys are code, so a typo in a column name fails at the database instead of reading as a miss.
 
+A String value on a column declared in `integer_columns` is cast to an Integer before it binds. A decimal value such as `"42"` becomes `42`; `"1-welcome"` and `"abc"` raise `Sqlx::CastError` instead of binding as text. A TEXT or UUID primary key is not in the list, so it stays an exact string lookup.
+
 An empty hash is a broken condition, not "all rows". `find_by({})` refuses, and the bulk entries accept `nil` when you mean the whole table. `count` and `exists?` are the exception: their empty form is a well-defined "any row?" question.
 
 ## Reads

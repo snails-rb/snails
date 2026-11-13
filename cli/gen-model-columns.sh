@@ -24,8 +24,8 @@
 #
 # Outputs:
 #   gen/model_columns.rb   — COLUMNS, only_columns/datetime_columns/
-#                            date_columns/boolean_columns/json_columns,
-#                            reader modules, class attach
+#                            date_columns/boolean_columns/json_columns/
+#                            integer_columns, reader modules, class attach
 #   gen/model_columns.rbs  — type seeds for the same modules
 #
 # Content-gated write: an identical result leaves the files untouched.

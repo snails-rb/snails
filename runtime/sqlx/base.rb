@@ -111,6 +111,22 @@ module Sqlx
       []
     end
 
+    # the columns whose stored type is an integer: the condition-value cast
+    # list. The model query layer parses a String condition value for a
+    # declared column strictly as a decimal integer; a value that is not an
+    # Integer or a decimal String raises `Sqlx::CastError` instead of reaching
+    # the database as text. The list comes from `db/schema.sql` through
+    # `gen/model_columns.rb`; a hand-written model declares it only when it
+    # takes integer conditions. The empty default keeps exact string binding
+    # for models without the declaration.
+    #
+    # @return [Array[String]] the integer column names; [] when none
+    # @example
+    #   def self.integer_columns = %w[id post_id price status]
+    def self.integer_columns
+      []
+    end
+
     # the default hydration: one name-keyed row in, one record out. Every
     # projected column is copied by name and the declared type exceptions are
     # converted — `datetime_columns` through the stored-time codec,

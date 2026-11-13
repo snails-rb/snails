@@ -18,11 +18,13 @@ A JSON object is flattened by field name and nested back the same way, so `{"use
 
 Request params are mutable and String-keyed. `params[:id]` is always `nil`; read `params["id"]`.
 
-Path captures always arrive as Strings, even for an integer column. Convert before the value meets the database:
+Path captures arrive as Strings. The generated model declares its integer columns, so the model casts the value when it builds the condition:
 
 ```ruby
-@post = Post.find(params["id"].to_i)
+@post = Post.find(params["id"])
 ```
+
+A non-decimal value such as `"1-welcome"` raises `Sqlx::CastError`, which the dispatcher answers as `400 Bad Request`. A TEXT or UUID primary key is not declared as an integer column, so it stays an exact string lookup.
 
 A route can carry a format extension. `GET /posts.json` matches the `/posts` route and sets `params["format"]` to `"json"`; the extension is not part of the path captures.
 

@@ -84,6 +84,16 @@ class MainDispatchTest < TestBase
     Snails::Main.dispatch(req, res)
     assert_equal 400, res.status
   end
+
+  # A condition value that cannot be cast is a client error: the dispatcher
+  # answers the same 400 shape as a missing required parameter, not a 500.
+  def test_dispatch_answers_json_400_for_a_cast_error
+    res = Tep::Response.new
+    Snails::Main.dispatch(build_request("GET", "/cast-error"), res)
+    assert_equal 400, res.status
+    assert_equal "application/json; charset=utf-8", res.headers["Content-Type"]
+    assert_equal '{"error":"bad_request"}', res.body
+  end
 end
 
 FixtureRunner.run(MainDispatchTest, [
@@ -91,4 +101,5 @@ FixtureRunner.run(MainDispatchTest, [
   "test_dispatch_clears_current_when_the_action_raises",
   "test_dispatch_answers_json_404_for_a_miss",
   "test_dispatch_answers_json_400_for_malformed_params",
+  "test_dispatch_answers_json_400_for_a_cast_error",
 ])

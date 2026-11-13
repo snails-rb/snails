@@ -16,4 +16,10 @@ class HarnessBoomController < ApplicationController
   def server_error
     render(json: { "error" => "internal" }, status: :internal_server_error)
   end
+
+  # A malformed condition value from a model query: the dispatcher maps the
+  # cast failure to 400, not 500.
+  def cast_error
+    raise Sqlx::CastError, "cannot cast \"1-welcome\" to Integer for samples.id"
+  end
 end

@@ -16,7 +16,8 @@ module Snails
        get("/server-error", HarnessBoomController, :server_error),
        get("/current-probe", HarnessCurrentProbeController, :show),
        get("/db-probe", HarnessDbProbeController, :show),
-       post("/body-params", HarnessBodyParamsController, :show)]
+       post("/body-params", HarnessBodyParamsController, :show),
+       get("/cast-error", HarnessBoomController, :cast_error)]
     end
   end
 end

@@ -9,7 +9,7 @@ require_relative "test_database"
 class SqlxTest < TestBase
   def setup
     TestDatabase.configure!("sqlx_base")
-    TestDatabase.drop_tables!("samples", "ordered_items", "write_entries", "declared_samples", "plain_series", "json_samples")
+    TestDatabase.drop_tables!("samples", "ordered_items", "write_entries", "declared_samples", "plain_series", "json_samples", "text_ids")
     TestDatabase.exec("CREATE TABLE samples (id INTEGER PRIMARY KEY, name TEXT NOT NULL, tag TEXT)")
     TestDatabase.exec("INSERT INTO samples (name) VALUES ('alpha'), ('beta'), ('gamma')")
     # `order` is reserved: it needs quoting even in DDL, so this
@@ -35,6 +35,11 @@ class SqlxTest < TestBase
     # stored text survives a re-read, and a scalar number comes back
     # equal.
     TestDatabase.exec("CREATE TABLE json_samples (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, detail JSON)")
+    # The text-primary-key fixture: an id that is a URL-style key, not a
+    # database integer. The model leaves integer_columns empty, so the lookup
+    # stays exact-string.
+    TestDatabase.exec("CREATE TABLE text_ids (id TEXT PRIMARY KEY, name TEXT NOT NULL)")
+    TestDatabase.exec("INSERT INTO text_ids (id, name) VALUES ('1-welcome', 'slug')")
     SqlxCaptureModel.reset
     SqlxEachModel.reset
   end
@@ -626,6 +631,77 @@ class SqlxTest < TestBase
       return
     end
     raise "expected NotImplementedError from Sqlx::Base.find"
+  end
+
+  # A decimal String id is cast through the model's integer declaration; the
+  # condition reaches the DB as an Integer instead of text.
+  def test_find_casts_a_decimal_string
+    assert_equal "beta", SqlxCaptureModel.find("2")
+  end
+
+  # A non-decimal String id is a malformed condition value, not a miss: the
+  # cast fails before the query instead of silently binding "1-welcome".
+  def test_find_rejects_a_non_decimal_string
+    begin
+      SqlxCaptureModel.find("1-welcome")
+    rescue Sqlx::CastError
+      return
+    end
+    raise "expected Sqlx::CastError from SqlxCaptureModel.find"
+  end
+
+  # find_by and count ride the same condition path, so the declaration casts
+  # without a second model method.
+  def test_conditions_cast_integer_columns
+    assert_equal "beta", SqlxCaptureModel.find_by({ id: "2" })
+    assert_equal 1, SqlxCaptureModel.count({ id: "2" })
+  end
+
+  # An IN list casts each element; the whole condition fails if one element is
+  # not a decimal integer.
+  def test_conditions_cast_integer_array_elements
+    names = SqlxCaptureModel.fetch_many({ id: ["1", "3"] }, order: :asc)
+    assert_equal 2, names.length
+    assert_equal "alpha", names[0]
+    assert_equal "gamma", names[1]
+  end
+
+  # A column declared as another logical type keeps that type: the schema's
+  # INTEGER backing is not enough to integer-cast a boolean condition.
+  def test_conditions_skip_boolean_columns
+    assert_equal 1, SqlxDeclaredModel.count({ flag: true })
+  end
+
+  # The literal where_clause renderer keeps the value as written; only the
+  # bound core entries cast. This is the escape hatch for caller SQL.
+  def test_where_clause_does_not_cast_integer_columns
+    assert_equal "id = '1-welcome'", SqlxCaptureModel.where_clause({ id: "1-welcome" })
+  end
+
+  # A text primary key keeps exact-string lookup: the model does not declare
+  # id in integer_columns, so "1-welcome" is a valid key, not a cast error.
+  def test_text_id_is_not_cast
+    assert_equal "slug", SqlxTextIdModel.find("1-welcome")
+  end
+
+  # The id-taking write entries share the cast: a malformed String id fails
+  # before the DELETE or UPDATE statement runs.
+  def test_delete_rejects_a_non_decimal_string
+    begin
+      SqlxCaptureModel.delete!("1-welcome")
+    rescue Sqlx::CastError
+      return
+    end
+    raise "expected Sqlx::CastError from SqlxCaptureModel.delete!"
+  end
+
+  def test_update_rejects_a_non_decimal_string
+    begin
+      SqlxCaptureModel.update!("1-welcome", { name: "x" })
+    rescue Sqlx::CastError
+      return
+    end
+    raise "expected Sqlx::CastError from SqlxCaptureModel.update!"
   end
 
   # The conditions-hash form answers true for a matching row and
@@ -1966,6 +2042,7 @@ class SqlxCaptureModel < Sqlx::Base
   # no per-model find_by override exists here on purpose.
   def self.table_name = "samples"
   def self.only_columns = [:name]
+  def self.integer_columns = %w[id]
 
   # The spec-only all, in the recipe shape from the spec comment:
   # the walk stays in the model so the element type converges.
@@ -2088,6 +2165,9 @@ class SqlxDeclaredModel < Sqlx::Base
   def self.only_columns = [:id, :name, :created_at, :seen_at, :flag]
   def self.datetime_columns = %w[created_at updated_at seen_at]
   def self.boolean_columns = %w[flag]
+  # The schema backs both columns with INTEGER; the boolean declaration
+  # above wins for flag, so a true/false condition keeps its type.
+  def self.integer_columns = %w[id flag]
 end
 
 # The stamp-less fixture: the built-in stamps are always legal
@@ -2154,6 +2234,17 @@ class SqlxRawJsonModel < Sqlx::Base
   def self.only_columns = [:id, :name, :detail]
 end
 
+# The text-id fixture: a URL-style key stored as TEXT. The model leaves
+# integer_columns empty, so "1-welcome" stays an exact key.
+class SqlxTextIdModel < Sqlx::Base
+  def self.table_name = "text_ids"
+  def self.only_columns = [:id, :name]
+
+  def self.from_row(row)
+    row["name"]
+  end
+end
+
 FixtureRunner.run(SqlxTest, [
   "test_base_from_row_loud",
   "test_find_by_sql_maps_rows",
@@ -2212,6 +2303,15 @@ FixtureRunner.run(SqlxTest, [
   "test_find_returns_record",
   "test_find_miss_raises",
   "test_find_base_loud",
+  "test_find_casts_a_decimal_string",
+  "test_find_rejects_a_non_decimal_string",
+  "test_conditions_cast_integer_columns",
+  "test_conditions_cast_integer_array_elements",
+  "test_conditions_skip_boolean_columns",
+  "test_where_clause_does_not_cast_integer_columns",
+  "test_text_id_is_not_cast",
+  "test_delete_rejects_a_non_decimal_string",
+  "test_update_rejects_a_non_decimal_string",
   "test_exists_with_conditions",
   "test_exists_positional_id",
   "test_exists_any_row",

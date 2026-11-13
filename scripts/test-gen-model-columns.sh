@@ -106,6 +106,10 @@ grep -q 'def json_columns = %w\[metadata\]' app/gen/model_columns.rb
 chk "json columns are derived" $? 0
 grep -q 'def json_columns: () -> Array\[String\]' app/gen/model_columns.rbs
 chk "the json declaration reaches the rbs" $? 0
+grep -q 'def integer_columns = %w\[id amount_cents\]' app/gen/model_columns.rb
+chk "integer columns are derived" $? 0
+grep -q 'def integer_columns: () -> Array\[String\]' app/gen/model_columns.rbs
+chk "the integer declaration reaches the rbs" $? 0
 grep -q 'attr_reader id: Integer' app/gen/model_columns.rbs
 chk "a primary key is non-optional Integer" $? 0
 grep -q 'attr_reader metadata: untyped' app/gen/model_columns.rbs
@@ -234,6 +238,8 @@ bash "$G" sqlite >/dev/null 2>&1
 chk "DATETIME generates" $? 0
 grep -q 'attr_reader seen_at: Time?' sqlite/gen/model_columns.rbs
 chk "DATETIME maps to Time?" $? 0
+grep -q 'def integer_columns = %w\[id\]' sqlite/gen/model_columns.rb
+chk "sqlite INTEGER columns are derived" $? 0
 
 # 5c. A project without a schema or a model is a no-op (the boot chain's
 #     seed placeholder stays intact); a model without a schema is refused.

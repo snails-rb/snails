@@ -8,6 +8,7 @@ module GeneratedModelColumns
     def datetime_columns: () -> Array[String]
     def boolean_columns: () -> Array[String]
     def json_columns: () -> Array[String]
+    def integer_columns: () -> Array[String]
   end
 end
 
@@ -32,6 +33,7 @@ module GeneratedModelColumns
     def datetime_columns: () -> Array[String]
     def boolean_columns: () -> Array[String]
     def json_columns: () -> Array[String]
+    def integer_columns: () -> Array[String]
   end
 end
 

@@ -20,7 +20,7 @@ class MainOverrideTest < TestBase
   # keeps working next to it.
   def test_untouched_core_default_stays
     rows = Snails::Main.route_table
-    assert_equal 7, rows.length
+    assert_equal 8, rows.length
     assert_equal "/up", rows[0].pattern
   end
 end

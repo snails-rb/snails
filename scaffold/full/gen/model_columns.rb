@@ -8,6 +8,7 @@ module GeneratedModelColumns
     def datetime_columns = %w[created_at updated_at]
     def boolean_columns = []
     def json_columns = []
+    def integer_columns = %w[id post_id]
   end
 end
 
@@ -34,6 +35,7 @@ module GeneratedModelColumns
     def datetime_columns = %w[created_at updated_at]
     def boolean_columns = []
     def json_columns = []
+    def integer_columns = %w[id]
   end
 end
 

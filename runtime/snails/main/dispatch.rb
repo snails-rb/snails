@@ -131,6 +131,15 @@ module Snails
         res.body = ActionController::JsonRender.encode({ "error" => "not_found" })
         res.headers["Content-Type"] = "application/json; charset=utf-8"
         return
+      rescue Sqlx::CastError
+        # A condition value that cannot be cast to the column type is a
+        # malformed request, not a server failure — "1-welcome" on an integer
+        # id answers 400 instead of reaching the driver as text or becoming a
+        # 500. Apps rescue the same class to answer with their own body.
+        res.status = 400
+        res.body = ActionController::JsonRender.encode({ "error" => "bad_request" })
+        res.headers["Content-Type"] = "application/json; charset=utf-8"
+        return
       rescue ActionController::ParameterMissing
         # A required parameter the client did not send is the client's
         # error, not the server's — without this the exception reaches the
