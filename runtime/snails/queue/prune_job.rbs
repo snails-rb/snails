@@ -1,0 +1,7 @@
+module Snails
+  module Queue
+    class PruneJob < ActiveJob::Base
+      def self.perform: (untyped? data) -> void
+    end
+  end
+end

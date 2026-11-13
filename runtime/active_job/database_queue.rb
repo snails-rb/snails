@@ -3,15 +3,15 @@
 # travels as a row in `snails_queue_jobs` (one row per job; a finished
 # row is that run's history), so queued work survives a restart and is
 # readable from any process holding the same database. Row transitions
-# belong to the table models — `Snails::QueueJob` (queue rows) and
-# `Snails::QueueOccurrence` (the recurring-occurrence ledger); this
+# belong to the table models — `Snails::Queue::Job` (queue rows) and
+# `Snails::Queue::Occurrence` (the recurring-occurrence ledger); this
 # class composes the adapter protocol (drain interval, batch size, orphan age)
 # over them.
 #
 # A drain resolves the stored name back to a class (`Object.const_get`)
 # and runs its class-side `perform`, so a stored name must be a
 # constant path. Terminal-row retention is deliberately outside the
-# adapter: `Snails::QueuePruneJob` owns it and the app puts it on the
+# adapter: `Snails::Queue::PruneJob` owns it and the app puts it on the
 # clock — the `generate job_queue` output prints the registration line
 # commented out, so retention is opt-in per app.
 
@@ -59,7 +59,7 @@ module ActiveJob
     # @return [void]
     def self.enqueue(job_name, work, payload)
       now = Time.now.utc
-      Snails::QueueJob.enqueue!(job_name, payload, now, now)
+      Snails::Queue::Job.enqueue!(job_name, payload, now, now)
     end
 
     # hand off a delayed one-off: the row waits in pending until a drain's clock
@@ -75,7 +75,7 @@ module ActiveJob
     # @return [void]
     def self.enqueue_at(job_name, work, payload, scheduled_at)
       now = Time.now.utc
-      Snails::QueueJob.enqueue!(job_name, payload, scheduled_at, now)
+      Snails::Queue::Job.enqueue!(job_name, payload, scheduled_at, now)
     end
 
     # the recurring half: one row per (name, interval start), so several
@@ -96,8 +96,8 @@ module ActiveJob
       now = Time.now.utc
       begin
         Sqlx::Base.transaction do
-          Snails::QueueOccurrence.insert!(name, scheduled_at, now)
-          Snails::QueueJob.enqueue!(name, payload, scheduled_at, now)
+          Snails::Queue::Occurrence.insert!(name, scheduled_at, now)
+          Snails::Queue::Job.enqueue!(name, payload, scheduled_at, now)
         end
         true
       rescue Sqlx::RecordNotUnique
@@ -138,10 +138,10 @@ module ActiveJob
     def self.drain
       DRAIN_FLAGS_LOCK.synchronize { LAST_DRAIN_AT[0] = Time.now.to_i }
       now = Time.now.utc
-      Snails::QueueJob.release_orphaned!(now - ORPHANED_AFTER_SECONDS, now)
+      Snails::Queue::Job.release_orphaned!(now - ORPHANED_AFTER_SECONDS, now)
       processed = 0
       while processed < BATCH_SIZE
-        job = Snails::QueueJob.claim_due(now)
+        job = Snails::Queue::Job.claim_due(now)
         break if job.nil?
         perform_claimed(job)
         processed = processed + 1
@@ -170,12 +170,12 @@ module ActiveJob
       begin
         Snails.logger.debug("job " + name + " started", event: "job.started")
         Object.const_get(name).perform(job.payload)
-        Snails::QueueJob.mark_succeeded!(job.id, Time.now.utc)
+        Snails::Queue::Job.mark_succeeded!(job.id, Time.now.utc)
         log_job_finished(name, started)
       rescue Exception => failure
         raise if Snails::ErrorBoundary.fatal?(failure)
         begin
-          Snails::QueueJob.mark_failed!(job.id, failure.class.to_s + ": " + failure.message, Time.now.utc)
+          Snails::Queue::Job.mark_failed!(job.id, failure.class.to_s + ": " + failure.message, Time.now.utc)
         ensure
           log_job_failed(name, started, failure)
         end
