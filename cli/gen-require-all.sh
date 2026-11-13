@@ -2,18 +2,18 @@
 # Regenerate the require lists in gen/* from a folder scan.
 #
 # spinel is AOT: it analyses the require graph statically. A require that
-# is not a literal — one reached through a Dir.glob loop or an array
-# walk — drops out of the graph (silent) and only surfaces as a runtime
-# NameError. There is no "require a folder" either, so the only way to
-# load a whole folder reliably is to generate the literal require list.
+# is not a literal — one reached through a Dir.glob loop or an array walk —
+# silently drops out of the graph and surfaces only as a runtime NameError.
+# There is no "require a folder" either, so the only reliable way to load a
+# whole folder is to generate the literal require list.
 #
-# Shape — the spec and its output live together in a marker region inside
-# one file (gen/<group>.rb). the boot chain requires that file, so the spec sits
-# right above the load path, and the generated requires use a path
-# relative to the spec file (../app/) so every file points at the same
-# app/. gen/ is committed source (the spec IS the source; gitignoring it
-# breaks a fresh clone) — the role split with the local-output tmp/ is
-# deliberate. Outside the region (header comments) the file is app-owned.
+# Layout: the spec and its output share a marker region inside one file,
+# gen/<group>.rb. The boot chain requires that file, so the spec sits
+# directly above the load path, and the generated requires use a path
+# relative to the spec file (../app/), so every file points at the same app/.
+# gen/ is committed source (the spec is the source; gitignoring it breaks a
+# fresh clone), and the split from the local-output tmp/ is deliberate.
+# Outside the region (header comments), the file is app-owned.
 #
 #   # >>> snails generate
 #   # scan: models/concerns/**    spec — glob relative to app/, order = load order
@@ -21,12 +21,12 @@
 #   require_relative "../app/models/concerns/auditing"      generated
 #   # <<< snails generate
 #
-# Files a spec does not cover are excluded by default — not a bypass rule
-# but an explicit declaration, so a file you meant to leave out (say
+# Files that no spec covers are excluded by default. Excluding a file is not
+# a workaround; it is a declaration: a file you meant to leave out (say
 # app/route_helpers.rb) is simply not listed.
 #
-# A trailing `**` does not recurse — use `group/**/*` for the recursive
-# form, or a spec like `models/**` only sees direct children.
+# A trailing `**` does not recurse: use `group/**/*` for the recursive form.
+# A spec like `models/**` sees direct children only.
 #
 # Content-gated write: an identical result leaves the file untouched.
 # The harness bundle runner (cli/spin-test.sh) decides its cache
@@ -37,10 +37,10 @@
 #   bash cli/gen-require-all.sh [<app_root>]          regenerate (writes only on change)
 #   bash cli/gen-require-all.sh [<app_root>] --check  freshness check only
 #   --verbose  with --check: list every stale file (default: a one-line report)
-#   <app_root> omitted resolves through cli/app-root.sh (nearest adapter
-#   entry at or above $PWD; outside the app, pass it).
+#   <app_root> omitted resolves through cli/app-root.sh (nearest app root
+#   at or above $PWD; outside the app, pass it).
 #
-# Exit: 0 in sync · 1 stale (--check) · 2 structural error (usage, damaged markers)
+# Exit: 0 = in sync · 1 = stale (--check) · 2 = structural error (usage, damaged markers)
 set -euo pipefail
 
 # App-root resolution is shared with the CLI and the other engines.
@@ -100,7 +100,7 @@ list_all() {
 
 # glob_levels <dir> <component...> — the `**/` form: the remaining
 # components at this level and at every level below it (zero or more
-# directories; a hidden directory is not descended).
+# directories; the walk does not descend into hidden directories).
 glob_levels() {
   local dir="$1" entry
   shift
@@ -170,8 +170,8 @@ matched_rb() {
   done < <(glob_scan "$1" "$2" | LC_ALL=C sort)
 }
 
-# literal_prefix <pattern> — the pattern up to its first wildcard
-# character: the part a mistyped scan names as a directory.
+# literal_prefix <pattern> — the literal prefix before the first wildcard
+# character: the directory part named by a scan pattern.
 literal_prefix() {
   if [[ $1 =~ ^([^*?[]*)[*?[] ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
@@ -276,8 +276,8 @@ done
 if [[ -z $app_root ]]; then
   app_root="$(resolve_app_root '[snails]' '<app_root>')" || exit 2
 else
-  # An explicit argument may be the repository root of a src/ layout; the
-  # omitted case resolves the same root through resolve_app_root.
+  # An explicit argument may be the repository root of a src/ layout; when
+  # the argument is omitted, resolve_app_root applies the same rule.
   app_root="$(app_root_for "$app_root")"
 fi
 if ((verbose && !check)); then

@@ -4,8 +4,8 @@
 # SNALS_REV, `SNALS_SOURCE="checkout"` vendors the core checkout's working
 # tree. Absence means "pin" (apps created before the key existed). The
 # harness verifies exactly the declared source; it never guesses or falls
-# back. A checkout source needs a checkout CLI — a dist install has no
-# working tree to verify.
+# back. A checkout source needs a CLI from a checkout; a distribution
+# install has no working tree to verify.
 #
 # Sourced by cli/harness-test.sh and cli/harness-dev.sh; also exercised by
 # scripts/test-cli.sh. Defines functions, executes nothing.
@@ -15,8 +15,8 @@ _core_check_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$_core_check_dir/pins.sh"
 
 # core_checkout_root <cli> — the development checkout that owns <cli>, or
-# nothing for an installed dist. A linked worktree carries .git as a file,
-# so -e covers both shapes.
+# no output for an installed distribution. A linked worktree stores .git as
+# a file, so -e covers both layouts.
 core_checkout_root() {
   local cli="$1" root
   root="$(cd "$(dirname "$cli")/.." 2>/dev/null && pwd)" || return 0

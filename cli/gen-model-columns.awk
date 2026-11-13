@@ -11,9 +11,9 @@
 # spinel AST into one fact line per model, and the shell passes that file
 # here. The declared class name is the authority: the file's folder is a
 # layout choice, so `class Snails::QueueJob` in app/models/queue_job.rb is
-# attached as Snails::QueueJob. What the generator insists on is uniqueness
-# (one class, one table) and module scopes only — the attach reopens each
-# enclosing scope as a module.
+# attached as Snails::QueueJob. The generator enforces uniqueness (one class,
+# one table) and module scopes only; the attach reopens each enclosing scope
+# as a module.
 #
 # Invoked by cli/gen-model-columns.sh; POSIX awk only.
 
@@ -252,10 +252,10 @@ function parse_column_item(table, item,    s, name, rest, up, cut, candidates, c
 
 # One line per model, tab separated, from gen-model-columns-ast.awk:
 #   <path> <declared class> <table> <datetime override> <date override> <json columns> <readers>
-# "-" marks an empty list. The declared name is the authority — the file's
-# folder is a layout choice, not part of the name. What must stay unique is
-# the class (two files attaching to one class would emit the same modules
-# twice) and the table (two models cannot share one schema entry).
+# "-" marks an empty list. The declared name is the authority; the file's
+# folder is a layout choice, not part of the name. The class and the table
+# must stay unique: two files attaching to one class would emit the same
+# modules twice, and two models cannot share one schema entry.
 function read_model_facts(facts,    line, count, field, i, class_name,
                           reader_count, reader, col_count, col) {
   while ((getline line < facts) > 0) {
@@ -319,8 +319,8 @@ function emit_wrapper_end(out, full_name,    count, part, i) {
 
 function column_is_datetime(table, i,    type) {
   type = column_type[table, i]
-  # DATE stays out: the stored text is 10 characters, which String#to_time
-  # reads as nil — a DATE column is converted through the date codec
+  # DATE stays out: the stored text is 10 characters, for which String#to_time
+  # returns nil — a DATE column is converted through the date codec
   # (`String#to_date`) instead.
   return type ~ /TIMESTAMP/ || type ~ /^DATETIME$/
 }
@@ -384,7 +384,7 @@ function list_word(table, predicate,    list) {
 
 # Whether any generated model projects a DATE column. The date package is
 # opt-in: an app with no DATE column must not pay its build and binary cost,
-# so the generated file requires the date codec only when this answers 1.
+# so the generated file requires the date codec only when this returns 1.
 function any_model_has_date(    m, table, i) {
   for (m = 1; m <= model_count; m++) {
     table = model_table[model_order[m]]
@@ -449,10 +449,10 @@ function emit_rbs(class_name,    table, i, col, count, part, module_body, attach
   for (i = 1; i <= column_count[table]; i++) {
     col = column_name[table, i]
     if ((class_name, col) in override) continue
-    # A model that declares the column json owns its reader type: the
-    # value arrives decoded (a Hash), so the DDL-derived seed (String
-    # for a TEXT column) would lie. JSON-typed columns already seed
-    # untyped through rbs_type.
+    # A model that lists the column in json_columns owns its reader type:
+    # the value arrives decoded (a Hash), so the DDL-derived seed (String for
+    # a TEXT column) would be wrong. JSON-typed columns already seed untyped
+    # through rbs_type.
     if ((class_name, col) in model_json_declared) {
       print module_body "attr_reader " col ": untyped" > out_rbs
       continue

@@ -89,8 +89,8 @@ function literal_string_list(id,    n, parts, i, out) {
 }
 
 # Collect the declarations the generator reads. A model keeps them in its own
-# body or inside `class << self`; no other shape is accepted, so a stray
-# declaration cannot look like a fact it is not.
+# body or inside `class << self`; no other form is accepted, so a stray
+# declaration cannot be mistaken for a fact.
 function scan_body(body,    n, parts, i, node, name, value) {
   if (body == "" || !(body in type)) return
   n = split(array[body, "body"], parts, ",")
@@ -129,7 +129,7 @@ function has_empty_array(statements,    value) {
 }
 
 # A model class created at runtime carries no `class` line, so the schema walk
-# would never see it — a silent miss today. It fails here instead.
+# would never see it: it would be missed silently. It fails here instead.
 function dynamic_model(id,    receiver, arguments, node) {
   if (type[id] != "CallNode") return 0
   if (string[id, "name"] != "new") return 0

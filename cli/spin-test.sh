@@ -31,9 +31,9 @@ die() {
   exit 1
 }
 
-# Lexical absolute-path resolution — `File.expand_path` without the tilde
-# surprises: `.`/`..` and duplicate slashes are removed, nothing is
-# required to exist, and symlinks are left alone.
+# Lexical absolute-path resolution — like `File.expand_path`, with explicit
+# `~` handling: `.`/`..` and duplicate slashes are removed, nothing has to
+# exist, and symlinks are left alone.
 normalize_path() {
   local path="$1" part result=""
   local -a parts
@@ -86,9 +86,9 @@ RUNNER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[
 
 [[ -d $SPIN_ROOT ]] || die "spin root not found: $SPIN_ROOT"
 
-# The snails CLI is located without embedding a machine path: the CLI
-# that set SNAILS_CLI (invoking the harness engine) is authoritative,
-# else SNAILS_DIR (the checkout), else `snails` on PATH. Both core
+# The snails CLI is located without hardcoding a local path: the CLI that set
+# SNAILS_CLI (the one invoking the harness engine) is authoritative;
+# otherwise SNAILS_DIR (the checkout), otherwise `snails` on PATH. Both core
 # assembly and the require-all generator are CLI engines.
 snails_cli() {
   if [[ -n ${SNAILS_CLI:-} ]]; then
@@ -102,8 +102,9 @@ snails_cli() {
 CLI="$(snails_cli)"
 [[ -n $CLI && -x $CLI ]] || die "snails CLI not found; set SNAILS_DIR to the snails checkout (or put snails on PATH)"
 
-# the vendored core is not committed (S5) — assemble it from the pinned core when
-# missing. The gate runner or a prior build may have done it already.
+# The vendored core is not committed, so assemble it from the pinned core
+# when it is missing. The gate runner or a prior build may have done it
+# already.
 if [[ ! -d $SPIN_ROOT/$VENDOR_DIR ]]; then
   "$CLI" sync "$SPIN_ROOT" || die "core assembly failed"
 fi
@@ -112,7 +113,7 @@ fi
 # cannot be expressed without codegen. The generator is a core engine
 # (`bin/snails gen-require-all`) — the app tree carries no copy of it; the
 # content-gated write keeps the source mtimes used below stable.
-"$CLI" gen-require-all "$SPIN_ROOT" || die "require-all generation failed (a CLI older than bin/snails gen-require-all cannot serve it — update the CLI)"
+"$CLI" gen-require-all "$SPIN_ROOT" || die "require-all generation failed (update the CLI if it predates bin/snails gen-require-all)"
 
 # Case files: Ruby's Dir.glob(`**/*_test.rb`) semantics — hidden entries
 # are skipped, and the list is byte-sorted (the same contract as the
@@ -128,10 +129,10 @@ fi
 (( ${#tests[@]} > 0 )) || die "no test files: $TEST_DIR/**/*_test.rb"
 
 # Resolve one case-file selector against the compiled set. A selector is a
-# path — absolute, or relative to the harness dir or the spin root. There is
-# no globbing and no basename matching (two dirs may share one): an unknown
-# name stops the run and lists what exists, so a typo can never quietly run
-# more than the caller asked for.
+# path: absolute, or relative to the harness dir or the spin root. There is
+# no globbing and no basename matching (two directories can contain files
+# with the same basename), so an unknown name stops the run and lists what
+# exists; a typo can never quietly run more than the caller asked for.
 resolve_case_file() {
   local name="$1" candidate test_path
   local -a candidates=()
@@ -258,10 +259,10 @@ if (( cached == 0 )); then
 fi
 
 # 4. Run and diff per file. Each file gets a fresh process, and the
-#    comparison uses stdout — the case output contract. stderr is forwarded
-#    as diagnostics (a failure diff should not hide it), so a trace or a
-#    warning never changes what a snapshot compares. cwd is the harness dir —
-#    cases read their files by relative path there, like a single `spin test`.
+#    comparison uses stdout, the snapshot contract. stderr is forwarded as
+#    diagnostics (a failure diff should not hide it), so a trace or a warning
+#    never changes what a snapshot compares. cwd is the harness dir, where
+#    cases read their files by relative path, like a single `spin test`.
 #    `selected` keeps the entry's own index per file (a filtered run still
 #    dispatches through the same gate).
 if (( ${#selected[@]} != ${#tests[@]} )); then

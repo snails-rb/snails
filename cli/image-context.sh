@@ -1,15 +1,15 @@
-# Image build-context staging — one source for the extra inputs the app
-# Dockerfile consumes beyond the app's own files.
+# Image build-context staging: the single source for the extra inputs the
+# app Dockerfile uses beyond the app's own files.
 #
 # The image carries the snails CLI so `docker compose run app snails migrate
-# …` works by name. The engines stage the whole bin/+cli/ tree into the
-# app's gitignored build/ directory before `docker build` — generated,
-# refreshed on every build, and re-included in .dockerignore. A file list
-# would drift whenever the CLI's internal requires change, and that failure
-# only shows inside the container, which the host tests never run.
-# db/migrate/ gets the same treatment: the Dockerfile COPYs it, and an app
-# with no migrations yet has no such directory (git does not track empty
-# dirs, which is why the engine creates it).
+# …` works by name. The engines stage the whole bin/ and cli/ tree into the
+# app's gitignored build/ directory before `docker build`; the stage is
+# generated, refreshed on every build, and added back to .dockerignore. A
+# file list would drift whenever the CLI's internal requires change, and
+# that failure appears only inside the container, which the host tests never
+# exercise. db/migrate/ gets the same treatment: the Dockerfile COPYs it,
+# and an app with no migrations yet has no such directory (git does not
+# track empty dirs, which is why the engine creates it).
 #
 # The stage lives outside snails-core/ on purpose: that directory is an
 # exact copy of the pinned core, and build inputs are not core content.

@@ -1,13 +1,13 @@
 #!/bin/bash
 # Dev server runner — build the app and serve it in the foreground.
 #
-# Core engine, run through the CLI (`snails harness dev <app_root>`) —
-# the app tree carries NO copy of this script (a seeded copy drifts; the
-# stamped bin/dev wrapper hands off here). The gate engine
-# (`snails harness test`) is the throwaway counterpart: same build and adapter-selection
-# steps, but a one-shot database, test.env, the harness bundle, and
-# teardown. This runner only serves, and its databases persist across
-# boots.
+# Core engine, run through the CLI (`snails harness dev <app_root>`) — the
+# app tree carries no copy of this script (a seeded copy drifts; the
+# generated bin/dev wrapper hands off here). The gate engine
+# (`snails harness test`) is the throwaway counterpart: it uses the same
+# build and adapter-selection steps but a one-shot database, test.env, the
+# harness bundle, and teardown. This runner only serves, and its databases
+# persist across boots.
 #
 # usage: snails harness dev <app_root> [--force] [--skip-build] [--fresh] [--verbose] [-- <binary args>]
 #   <app_root>    spin root — the directory holding harness/
@@ -36,28 +36,30 @@
 #   DATABASE_PATH=<path>   sqlite adapter: database file (default
 #                          storage/development.sqlite3 under the spin root)
 #
-# DB adapter rules (read from the app's config/database.rb database configuration — the
-# anchored require line, via cli/database-adapter.sh):
+# DB adapter rules (read from the app's database configuration,
+# config/database.rb — specifically the anchored require line, via
+# cli/database-adapter.sh):
 #   sqlite => storage/development.sqlite3 (persistent). The runner never
 #     creates or loads the database — the boot check stops an uninitialized
 #     target and prints the explicit `migrate load` command. An existing
 #     file is left alone so development data survives.
-#   pg => with PG_URL the database is the developer's and used as-is: no
-#     container, no DDL, no loader (a shared/web database carries
-#     extensions and data this repo's schema dump would clobber), and --fresh
-#     is refused. Without PG_URL the runner starts (or reuses) a persistent
-#     development container named from APP_NAME (pins.toml — a definitive
-#     declaration, never the directory name), and refuses to start if its
-#     port is taken. The container is infrastructure only; the database
-#     inside it is initialized by the explicit `migrate load`.
+#   pg => with PG_URL, the database belongs to the developer and is used
+#     as-is: no container, no DDL, no loader (a shared or web database
+#     carries extensions and data that this repo's schema dump would
+#     clobber), and --fresh is refused. Without PG_URL the runner starts
+#     (or reuses) a persistent development container named from APP_NAME
+#     (pins.toml — the definitive app name, never the directory name), and
+#     refuses to start if its port is taken. The container is infrastructure
+#     only; the database inside it is initialized by the explicit
+#     `migrate load`.
 #
 # Before the build, every target is checked (`migrate check`, read-only): an
-# uninitialized database or a schema behind the app's db/migrate files shows
-# up only as background-job failures, never as a failed request, so the
-# server stops with the repair line instead. The runner never creates, loads,
-# or applies anything — a fresh database has no ledger and the check stops
-# the boot until the developer runs the printed `migrate load` (or
-# `migrate apply` for pending migrations on an initialized database).
+# uninitialized database, or a schema that is behind the app's db/migrate
+# files, shows up only as background-job failures, never as a failed request,
+# so the server stops with the repair line instead. The runner never
+# creates, loads, or applies anything: a fresh database has no ledger, and
+# the check stops the boot until the developer runs the printed `migrate load`
+# (or `migrate apply` for pending migrations on an initialized database).
 #
 # The spinel build itself is pinned by the project pins file (SPINEL_REV):
 # cli/toolchain.sh (this engine's tree, versioned with the CLI) puts
@@ -65,8 +67,8 @@
 # the project copy under the pins file's directory is missing or stale.
 #
 # `harness/dev.env` (KEY=val), when present, is exported into the server
-# environment — the app's dev switches (the test counterpart is test.env, which
-# is server-only and test-only; this engine never sources test.env).
+# environment as the app's development settings. Its test counterpart is
+# test.env, which is server-only and test-only; this engine never sources it.
 # The server runs in the foreground: its output goes to the terminal and
 # is appended to the app tree's tmp/development.log (the tmp/ is
 # gitignored, so the log is local state, never source). Ctrl-C stops the
@@ -112,16 +114,16 @@ while (($#)); do
     --verbose)    VERBOSE=1; shift ;;
     --)           shift; BIN_ARGS=("$@"); break ;;
     -h|--help)
-      sed -n '2,73p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,76p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
-    *) echo "[snails] unknown arg: $1 (usage: snails harness dev <app_root> [--force] [--skip-build] [--fresh] [--verbose] [-- <binary args>])" >&2; exit 2 ;;
+    *) echo "[snails] unknown argument: $1 (usage: snails harness dev <app_root> [--force] [--skip-build] [--fresh] [--verbose] [-- <binary args>])" >&2; exit 2 ;;
   esac
 done
 
 # The CLI that invoked this engine is authoritative (SNAILS_CLI, set by
-# `snails harness ...`); the fallback locates one without embedding a
-# machine path: SNAILS_DIR (the checkout) wins, else `snails` on PATH.
+# `snails harness ...`); the fallback locates one without hardcoding a local
+# path: SNAILS_DIR (the checkout) wins, else `snails` on PATH.
 # The pin declaration gate in step 0 and snails-core/ assembly in step 1
 # need it.
 snails_cli() {
@@ -134,18 +136,14 @@ snails_cli() {
   fi
 }
 
-# The boot check: an uninitialized database or an existing schema behind the
-# app's db/migrate files shows up only as background-job failures, so stop
-# here instead. Read-only — the repair is the explicit `migrate load` or
-# `migrate apply` step, never this check. A database the runner started
-# itself (the pg dev container) is named in the repair line: the developer's
-# shell does not carry the runner's exported PG_URL.
+# The boot check: an uninitialized database, or an existing schema that is
+# behind the app's db/migrate files, appears only as background-job failures,
+# so stop here instead. Read-only: the repair is the explicit `migrate load`
+# or `migrate apply` step, never this check. A database the runner started
+# itself (the pg dev container) is named in the repair line because the
+# developer's shell does not carry the runner's exported PG_URL.
 # (The gate engine owns its own schema dump loader; the dev runner never loads
 # or applies anything.)
-# up only as background-job failures, so stop here instead. Read-only — the
-# repair is the explicit `migrate apply` step, never this check. A database
-# the runner started itself (the pg dev container) is named in the repair
-# line: the developer's shell does not carry the runner's exported PG_URL.
 check_pending_migrations() {
   local args=(--app "$SPIN_ROOT")
   if [[ ${PG_URL_FROM_RUNNER:-0} -eq 1 ]]; then
@@ -165,13 +163,13 @@ source "$ENGINE_DIR/database-adapter.sh"
 # shellcheck source=core-check.sh
 source "$ENGINE_DIR/core-check.sh"
 
-# 0. Pin declaration gate — the CLI owns the check (`verify-pins`: a
-#    restorable SNALS_REV plus the SPINEL_REV pair record its rev
-#    declares), verified before anything is materialized from it. A tree
-#    without any pins file has no declaration to check: it keeps the
-#    pre-declaration behavior, announced. The runner probes no app script
-#    — app-specific checks live in the app-owned bin/test/bin/dev
-#    wrappers (the check-pins hook is retired).
+# 0. Pin declaration gate — the CLI owns the check (`verify-pins`): a
+#    restorable SNALS_REV, plus a SPINEL_REV that matches the pin record at
+#    that revision. It runs before anything is materialized from the pins. A
+#    tree without a pins file has no declaration to check: it keeps the
+#    pre-declaration behavior, and says so. The runner probes no app script;
+#    app-specific checks live in the app-owned bin/test and bin/dev wrappers
+#    (the check-pins hook is retired).
 CLI="$(snails_cli)"
 [[ -n $CLI && -x $CLI ]] || {
   echo "[snails] snails CLI not found; set SNAILS_DIR to the snails checkout (or put snails on PATH)" >&2
@@ -195,8 +193,8 @@ command -v spin >/dev/null || { echo "[snails] spin not found" >&2; exit 1; }
 #    restores SNALS_REV, "checkout" takes the core checkout's working tree.
 #    `snails new` writes the source it vendored from, so a core developer's
 #    app (checkout) and a consumer's pinned app (pin) each verify exactly
-#    one source — no guessing or fallback. Assemble the core when missing
-#    (S5: not committed).
+#    one source — no guessing or fallback. Assemble the core when it is missing
+#    (it is not committed; `snails sync` vendors it).
 if [[ ! -d "$SPIN_ROOT/$SNAILS_VENDOR_DIR" ]]; then
   "$CLI" sync "$SPIN_ROOT" >&2
 elif ((FORCE)); then
@@ -210,10 +208,10 @@ elif core_check "$CLI" "$SPIN_ROOT"; then
     echo "[snails] serving $SNAILS_VENDOR_DIR/ from the checkout working tree, not the pin (SNALS_SOURCE=checkout)" >&2
   fi
 else
-  # Never re-sync behind the developer's back: a dev server is exactly
-  # where local core edits live, and a rewrite would race a parallel
-  # server and hide the drift (including deliberate edits to the vendored
-  # copy and partial corruption) that the check exists to surface.
+  # Never re-sync without the developer's knowledge: a dev server is exactly
+  # where local core edits live, and a rewrite could race a parallel server
+  # and hide the drift (including deliberate edits to the vendored copy and
+  # partial corruption) that the check exists to surface.
   repair_arg="$(app_root_argument "$SPIN_ROOT")"
   sync_command="snails sync"
   [[ -n $repair_arg ]] && sync_command+=" $(shell_quote "$repair_arg")"
@@ -233,22 +231,22 @@ PG_URL_FROM_RUNNER=0
 if [[ $DB_ADAPTER == pg ]]; then
   if [[ -n ${PG_URL:-} ]]; then
     # Developer-provided database — used as-is: no container, no DDL, no
-    # loader (a shared/web database carries extensions and data this repo's
-    # schema dump would clobber), and --fresh is refused.
+    # loader (a shared or web database carries extensions and data that this
+    # repo's schema dump would clobber), and --fresh is refused.
     if ((FRESH)); then
       echo "[snails] --fresh applies to the dev container only — a provided PG_URL belongs to its owner" >&2
       exit 1
     fi
   else
     # No PG_URL: bring up this app's persistent development database
-    # container. APP_NAME (pins.toml) is the definitive app identity —
-    # never the directory name (rename/worktree/clone would let it drift).
+    # container. APP_NAME (pins.toml) is the definitive app name, never the
+    # directory name (a rename, worktree, or clone would let it drift).
     PG_URL_FROM_RUNNER=1
     pins="$(pins_discover "$SPIN_ROOT")"
     APP_NAME=""
     [[ -z $pins ]] || APP_NAME="$(pins_get "$pins" APP_NAME)"
     [[ -n $APP_NAME ]] || {
-      echo "[snails] pins.toml has no APP_NAME=\"<app>\" — the definitive basis for the dev database/container name" >&2
+      echo "[snails] pins.toml has no APP_NAME=\"<app>\" — the app name is required for the dev database and container name" >&2
       exit 1
     }
     DEV_CONTAINER="${PG_CONTAINER_NAME:-$APP_NAME-dev-pg}"
@@ -270,12 +268,12 @@ if [[ $DB_ADAPTER == pg ]]; then
       NEW_CONTAINER=1
     fi
     if ((NEW_CONTAINER)); then
-      # Running two apps at once is the developer's call — use the fixed
-      # default port, but never step over a busy port silently: say so and
-      # let the developer move this app with PG_PORT.
+      # Running two apps at once is the developer's call. Use the fixed
+      # default port, but never take a busy port silently: report it and let
+      # the developer move this app with PG_PORT.
       if (echo >"/dev/tcp/127.0.0.1/$DEV_PORT") 2>/dev/null; then
         echo "[snails] port $DEV_PORT is already in use (another app's dev database?)" >&2
-        echo "[snails] to run this app alongside it, pick a different port: PG_PORT=<free port> harness/dev" >&2
+        echo "[snails] to run this app alongside it, set PG_PORT to a free port" >&2
         exit 1
       fi
       if ! docker run -d --name "$DEV_CONTAINER" \
@@ -313,17 +311,17 @@ else
   # the explicit `migrate load` command for an uninitialized target.
 fi
 
-# 3. Database readiness check — read-only, and before the build so an
-#    uninitialized or stale schema costs seconds instead of a background-job
-#    failure under a serving server. The runner never writes the database:
+# 3. Database readiness check — read-only, and before the build, so an
+#    uninitialized or stale schema costs seconds rather than a background-job
+#    failure while the server is running. The runner never writes the database:
 #    the repair line is the developer's explicit `snails migrate load`
 #    (uninitialized) or `snails migrate apply` (pending).
 check_pending_migrations
 
 # 4. Build the server (incremental). gen/* is refreshed first
-#    (cli/generators.sh) so the compile sees the tree as it stands — and
-#    only when building: --skip-build serves the existing artifact, so it
-#    regenerates nothing either.
+#    (cli/generators.sh), so the compile sees the tree as it stands — and
+#    only when building: --skip-build serves the existing artifact and
+#    regenerates nothing.
 if ((SKIP_BUILD == 0)); then
   run_generators "$CLI" "$SPIN_ROOT" >&2
   ( cd "$SPIN_ROOT" && spin build ) >&2
@@ -337,8 +335,8 @@ BIN="$SPIN_ROOT/build/bin/$NAME"
 
 # 5. Serve in the foreground. The port must be free first: a foreign
 #    listener would take the client's requests. dev.env, when present,
-#    is the app's dev switches — exported into this server environment
-#    (test.env is the gate's, never sourced here).
+#    holds the app's development settings, exported into this server
+#    environment (test.env belongs to the gate and is never sourced here).
 if (echo > /dev/tcp/127.0.0.1/"$PORT") 2>/dev/null; then
   echo "[snails] port $PORT is already in use" >&2
   exit 1

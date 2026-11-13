@@ -26,9 +26,9 @@ ROOT="${1:-$PWD}"
 [[ -d $ROOT ]] || { echo "[snails] repo root not found: $ROOT" >&2; exit 1; }
 ROOT="$(cd "$ROOT" && pwd)"
 
-# The app root is the repo root, or src/ when the app lives there — the
-# shared rule (cli/app-root.sh), the same one every caller-named directory
-# argument gets. SPINEL_SRC overrides it.
+# The app root is the repository root, or src/ when the app lives there.
+# This is the shared rule (cli/app-root.sh) that applies to every
+# caller-named directory argument. SPINEL_SRC overrides it.
 APP_ROOT="${SPINEL_SRC:-$(app_root_for "$ROOT")}"
 [[ -d $APP_ROOT ]] || { echo "[snails] app root not found: $APP_ROOT" >&2; exit 1; }
 APP_ROOT="$(cd "$APP_ROOT" && pwd)"
@@ -41,15 +41,16 @@ fi
 source "$ENGINE_DIR/pins.sh"
 
 # Parse the pins file instead of sourcing it (pins are declarations, never
-# shell code), and discover it with the same walk verify-pins uses so the
-# verified file and the read file are always the same one.
+# shell code). Discover it with the same walk verify-pins uses, so the file
+# that was verified is always the file that gets read.
 pins_file="$(pins_discover "$APP_ROOT")"
 [[ -n $pins_file ]] || { echo "[snails] no pins file at or above $APP_ROOT — add pins.toml (snails new stamps one)" >&2; exit 1; }
 
-# A build compiles the core its declared source provides — "pin" restores
-# SNALS_REV, "checkout" takes the working tree as it stands, uncommitted
-# changes included; the vendored copy records that itself. An unknown
-# value still fails loudly, so a typo never picks a source silently.
+# A build compiles the core that its declared source provides: `pin`
+# restores SNALS_REV, while `checkout` takes the working tree as it stands,
+# including uncommitted changes. The vendored copy records the source it
+# came from. An unknown value still fails with a clear error, so a typo
+# never selects a source silently.
 pins_source "$pins_file" "[snails]" >/dev/null || exit 1
 
 APP_NAME="$(pins_get "$pins_file" APP_NAME "[snails]")" || exit 1

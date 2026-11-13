@@ -18,44 +18,45 @@
 #     IF EXISTS + CREATE VIEW), so an existing database adopts the ledger
 #     by replaying: objects it already has are left alone.
 #   - the schema dump is generated output: edit the migration files, then
-#     `dump`. Never hand-edit db/schema.sql — the design notes belong in
-#     the migration file, and `verify` fails on a hand edit.
+#     `dump`. Never hand-edit db/schema.sql: the reasoning behind the schema
+#     change belongs in the migration file, and `verify` fails on a hand edit.
 #   - the runner owns transactions; a migration file must not carry its
 #     own BEGIN/COMMIT.
 #   - the executor is the adapter's CLI (sqlite3 / psql) and the runner is
 #     bash (3.2-compatible, like the rest of the CLI): migrating a
 #     database needs no interpreter beyond the adapter's own client.
-#   - the app root is the directory carrying the database configuration; with no
-#     --app it resolves to the nearest one at or above $PWD (walk up,
-#     nearest wins). The pins file lives at that app root, so the walk is
-#     the whole rule — resolution only ever happens from within the app, and a
-#     start outside it (a repository root above) is not a resolution:
-#     --app names the app from there. A repository with several apps gives
-#     each app its own pins file and its own app root.
-#   - a database owned by another app (pins DB_OWNER="external") refuses
-#     `apply`; status/plan/verify stay available.
+#   - the app root is the directory that carries the database configuration;
+#     with no --app it resolves to the nearest one at or above $PWD (walk up,
+#     nearest wins). The pins file lives at that app root, so walking up is
+#     all the resolution needs. The walk only works from inside the app; a
+#     start outside it (a repository root above, say) resolves nothing, so
+#     pass --app to name the app from there. A repository with several apps
+#     gives each app its own pins file and its own app root.
+#   - the runner refuses `apply` for a database owned by another app (pins
+#     DB_OWNER="external"); status/plan/verify stay available.
 #   - `apply` writes only what the ledger says is pending, and the ledger
 #     is created by the tool, never by the app's schema files.
-#   - `check` is the read-only boot check: exit 1 while any migration is
-#     pending, with the repair line as the default output (`--verbose`
-#     adds the labels). It never writes; a ledger that cannot be read
-#     (no executor, unreachable target) is a failure, never a silent pass.
+#   - `check` is the read-only boot check: it exits 1 when any migration is
+#     pending and prints the repair line by default (`--verbose` adds the
+#     labels). It never writes; a ledger that cannot be read (no executor,
+#     unreachable target) is a failure, never a silent pass.
 #   - `dump` and `verify` derive the schema dump from the migration files
 #     alone, never from a database's current state: sqlite reads no
 #     target (`dump` takes no --database), while pg replays into a
 #     throwaway schema on the target and drops it on exit.
 #
-# usage: snails migrate <status|plan|apply|verify|check|dump> [--app DIR]
+# usage: snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR]
 #                   [--database TARGET] [--verbose]
 #
-# exit: 0 ok, 1 violation (pending migration in check mode, ledger gap,
-#        failed apply, schema dump drift), 2 structural (usage, missing
-#        pins/target, a schema dump guard — no migration files/tables, an
-#        unsupported object, sqlite's --database, pg external/no target)
+# exit: 0 = ok, 1 = violation (pending migration in check mode, ledger gap,
+#        failed apply, schema dump drift), 2 = structural (usage, missing
+#        pins or target, a schema dump guard — no migration files or tables,
+#        an unsupported object, sqlite's --database, an external pg owner,
+#        or no pg target)
 set -euo pipefail
 
-# The adapter detector is shared with the harness engines — one source for
-# the "anchored require line is the adapter" rule.
+# The adapter detector is shared with the harness engines: one implementation
+# of the "anchored require line is the adapter" rule.
 MIGRATE_SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=database-adapter.sh
 source "$MIGRATE_SCRIPTS/database-adapter.sh"
@@ -150,10 +151,10 @@ discover_pins() {
 # --- adapter executor ----------------------------------------------------------
 
 # Both executors read the SQL on stdin. sqlite gets a busy wait in front of
-# the transaction so a concurrent writer parks instead of failing the
+# the transaction, so a concurrent writer waits instead of failing the
 # apply; the shell's `.timeout` sets it without the echo a PRAGMA statement
-# produces (stdout is the result summary only). psql stops at the first
-# error and stays quiet.
+# produces (stdout is the result summary only). psql stops at the first error
+# and stays quiet.
 sql_exec() {
   if [[ $DB_ADAPTER == sqlite ]]; then
     printf '.timeout 30000\n%s\n' "$1" | sqlite3 -bail "$TARGET"
@@ -244,7 +245,7 @@ index_of_version() {
 # Order is the version's NUMERIC value (the leading digits of the file
 # name), not the shell's glob collation: one tree can carry a short
 # ordinal version and a 14-digit timestamp version, and as text "2100"
-# sorts after "20261026120000" while as numbers it comes first. Sorting
+# sorts after "20261026120000", but as a number it comes first. Sorting
 # also keeps every file of one version adjacent, which the pairing below
 # relies on.
 list_migrations() {
@@ -294,18 +295,18 @@ add_migration() { # <file> <version> <name> <adapter-or-empty>
     CUR_ADAPTER=""
   fi
   if [[ -n $CUR_NAME && $name != "$CUR_NAME" ]]; then
-    die 1 "version $version has more than one name: $CUR_NAME, $name"
+    die 1 "version $version has more than one name: $CUR_NAME and $name"
   fi
   if [[ " $PREV_NAMES " == *" $name "* ]]; then
-    die 1 "name $name appears under more than one version"
+    die 1 "the name $name appears under more than one version"
   fi
   CUR_NAME="$name"
 
   [[ -z $adapter ]] && CUR_COMMON="$file"
   [[ $adapter == "$DB_ADAPTER" ]] && CUR_ADAPTER="$file"
-  # The `[[ ]] &&` list above leaves a non-zero status when a test fails;
-  # without this the function itself would "fail" and `set -e` would end
-  # the run (a file for another adapter is normal, not an error).
+  # A failing `[[ ]] &&` test leaves a non-zero status; without this return,
+  # the function would return non-zero and `set -e` would end the run (a file
+  # for another adapter is normal, not an error).
   return 0
 }
 
@@ -343,8 +344,8 @@ cmd_status() {
     (( ${#label} > width )) && width=${#label}
   done
 
-  # The count is the answer a human wants first; the per-file rows are the
-  # detail. Pending migrations are not a failure here — `check` is the gate.
+  # Print the counts first; the per-file rows are the detail. Pending
+  # migrations are not a failure here; `check` is the gate.
   printf '[snails] %s applied, %s pending\n' "${#APPLIED_LIST[@]}" "${#PENDING[@]}"
 
   while ((i < ${#VERSIONS[@]})); do
@@ -362,14 +363,14 @@ cmd_status() {
 
   local orphans
   orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "ledger has versions with no migration file:$orphans"
+  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
 }
 
 cmd_plan() {
-  # A dry run: with no target resolved the ledger cannot be read, so
-  # everything is pending and that fact is said out loud.
+  # A dry run: with no target resolved, the ledger cannot be read, so every
+  # migration is treated as pending, and the command says so.
   if [[ -z $TARGET ]]; then
-    echo "[snails] no target resolved — listing every migration (the ledger is not read)" >&2
+    echo "[snails] no target resolved — listing every migration (the ledger was not read)" >&2
   fi
   if ((${#PENDING[@]} == 0)); then
     echo "nothing to apply"
@@ -385,13 +386,13 @@ cmd_plan() {
 }
 
 # The command the developer can paste back into the same shell. An empty
-# app_arg omits --app (the current directory is the app root).
+# app argument omits --app (the current directory is the app root).
 repair_command() { # <app-arg> <database-arg> <apply|load>
   local app_arg="$1" database_arg="$2" subcommand="${3:-apply}" command
   if [[ -n ${SNAILS_MIGRATE_REPAIR:-} ]]; then
     # The deployment that runs this copy supplies the host-side command: the
     # shell that can reach the deployed database is not the one inside the
-    # container. The app argument is dropped too — the host form resolves the
+    # container. The app argument is also dropped; the host form resolves the
     # compose project from the caller's directory.
     command="$SNAILS_MIGRATE_REPAIR"
     app_arg=""
@@ -403,20 +404,20 @@ repair_command() { # <app-arg> <database-arg> <apply|load>
   printf '%s' "$command"
 }
 
-# The boot check. Success is silent — the dev runner calls it on every boot
-# and has its own progress lines; a failure is the repair line alone, with
-# the pending labels behind --verbose. Read-only: the repair is the explicit
-# `migrate load` (uninitialized) or `migrate apply` (pending) step, never
-# this command.
+# The boot check. Success is silent: the dev runner calls it on every boot
+# and has its own progress lines. A failure prints only the repair line;
+# --verbose adds the pending labels. Read-only: the repair is the explicit
+# `migrate load` (uninitialized) or `migrate apply` (pending) step, never this
+# command.
 cmd_check() {
   local orphans n="${#PENDING[@]}" version i message app_arg="" command full_command
   local subcommand=apply
   orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "ledger has versions with no migration file:$orphans"
+  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
   ((LEDGER_PRESENT)) || subcommand=load
 
   if ((n == 0)); then
-    # A schema-only app has no pending file to count. The missing ledger is
+    # A schema-only app has no migration file to count. The missing ledger is
     # the signal that the schema dump was never loaded, so the boot still asks
     # for the explicit initialization instead of starting against an empty DB.
     if ((LEDGER_PRESENT == 0)) && [[ -f $APP/db/schema.sql ]]; then
@@ -433,8 +434,8 @@ cmd_check() {
     return 0
   fi
 
-  # The repair line leads even with --verbose: the labels are the detail
-  # behind it, never the first thing the reader has to sort through.
+  # The repair line comes first even with --verbose: the labels are detail
+  # that follows it, never what the reader sees first.
   if [[ $OWNER == external ]]; then
     message="$n pending migration(s) — DB_OWNER=\"external\": another app owns this database, so migrate it there"
   else
@@ -446,7 +447,8 @@ cmd_check() {
   fi
   echo "[snails] $message" >&2
   if ((VERBOSE)); then
-    # Keep the full argument form for logs, where the reader's shell may be gone.
+    # Keep the full argument form for logs, where the reader's shell may no
+    # longer be available.
     if [[ $OWNER != external ]]; then
       full_command="$(repair_command "$APP" "$DB_OPTION" "$subcommand")"
       [[ $full_command == "$command" ]] || echo "  full: $full_command" >&2
@@ -492,7 +494,7 @@ ensure_target_dir() {
 cmd_apply() {
   local orphans
   orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "ledger has versions with no migration file:$orphans"
+  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
 
   if ((${#PENDING[@]} == 0)); then
     echo "nothing to apply"
@@ -529,8 +531,8 @@ load_schema_dump() {
   fi
 }
 
-# The one writer of the schema dump is `migrate dump`; load delegates to it so
-# the file it just initialized from and the history stay in step.
+# `migrate dump` is the only writer of the schema dump; load delegates to it
+# so the schema file it just loaded and the migration history stay in step.
 run_dump() {
   local args=(dump --app "$APP")
   if [[ $DB_ADAPTER == pg ]]; then
@@ -549,7 +551,7 @@ run_dump() {
 cmd_load() {
   local orphans
   orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "ledger has versions with no migration file:$orphans"
+  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
 
   if ((${#VERSIONS[@]} == 0)) && [[ ! -f $APP/db/schema.sql ]]; then
     echo "nothing to load"
@@ -590,20 +592,21 @@ replay_into() { # <db>
   done
 }
 
-# The header every generated schema dump carries: name the file's writer,
-# so a hand edit has a wrong answer to point at.
+# The header every generated schema dump carries: it names the file's writer,
+# so a hand edit has an authoritative source to compare against.
 schema_dump_header() {
   printf '%s\n' \
     '-- Generated by snails migrate dump from db/migrate/*.sql — do not edit.' \
     '-- Edit the migration files, then re-run snails migrate dump.'
 }
 
-# sqlite stores a CREATE statement without the IF NOT EXISTS the file was
-# written with; the schema dump keeps it, so re-loading a schema dump over an
-# existing database stays a no-op (the contract's idempotency). The match
-# runs case-insensitively over the statement's first line, and the insert
-# measures the ORIGINAL text — the writer keeps the statement's own case
-# and spacing (the uppercase copy is only the ruler).
+# sqlite stores a CREATE statement without the IF NOT EXISTS clause that the
+# file was written with; the schema dump adds it back, so re-loading a schema
+# dump over an existing database stays a no-op (the contract's idempotency).
+# The
+# match runs case-insensitively over the statement's first line, and the
+# insert measures the ORIGINAL text — the writer keeps the statement's own
+# case and spacing (the uppercased copy is used only for comparison).
 ensure_if_not_exists() { # <statement> → stdout
   local stmt="$1" first rest prelen had_nocase=0
   if shopt -q nocasematch; then had_nocase=1; fi
@@ -637,8 +640,8 @@ cleanup_schema_dump() { # <tmp>
   return 0
 }
 
-# pg: replay into a throwaway schema on the target. The target is only a
-# scratch pad — the schema dump still comes from the migration files, never
+# pg: replay into a throwaway schema on the target. The target is only
+# scratch space; the schema dump still comes from the migration files, never
 # from the target's state.
 replay_into_pg() {
   PG_SCRATCH="snails_dump_$$_$RANDOM"
@@ -657,35 +660,35 @@ replay_into_pg() {
 }
 
 # Render the throwaway schema through pg_dump — the standard renderer, so
-# serials, sequences, constraints and comments come out right. Strip what
-# must not reach a fresh database: session settings, pg_dump's own
-# banner comments, psql meta-commands (pg17+ \restrict), and the
-# throwaway schema qualifier (the schema dump must load into whatever
-# search_path the loader runs with). setval lines are dropped too: a
-# rowless schema dump's sequences start at their default.
+# serials, sequences, constraints, and comments come out right. Strip what
+# must not reach a fresh database: session settings, pg_dump's own banner
+# comments, psql meta-commands (pg17+ \restrict), and the throwaway schema
+# qualifier (the schema dump must load into whatever search_path the loader
+# runs with). setval lines are dropped too: a rowless schema dump's sequences
+# start at their default.
 pg_schema_dump() { # <out_file>
   command -v pg_dump >/dev/null 2>&1 ||
     die 2 "the pg executor 'pg_dump' is not on PATH — install it"
   {
     schema_dump_header
     printf '\n'
-    # pg_dump's own output, kept as a structure dump — the
-    # SET block included: a schema dump carries the client that rendered it,
-    # and a server that does not know those settings SHOULD fail to load
-    # it (the version pairing is requirements' to state and the
-    # environment's to satisfy — dump needs pg_dump >= the server, a
-    # load needs a server >= the pg_dump that wrote it, so the working
-    # pair is the same major). Only what OUR
-    # throwaway-schema pipeline makes invalid goes:
+    # pg_dump's own output, kept as a structure dump, including the
+    # SET block: a schema dump records the client that rendered it, and a
+    # server that does not recognize those settings SHOULD fail to load it.
+    # The version pairing is a requirement the environment must satisfy:
+    # dump needs pg_dump >= the server, and a load needs a server >= the
+    # pg_dump that wrote the file, so the working pair is the same major
+    # version. Only constructs that the throwaway-schema pipeline invalidates
+    # are removed:
     #   psql meta (\restrict/\unrestrict) — stripped here too; a
     #     psql older than the pg_dump that wrote the file errors on them.
-    #   set_config('search_path','',false) — clears the path the
-    #     qualifier strip below then has no replacement for; the two
-    #     must go together.
-    #   CREATE SCHEMA, the schema qualifier, and every `-- ` line — they
-    #     name the throwaway schema (pid + random per run), which would
-    #     leak into and destabilize every regenerated schema dump; the
-    #     version banner rides out with the comments.
+    #   set_config('search_path','',false) — clears the search path for which
+    #     the qualifier strip below has no replacement; the two must be
+    #     removed together.
+    #   CREATE SCHEMA, the schema qualifier, and every `-- ` line — they name
+    #     the throwaway schema (pid + random per run), which would leak into
+    #     every regenerated schema dump and make it unstable; the version
+    #     banner goes out with the comments.
     pg_dump --schema-only --no-owner --no-privileges --schema="$PG_SCRATCH" "$TARGET" |
       sed -e '/^\\restrict /d' \
           -e '/^\\unrestrict /d' \
@@ -723,17 +726,16 @@ build_schema_dump() {
 # generate_schema_dump <replay_db> <out_dir> — write <out_dir>/schema.sql from
 # the replayed catalog; sets SCHEMA_DUMP_STATEMENTS to the statement count.
 #
-# One file, the shape every dump tool emits (structure.sql, pg_dump,
-# sqlite3 .dump): tables and indexes first, then views, each
-# group in the catalog's rowid order. Views last is what makes one exec
-# safe on both adapters — every table an inline view reads already
-# precedes it, and within the group a pg history can only end in creation
-# order (pg rejects a view over a missing relation and a drop under a
-# dependent view, so a recreated dependency always lands before its
-# dependent); sqlite never validates view bodies at all. Tables and
-# indexes keep IF NOT EXISTS (sqlite strips it from stored DDL); views
-# keep the plain CREATE VIEW the hand-written files carried — the
-# schema dump contract is fresh provisioning.
+# One file, the form every dump tool emits (structure.sql, pg_dump,
+# sqlite3 .dump): tables and indexes first, then views, each group in the
+# catalog's rowid order. Putting views last makes a single pass safe on both
+# adapters: every table an inline view reads already precedes it, and within
+# the group a pg history can only end in creation order (pg rejects a view
+# over a missing relation and a drop under a dependent view, so a recreated
+# dependency always lands before its dependent). sqlite never validates view
+# bodies at all. Tables and indexes keep IF NOT EXISTS (sqlite strips it from
+# stored DDL); views keep the plain CREATE VIEW the hand-written files
+# carried — the schema dump only needs to provision a fresh database.
 generate_schema_dump() { # <replay_db> <out_dir>
   local db="$1" out="$2" rid type name sql table_body="" view_body="" body ids
   SCHEMA_DUMP_STATEMENTS=0
@@ -771,9 +773,9 @@ generate_schema_dump() { # <replay_db> <out_dir>
   } >"$out/schema.sql"
 }
 
-# The schema dump writer: regenerate the convention file from the migration
-# files. One writer is the whole drift story — `verify` compares against
-# exactly this output.
+# The schema dump writer: regenerate the schema file from the migration
+# files. One writer prevents drift; `verify` compares against exactly this
+# output.
 cmd_dump() {
   require_executor
   ((${#VERSIONS[@]})) ||
@@ -787,7 +789,7 @@ cmd_dump() {
   local statements="$SCHEMA_DUMP_STATEMENTS"
 
   # Content-gated write through a same-directory temp file: an unchanged
-  # file keeps its mtime (the harness bundle cache keys on them), and an
+  # file keeps its mtime (the harness bundle cache uses them), and an
   # interrupted dump never leaves a half-written schema dump behind.
   local changed=0 detail=""
   mkdir -p "$APP/db"
@@ -809,14 +811,14 @@ cmd_dump() {
 }
 
 # The gate: the committed schema dump must equal what `dump` regenerates from
-# the same migration files — byte for byte, so a hand edit and a forgotten
+# the same migration files, byte for byte, so a hand edit and a forgotten
 # regeneration are one failure with one repair (`dump`).
 cmd_verify() {
   require_executor
 
   local orphans
   orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "ledger has versions with no migration file:$orphans"
+  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
 
   local tmp
   tmp="$(mktemp -d)"
@@ -836,7 +838,7 @@ cmd_verify() {
     return 0
   fi
 
-  # The repair leads, the per-file reasons follow; the unified diff of
+  # The repair comes first; the per-file reasons follow. The unified diff of
   # every differing file is the --verbose detail.
   local app_arg repair p
   app_arg="$(app_root_argument "$APP")"
@@ -897,10 +899,10 @@ while (($#)); do
   esac
 done
 if [[ -n $APP ]]; then
-  # Normalize first: pins discovery climbs from the app root, and a
-  # relative --app would stop it at "." instead of the app directory.
-  # An explicit --app may name the repository root of a src/ layout —
-  # the same rule the build engines use.
+  # Normalize first: pins discovery climbs from the app root, and a relative
+  # --app would stop it at "." instead of the app directory. An explicit
+  # --app may name the repository root of a src/ layout; this is the same
+  # rule the build engines use.
   APP_INPUT="$APP"
   [[ -d $APP_INPUT ]] || die 2 "no such app directory: $APP_INPUT"
   APP="$(cd "$APP_INPUT" && pwd)" || die 2 "no such app directory: $APP_INPUT"
@@ -915,8 +917,8 @@ PINS="$(discover_pins "$APP")"
 
 DB_ADAPTER="$(database_adapter_for "$APP")" || exit 2
 
-# sqlite dump reads migration files only — a target would be a lie about
-# what the command did. pg dump/verify need the target as their scratch.
+# sqlite dump reads migration files only; a target would make the command's
+# result misleading. pg dump and verify need the target as their scratch.
 if [[ $COMMAND == dump && $DB_ADAPTER == sqlite && -n $DB_OPTION ]]; then
   die 2 "dump does not take --database (the schema dump comes from the migration files)"
 fi
@@ -929,9 +931,9 @@ case " $OWNER " in
 esac
 
 # The target is resolved lazily, and the ownership refusal comes first:
-# `plan` never needs a reachable database, and the refusal is a
-# declaration check — an owned-by-someone-else target has to be refused
-# whether or not a server answers.
+# `plan` never needs a reachable database, and the refusal is a declaration
+# check; a target owned by another app must be refused whether or not a
+# server answers.
 resolve_target() { # <fatal: 0|1>
   local adapter_env="" env_value=""
   case "$DB_ADAPTER" in

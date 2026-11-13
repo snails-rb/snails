@@ -1,18 +1,20 @@
-# DB adapter detection for the app-target engines — one source for the rule.
+# DB adapter detection for the app-target engines: the single source for the
+# rule.
 #
-# The database configuration is the app's own config/database.rb: the core boot chain
-# requires `../config/database`, so that file must require exactly one adapter
-# — the anchored require line IS the adapter. Only anchored require lines are
-# read, so a comment that mentions both backends does not confuse detection.
+# The database configuration is the app's own config/database.rb. The core
+# boot chain requires `../config/database`, so that file must require exactly
+# one adapter; the anchored require line is the adapter. Only anchored require
+# lines are read, so a comment that mentions both backends does not confuse
+# detection.
 #
 # The retired entry name (`config/db.rb`) is still read: an app that has not
 # bumped its SNALS_REV yet runs the old scaffold (whose boot chain requires
-# `config/db`), and an engine from the checkout must not go blind on it.
+# `config/db`), and an engine from the checkout must still recognize it.
 # The new name wins when both exist; sync migrates the retired name in place.
 #
 # Sourced (never executed):
-#   database_adapter_for <app_root> — print "sqlite" or "pg"; on a missing or
-#                                  ambiguous entry, print a message to
+#   database_adapter_for <app_root> — print `sqlite` or `pg`; if the entry is
+#                                  missing or ambiguous, print a message on
 #                                  stderr and return 2.
 # shellcheck shell=bash
 
@@ -35,7 +37,7 @@ database_adapter_for() {
   matches="$(grep -E "$pattern" "$file" || true)"
   count="$(printf '%s\n' "$matches" | grep -c . || true)"
   if [[ $count != 1 ]]; then
-    echo "[snails] $file must require exactly one adapter ($SNAILS_VENDOR_DIR/database/sqlite or $SNAILS_VENDOR_DIR/database/postgresql; the legacy runtime/ paths are accepted until the app is renamed)" >&2
+    echo "[snails] $file must require exactly one adapter ($SNAILS_VENDOR_DIR/database/sqlite or $SNAILS_VENDOR_DIR/database/postgresql; the legacy runtime/ paths are accepted until the app is migrated to the new names)" >&2
     return 2
   fi
   case "$matches" in

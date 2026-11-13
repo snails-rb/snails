@@ -1,38 +1,40 @@
-# App-root resolution for every surface that takes an app root — one source
-# for the rule (bin/snails sync|harness|verify-scaffold|verify-pins|pins-path|gen-*,
-# cli/migrate.sh, cli/generate.sh, and the three build engines).
+# App-root resolution for every surface that takes an app root: one
+# implementation of the rule. The callers are bin/snails
+# sync|harness|verify-scaffold|verify-pins|pins-path|gen-*, cli/migrate.sh,
+# cli/generate.sh, and the three build engines.
 #
-# The app root is the directory carrying the database configuration (config/database.rb,
-# or the retired config/db.rb) — the file database_adapter_for reads, so the
-# directory holding it IS the app root. The pins file lives there too (one
-# pins file per app, at that app root), so resolution never leaves the app:
-# walk up from the start directory, nearest wins. The walk stops at the worktree root (the
-# directory holding .git), the same bound pins discovery uses.
+# The app root is the directory that carries the database configuration
+# (config/database.rb, or the retired config/db.rb). That is the file
+# database_adapter_for reads, so the directory holding it is the app root.
+# The pins file lives there too (one pins file per app, at that app root),
+# so resolution never leaves the app: walk up from the start directory and
+# the nearest one wins. The walk stops at the worktree root (the directory
+# that holds .git), the same bound pins discovery uses.
 #
-# The omitted and explicit halves share one rule: the app lives at the named
-# directory, or at its standard src/ child. An omitted resolution starts at
+# The omitted and explicit forms share one rule: the app lives at the named
+# directory, or in its standard src/ child. An omitted resolution starts at
 # $PWD and walks up; when $PWD itself is the repository root (it carries
 # .git) and <repo>/src is an app, that src/ child is the app. Only that fixed
-# child is considered — an arbitrary project scan would pick one app among
-# many. Any other directory outside the app still needs to be named.
+# child is considered; an arbitrary project scan would pick one app among
+# many. Any other directory outside the app must still be named.
 #
 # Sourced (never executed):
 #   resolve_app_root <label> <fix-hint> [pins-file] — print the resolved app
 #     root on stdout. The walk-up result wins; when $PWD is the repository
-#     root of the standard src/ layout, <repo>/src is the app. A resolution
-#     that leaves $PWD announces itself on stderr; on failure the function
-#     prints one line and returns 1. The label carries its own separator so
-#     each surface keeps its convention (`[snails]` everywhere; engine phase
-#     names stay in the sentence). The line ends with the caller's fix hint.
-#     With `--pins FILE` the pins file's directory is the app root, so that
-#     directory is what resolves — and it must be an app.
+#     root of the standard src/ layout, <repo>/src is the app. When the
+#     resolved root is not $PWD, the function prints a line on stderr; on
+#     failure it prints one line and returns 1. The label carries its own
+#     separator so each surface keeps its convention (`[snails]` everywhere;
+#     engine phase names stay in the sentence). The line ends with the
+#     caller's fix hint. With `--pins FILE` the pins file's directory is the
+#     app root, so that directory resolves as the app, and it must be an app.
 #   app_root_for <dir> — the app root a caller-named directory stands for:
 #     <dir> itself when it is an app, <dir>/src when the app lives there
-#     (the src/ layout), else <dir> unchanged. This is the EXPLICIT-argument
-#     half of the rule; resolve_app_root applies the same fixed src/ child
+#     (the src/ layout), else <dir> unchanged. This is the explicit-argument
+#     form of the rule; resolve_app_root applies the same fixed src/ child
 #     when the caller starts at that repository root. It reads no environment
-#     — an explicit --app DIR or positional argument is what the caller asked
-#     for.
+#     variables; an explicit --app DIR or positional argument is what the
+#     caller asked for.
 #   is_app_root <dir> — does this directory carry the database configuration?
 #   shortest_path <absolute-path> · shell_quote <argument> ·
 #   app_root_argument <app-root> — render a repair command for the current
@@ -49,11 +51,11 @@ is_app_root() { # <dir>
 # app_root_for <dir> — the app root that <dir> stands for: <dir> itself when
 # it is an app, <dir>/src when the app lives there, else <dir> unchanged.
 #
-# This is the explicit-argument half of the app-root rule: a caller that
+# This is the explicit-argument form of the app-root rule: a caller that
 # names a directory gets the app that directory holds, including the src/
-# layout where the repository root holds the app one level down. The
-# omitted half (resolve_app_root) applies the same fixed src/ child when
-# the caller starts at that repository root — see the file header.
+# layout where the repository root holds the app one level down. The omitted
+# form (resolve_app_root) applies the same fixed src/ child when the caller
+# starts at that repository root — see the file header.
 #
 # The marker is is_app_root, the same test resolution uses, so there is one
 # definition of "app root". It reads no environment and never fails: an
@@ -85,10 +87,10 @@ app_root_at_or_above() { # <dir>
 }
 
 # app_root_in_src_layout <dir> — the app a repository root holds in the
-# standard src/ layout. The markers are <dir> itself being the repository
-# root (.git) and <dir>/src being an app. A subdirectory other than the
-# repository root is not a candidate: descending from an arbitrary place
-# would pick one app among many.
+# standard src/ layout. The markers are .git in <dir> itself and an app root
+# at <dir>/src. A subdirectory other than the repository root is not a
+# candidate: descending from an arbitrary place would pick one app among
+# many.
 app_root_in_src_layout() { # <dir>
   local dir="$1"
   [[ -e "$dir/.git" ]] || return 1
@@ -135,8 +137,8 @@ resolve_app_root() { # <label> <fix-hint> [pins-file]
 # The repair line runs in the shell that saw the failure, so print the
 # shortest path that resolves there: a relative path, or the absolute one
 # when it is shorter or does not resolve back to the app. A symlinked $PWD
-# makes the kernel's `..` differ from the logical path, so a string-only
-# relative path is not enough.
+# makes the kernel's `..` differ from the logical path, so a relative path
+# built from strings alone is not enough.
 shortest_path() { # <absolute-path>
   local target="$1" rel="" i common=0
   local -a target_parts=() pwd_parts=()
@@ -164,8 +166,8 @@ shortest_path() { # <absolute-path>
   fi
 }
 
-# Quote an argument only when it needs quoting; the common command stays
-# readable, and a path with spaces or quotes still survives copy-paste.
+# Quote an argument only when it needs quoting, so the common command stays
+# readable while a path with spaces or quotes still survives copy-paste.
 shell_quote() { # <argument>
   local arg="$1" out="" i char
   if [[ $arg =~ ^[A-Za-z0-9_./:@%+=,-]+$ ]]; then
@@ -186,8 +188,8 @@ shell_quote() { # <argument>
 }
 
 # Print the app-root argument for a repair command: nothing when the current
-# directory is the app root (the resolver finds it again), otherwise the
-# shortest path that resolves back to it. Callers shell-quote the result.
+# directory is the app root (the resolver finds it again); otherwise print
+# the shortest path that resolves back to it. Callers shell-quote the result.
 app_root_argument() { # <app-root>
   local app_root="$1" absolute
   if [[ ! -d $app_root ]]; then
