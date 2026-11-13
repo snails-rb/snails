@@ -10,25 +10,9 @@ Status: 1.0 release candidate. The public API may still change before 1.0.
 
 ## Why Snails
 
-Snails is a deliberately minimal take on Rails, not a Rails replacement. It is built for API apps in agent-assisted development, where coding agents do much of the implementation. It keeps the Rails conventions that give an API app a predictable shape — routes in `config/routes.rb`, controllers with actions, form objects for validation, mailers, jobs, and a conventional folder layout — because they are easy for a person to read and for a coding agent to follow. It leaves out the layers that assume a monolithic stack, a Ruby runtime, or a full ORM. The scope below follows from that choice; it is not a list of unfinished features.
+The scope follows from a deliberate choice: Snails keeps the conventions that make an API legible — routes, controllers, form objects, mailers, jobs, and a conventional folder layout — and leaves out the layers that assume a monolithic app, a Ruby runtime, or a full ORM. There are no views or asset pipeline, no Active Record, and no gem compatibility. Models are plain classes over SQL, and migrations are SQL files. The server and the CLI run without a Ruby runtime, and `bin/test` exercises a real HTTP server instead of mocks.
 
-These are design bets, not universal rules. They assume tests and review stay in the loop; the framework's job is to keep the common path small enough to check. Rails remains the better fit for a team that wants a server-rendered monolith or the Ruby gem ecosystem.
-
-### What it leaves out, and why
-
-- **Views and the asset pipeline.** Rails' default frontend stack, Hotwire (Turbo and Stimulus), is part of the monolith Rails generates, shaped by Basecamp's product needs. Snails keeps the backend API-only so the frontend is a separate choice: it can live in the same repository or its own, and the JSON boundary is the contract. That gives up the integrated server-rendered workflow; in exchange, the backend does not dictate the frontend stack.
-- **Active Record.** An ORM is a good fit when a team wants associations, callbacks, and one object model over the database. Snails keeps the model layer smaller: a standard query surface for the common reads and writes, with parameterized values and generated column readers, plus raw SQL for the queries that need it. The point is not that agents cannot write SQL — they can — but that a small surface cuts repeated boilerplate and gives the common path a shape that is easier to review.
-- **Gem compatibility.** This is the clearest cost. The Ruby gem ecosystem assumes a Ruby runtime and a Bundler load path; a native binary has neither. The trade is a smaller dependency surface: when an app needs a small, well-understood behavior, writing it in the app can be cheaper than carrying a dependency that no longer fits the runtime. That is a bet with real costs — the app owns the code, its tests, and its security updates — and not every gem is replaceable.
-- **Migrations.** A migration is a SQL file, not a Ruby DSL. The schema change stays visible as SQL, which a reviewer can read directly, and the model stays a thin class over the table. `db/schema.sql` is generated from the migration files.
-
-### How it is built and tested
-
-- **One native binary, no Ruby runtime.** The CLI is bash, and the app binary is produced by Spinel's AOT compiler; neither the CLI nor the server needs a Ruby runtime. The point is not to abandon Ruby's syntax — app code stays Ruby — but to keep the language's readability while removing the runtime's two biggest costs: the GVL and the deployment footprint. One process uses the available cores without a worker per core, and the app ships as one executable instead of a Ruby process plus a gem bundle.
-- **Integration tests against a real server.** `bin/test` builds the app, boots it on a spare port, and sends real HTTP requests; nothing mocks the framework out of the way. The bet is that a coding agent left to choose will often reach for stubs and mocks because they are cheaper to write. A harness that boots the real server makes the integration path the default, so a passing suite exercises the app and its HTTP boundary, not a set of mocks that stand in for them.
-
-### What this means for scope
-
-The boundary that follows: API-only, with no HTML views or asset pipeline; no Active Record associations, callbacks, or validations; no gem compatibility; models as plain classes over SQL; migrations as SQL files. If you need server-rendered pages or the Ruby gem ecosystem, another framework is the better fit. [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.
+The reasoning, the cost of each choice, and the cases where Rails is the better fit are in [Why Snails](https://snails-rb.org/blog/why-snails/). [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.
 
 ## Install
 
@@ -88,6 +72,7 @@ The manual is the product documentation. It lives in [`manual/`](manual/), is wr
 - [Ruby Helpers](manual/19-ruby-helpers.md)
 - [Error Handling](manual/20-error-handling.md)
 - [Logging](manual/21-logging.md)
+- [Performance](manual/29-performance.md)
 
 **Operating**
 
