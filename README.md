@@ -21,6 +21,8 @@ These are design bets, not universal rules. They assume tests and review stay in
 - **Gem compatibility.** This is the clearest cost. The Ruby gem ecosystem assumes a Ruby runtime and a Bundler load path; a native binary has neither. The trade is a smaller dependency surface: when an app needs a small, well-understood behavior, writing it in the app can be cheaper than carrying a dependency that no longer fits the runtime. That is a bet with real costs — the app owns the code, its tests, and its security updates — and not every gem is replaceable.
 - **Migrations.** A migration is a SQL file, not a Ruby DSL. The schema change stays visible as SQL, which a reviewer can read directly, and the model stays a thin class over the table. `db/schema.sql` is generated from the migration files.
 
+The four headings above are the main architectural choices. [Coming from Rails](manual/04-coming-from-rails.md#what-is-not-here) lists the Rails API differences, and the rest of the manual documents each feature's limits.
+
 ### What this means for scope
 
 The boundary that follows: API-only, with no HTML views or asset pipeline; no Active Record associations, callbacks, or validations; no gem compatibility; models as plain classes over SQL; migrations as SQL files. If you need server-rendered pages or the Ruby gem ecosystem, another framework is the better fit. [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.
