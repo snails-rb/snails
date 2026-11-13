@@ -8,11 +8,19 @@ The project is split into parts: the API-only, Rails-like runtime for [Spinel](h
 
 Status: 1.0 release candidate. The public API may still change before 1.0.
 
-## The Snails Design
+## Scope and design
 
-Snails keeps the Rails conventions that make an API app predictable — routes in `config/routes.rb`, controllers with actions, form objects for validation, mailers, jobs, and a conventional folder layout — and compiles your app code, the framework, and the HTTP server into one native binary. The framework has a small surface: no view layer or asset pipeline, no Active Record, and no gem compatibility. Models are plain classes over SQL, migrations are SQL files, the CLI and server run without Ruby, and `bin/test` runs against a real HTTP server.
+Snails 1.0 is deliberately narrow. It keeps the Rails conventions that make an API app predictable, and it treats the rest of the Rails stack as a set of design choices rather than defaults. It is not a Rails replacement. This is the design, not a backlog.
 
-The design choices and the purpose behind each are in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). The [Coming from Rails](manual/04-coming-from-rails.md) chapter shows which Rails conventions carry over and what replaces the rest. The [FAQ](manual/28-faq.md) covers what Snails does and does not include.
+The design assumes coding agents write the implementation; humans review the code and decide what ships. That workflow changes the reasons behind the choices. A single server-rendered stack, an ORM, and the Ruby gem ecosystem made sense when a human team wrote every line. With coding agents, a separate frontend, direct SQL, and a small set of dependencies are practical choices. Snails is built for that change.
+
+The framework keeps the Rails conventions because they are predictable for both an agent and a reviewer: routes, controllers, forms, mailers, jobs, and a conventional layout give an agent one obvious place to add code and a reviewer one place to find it. There is no view layer or asset pipeline because the frontend is a separate choice; the JSON API is the interface between them. There is no Active Record because coding agents write SQL, and `Sqlx` gives the common reads and writes one standard API instead of letting every model grow its own boilerplate. Migrations are SQL because the agent writes the same statement the reviewer reads, with no Ruby DSL to translate.
+
+There is no gem compatibility because the app and framework compile into one binary, so the agent implements the small missing behavior in the app, in the same language and test suite. One native binary means one artifact to deploy, and `bin/test` runs the suite against a real HTTP server so the default tests exercise the app instead of a set of doubles.
+
+The full reasoning is in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). The [Coming from Rails](manual/04-coming-from-rails.md) chapter is the translation table for Rails habits, and the [FAQ](manual/28-faq.md) covers what is not included.
+
+If you need server-rendered pages, the full Ruby gem ecosystem, or Active Record's object model, Rails is the better fit.
 
 ## Install
 
