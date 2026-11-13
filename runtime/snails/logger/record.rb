@@ -1,16 +1,10 @@
 # frozen_string_literal: true
 
-# one log event as a field bag: when it happened, its severity and stable event
-# name, a human body, structured fields, and an optional exception. It is the
-# contract a transport consumes; the local line is only a rendering of this
-# record.
+# One log event as a field bag: time, severity, stable event name, body,
+# structured fields, and an optional exception — the transport contract.
 #
-# Field names are simple dotted identifiers; values are String, Integer,
-# finite Float, true/false, or nil so an OTLP encoder never has to guess.
-# Fields supplied by the caller may not shadow the record's own names or the
-# request/job context the logger adds. `resource` is the separate bag that
-# describes the emitting service and process; the local formatter does not
-# render it, and the transport sends it once per batch.
+# Values are String, Integer, finite Float, true/false, or nil; caller fields
+# may not shadow the record's own names or the request/job context.
 module Snails
   class Logger
     class Record

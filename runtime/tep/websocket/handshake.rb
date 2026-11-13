@@ -1,9 +1,8 @@
-# Tep::WebSocket::Handshake -- RFC 6455 §1.3 server-side handshake.
+# Tep::WebSocket::Handshake -- RFC 6455 §1.3 server-side handshake. `check(req)`
+# validates the upgrade and returns the accept key and offered subprotocols;
+# `build_response` returns the raw HTTP/1.1 101 bytes.
 #
-# `check(req)` validates the upgrade and yields the accept key plus the
-# subprotocols the client offered; `build_response(key, protocol)`
-# returns the raw HTTP/1.1 101 bytes. Any invalid request sets
-# `.valid = false` with a `.reason` for logging.
+# A rejection sets `valid = false` and fills `reason`; it never raises.
 module Tep
   module WebSocket
     class Handshake

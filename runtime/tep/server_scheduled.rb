@@ -1,14 +1,8 @@
-# Tep::Server::Scheduled -- fiber-per-connection HTTP server over cooperative
-# I/O (`Tep::Scheduler` + sp_net non-blocking accept/recv). A measurement-only
-# server: the app entry never selects it, and the harness covers it only
-# through its write path and the scheduler. The code stays for the 2.0
-# concurrency model.
+# Tep::Server::Scheduled -- fiber-per-connection HTTP server over Tep::Scheduler
+# and sp_net non-blocking I/O. Measurement only: the app entry never selects it.
 #
-# Keep-alive HTTP only: a WebSocket upgrade gets 501, since its recv loop needs
-# a parked green thread and would hold every other connection here. All fibers
-# also share the main thread, so per-request `Thread.current` state is not
-# isolated across connections — the request lease, log context, and query
-# cache all assume one request per thread.
+# A WebSocket upgrade gets 501. All fibers share the main thread, so per-request
+# `Thread.current` state is not isolated across connections.
 module Tep
   class Server
     class Scheduled

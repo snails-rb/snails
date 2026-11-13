@@ -1,13 +1,10 @@
 # frozen_string_literal: true
 
-# zone vocabulary and TZif reader: a zone name to a `TimeZoneData` (through
-# `TimeZone::ZONE_NAMES` and `/usr/share/zoneinfo`), and an instant rendered in
-# that zone. The process slot (`Snails.time_zone`) is pinned once at boot;
-# `in_time_zone` never swaps it, so concurrent requests can render in different
-# zones.
+# Zone vocabulary and TZif reader: a zone name to `TimeZoneData` through
+# `ZONE_NAMES` and `/usr/share/zoneinfo`, and an instant rendered in that zone.
 #
-# The POSIX-footer DST rule walks the calendar, so `TimeZone` builds on
-# `Snails::DateAndTime::Calculations`.
+# `Snails.time_zone` is pinned once at boot and `in_time_zone` never swaps it,
+# so concurrent requests can render in different zones.
 module Snails
   # the IANA identifier for a zone name in the runtime's zone vocabulary
   # ("Seoul" → "Asia/Seoul"), or an IANA identifier passed through as-is. The

@@ -1,21 +1,8 @@
-# HTTP Token and Basic authentication helpers on the controller —
-# `authenticate_with_http_token`, `authenticate_or_request_with_http_token`,
-# `authenticate_with_http_basic`, `authenticate_or_request_with_http_basic`,
-# and the two `request_http_*` challenges they fall back to.
-#
-# The `authenticate_with_*` forms yield what the client sent and answer the
-# block's value; with no credentials of that scheme the block does not run and
-# the answer is nil. The `or_request` forms answer 401 with the scheme's
-# `WWW-Authenticate` challenge when the block answers nil or false, and mark
-# the response performed so the filter chain halts.
-#
-# Token accepts `Token <token>` or `Bearer <token>` followed by optional
-# `key=value` pairs; Basic decodes `base64(user:password)`, splitting at the
-# first colon. Token options are String-keyed, and a pair with no value maps to
-# "" rather than nil so the Hash stays one concrete type.
-#
-# The request's header view maps the `Authorization` header to the
-# dispatcher's internal env key.
+# HTTP Token and Basic authentication helpers on the controller: the
+# `authenticate_with_*` forms answer the block's value (nil when the scheme's
+# header is absent), and the `or_request` forms answer 401 and mark the
+# response performed, halting the filter chain. Token options are String-keyed;
+# a pair with no value maps to "" so the Hash stays one concrete type.
 module ActionController
   class API
     # yield the presented token and its options to the block. No challenge goes

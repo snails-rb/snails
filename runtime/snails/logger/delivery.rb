@@ -1,15 +1,10 @@
 # frozen_string_literal: true
 
-# the external half of logging: hold the optional transport, buffer records into
-# batches, and hand a batch over without letting a transport failure become an
-# app failure. The logger owns local rendering and the one-line failure report;
-# this object owns the transport slot, the bounded buffer, and the periodic
-# flush registration.
+# The external half of logging: buffer records into batches and hand a batch
+# over without letting a transport failure become an app failure.
 #
-# A batch is flushed when it reaches `MAX_RECORDS` or when the scheduler runs
-# `flush` once per `FLUSH_INTERVAL_SECONDS`. The transport it calls is the
-# default OTLP transport, which enqueues a `Snails::LogDeliveryJob`; the HTTP
-# call itself runs in that job, never on a request thread.
+# A batch flushes at `MAX_RECORDS` or once per `FLUSH_INTERVAL_SECONDS`; the HTTP
+# call runs in `Snails::LogDeliveryJob`, never on a request thread.
 module Snails
   class Logger
     class Delivery

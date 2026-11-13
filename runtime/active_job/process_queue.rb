@@ -1,13 +1,8 @@
-# The process-local queue adapter, the default executor: jobs live as
-# zero-argument procs in this process's memory and the worker loop drains them.
-# Nothing here crosses a process or a restart; an adapter that does is the
-# app's own.
+# The default queue adapter: jobs live as procs in this process's memory, so
+# nothing crosses a process or a restart.
 #
-# `enqueue`, `enqueue_at`, `drain_due?`, `drain` are the seam every
-# adapter shares: `ActiveJob.queue_adapter` holds the selected class and every
-# call goes through that slot. The method names are
-# deliberately unique program-wide: a name colliding with a builtin (`push`)
-# fails class-side dispatch through the slot at runtime.
+# Adapter method names must stay unique program-wide, or class-side dispatch
+# through `ActiveJob.queue_adapter` collides with a builtin and fails at runtime.
 
 module ActiveJob
   class ProcessQueue

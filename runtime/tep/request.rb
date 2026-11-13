@@ -22,8 +22,8 @@ module Tep
 
     attr_accessor :verb, :path, :raw_path, :http_version
     # `req_params` (not `params`): this holds the wire-side captures and
-    # query/form fields, a different thing from the controller's request
-    # params (`@_params` behind `ActionController::API#params`). Under
+    # query/form fields, distinct from the controller's request params
+    # (`@_params` behind `ActionController::API#params`). Under
     # spinel two classes sharing an ivar name unify its type, so keeping
     # the two apart by name also keeps this class's String->String reads
     # out of the controller's nested poly hash. Same reasoning as
@@ -59,9 +59,8 @@ module Tep
       @ivars        = Tep.str_hash   # per-request bag for handler-owned values
       # File parts of a multipart body, by full field name
       # (`message[attachment]`); the text parts join @req_params. The typed
-      # String hash cannot hold a file, so the two travel apart and
-      # `Snails::Main.request_params` folds both into the controller's
-      # params.
+      # String hash cannot hold a file, so the two are stored separately, and
+      # `Snails::Main.request_params` folds both into the controller's params.
       @uploads      = {}
       # Set by `parse_body_params` when the body does not parse — see
       # `body_parse_failed?`

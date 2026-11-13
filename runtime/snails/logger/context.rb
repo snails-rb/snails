@@ -1,24 +1,10 @@
 # frozen_string_literal: true
 
-# the log values that belong to one request or one job: the request id every
-# line written during the request carries, the matched controller/action/format
-# and the DB time the request or job line reports, and the job name/id/attempt a
-# worker loop carries while it runs one job.
+# The log values that belong to one request or one job — request id, matched
+# controller/action/format, DB time, job name/id/attempt — stored per thread.
 #
-# Stored per thread. The default server gives each request its own thread,
-# so concurrent requests never share a value there. A fiber-per-connection
-# server would run every connection on one thread, and there this state is
-# NOT isolated across its connections. Worker threads are separate from
-# request threads, so a job never inherits a request's values.
-#
-# The request id is NOT cleared when the request ends: the server's rescue
-# runs after the exception unwound and must still name the request it
-# reports. The next request on the same thread overwrites everything —
-# `begin_request` clears the matched fields first, so an app that overrides
-# the dispatch cannot leak the previous request's controller into the next
-# line. Job values are cleared by `end_job` in the worker's ensure, and
-# `begin_request` clears them too so a reused thread never carries a stale
-# job.
+# Values can cross connections on a fiber-per-connection server. The request
+# id is kept until the next request clears it; the server rescue still needs it.
 require "securerandom"
 
 module Snails

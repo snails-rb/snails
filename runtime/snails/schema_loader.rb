@@ -1,17 +1,8 @@
-# Schema loader — the harness gate compiles this entry (sharing the app
-# manifest) and runs it before the server boots. It applies the app's
-# conventional schema file, read relative to the spin root:
+# The schema loader: the harness gate applies `db/schema.sql` before boot
+# through the same official client `migrate apply` uses (sqlite3 or psql).
 #
-#   db/schema.sql    tables/indexes/views — `;`-terminated statements,
-#                    any layout (multi-line, `--` comments) a SQL client
-#                    accepts
-#
-# The adapter's official client executes it — sqlite3 over stdin, psql
-# with -f — the same executables `migrate apply` runs: a schema file is
-# provisioning input, and the validated client is its executor, not the
-# app's SQL driver. The server itself never runs DDL. Files left at the
-# legacy `config/` layout raise rather than load: a silent skip would
-# boot on stub tables and pass every non-DB case.
+# The server never runs DDL. A file at the legacy `config/` layout raises
+# rather than loads, because stub tables would pass every non-DB case.
 require_relative "../boot"
 
 module Snails

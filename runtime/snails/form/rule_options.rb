@@ -42,7 +42,7 @@ module Snails
     end
 
     # check_guard_options — the shared `if:`/`unless:` contract: a
-    # Symbol method name, never a String or a Proc, so a typo is loud
+    # Symbol method name, never a String or a Proc, so a typo raises
     # at declaration and the call path stays dispatch-safe.
     def self.check_guard_options(options, label)
       [ :if, :unless ].each do |key|

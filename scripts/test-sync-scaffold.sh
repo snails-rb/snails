@@ -351,9 +351,9 @@ chk "sync leaves the app database configuration alone" $? 0
 chk "vendored core carries no database configuration" $? 0
 diff -r s-adapter-a/$SNAILS_VENDOR_DIR s-adapter-b/$SNAILS_VENDOR_DIR >/dev/null
 chk "vendored core is byte-identical across adapters" $? 0
-grep -q 'SQLite-via-libsqlite3-FFI' s-adapter-a/$SNAILS_VENDOR_DIR/database/sqlite.rb
+grep -q 'ffi_lib "sqlite3"' s-adapter-a/$SNAILS_VENDOR_DIR/database/sqlite.rb
 chk "sqlite backend shipped" $? 0
-grep -q 'PostgreSQL via libpq FFI' s-adapter-a/$SNAILS_VENDOR_DIR/database/postgresql.rb
+grep -q 'ffi_lib "pq"' s-adapter-a/$SNAILS_VENDOR_DIR/database/postgresql.rb
 chk "pg backend shipped" $? 0
 
 # A tree without the database configuration is seeded once — the retired DB env names

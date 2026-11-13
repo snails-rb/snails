@@ -1,10 +1,6 @@
-# The error interface the runtime raises and consumer apps rescue.
-#
-# These live under `Sqlx` because it owns the raw-SQL standard the apps
-# build on (the model base, the query interface, the adapter helpers). The
-# names come from the framework this runtime replaces (`RecordNotFound`,
-# `RecordNotUnique`, ...), so rescuing code reads the same; the namespace is
-# ours — no ORM surface remains.
+# Error classes the runtime raises and apps rescue. `RecordNotFound`,
+# `RecordNotUnique`, `ValueTooLong`, and `RecordInvalid` keep their Active Record
+# names, so existing rescue clauses still match.
 module Sqlx
   # Raised when a lookup finds no matching row. `Sqlx::Base.find_by!`
   # and `find` raise it (message derived from `table_name`); apps also

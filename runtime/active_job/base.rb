@@ -1,37 +1,11 @@
-# The job API: `enqueue` (and `schedule` for a delayed run), the drain flag that
-# makes the queue real, the queue adapter slot, and `recurring`.
-#
-# Jobs are class-oriented: hand off with `ActiveJob.enqueue(MyJob, payload)` and
-# the body runs as `MyJob.perform(data)` — never an instance. `perform_later` and
-# `perform_now` are not synthesized; the class is the unit. Arguments travel as
-# the serializable payload and arrive as `perform`'s single argument (nil when
-# none). A store-backed adapter resolves the stored name with `Object.const_get`,
-# so the stored name must stay a constant path.
-#
-# The executor is in-process by default: with an executor registered (the
-# servers register one) queued work runs on the worker loop
-# (`ActiveJob::Worker.run`); with none the job runs at the call site, because a
-# job nobody drains would be silently lost.
-# `queue_adapter=` selects any class carrying the adapter interface —
-# `enqueue(job_name, work, payload)`, `drain_due?`, `drain`, plus
-# `enqueue_at` for a delayed one-off and `enqueue_once` for the recurring half.
-# A bounded adapter may refuse a hand-off when its queue is full; the built-in
-# process queue drops the new job and reports locally, and `enqueue_once`
-# answers false so a recurring beat does not claim a run. With
-# `WORKER_CONCURRENCY` above one, `drain_due?` and `drain` are called
-# from several worker threads at once, so an adapter that keeps mutable
-# state must serialize it (the built-in adapters do).
-# Adapter method names must stay
-# unique program-wide: a name colliding with a builtin (`push`) fails dispatch
-# through the slot at runtime.
-#
-# The base implements `job_name` from the class name and leaves `perform` as a
-# raising spec. A job carrying the class-body DSL (`queue_as`, `retry_on`, …) is
-# refused at build, with the method named.
+# The job API: class-oriented enqueue and schedule, the adapter slot, and
+# `recurring`. `perform` runs on the job class, never an instance; a stored
+# name must resolve through `Object.const_get`. Adapter names must stay unique
+# program-wide, and adapters must serialize their own mutable state.
 
 module ActiveJob
   # the hand-off entry: the job class is the argument (its `job_name` keys the
-  # entry) and the work derives from the class — one call shape,
+  # entry) and the work derives from the class — one call form,
   # `perform(payload)`, so a payload-less job still declares the parameter and
   # ignores it.
   #
@@ -74,7 +48,7 @@ module ActiveJob
   # next drain. The adapter stores the run time (`enqueue_at`), and a drain runs
   # the job once the clock passes it. With no executor registered this raises: a
   # schedule needs one, and running it at the call site would ignore the delay —
-  # the same silent-loss rule `enqueue` follows, kept loud here.
+  # the same silent-loss rule `enqueue` follows, kept strict here.
   #
   # `at` carries its own contract: the Time slot refuses a non-Time
   # argument at the build or the call boundary (the ext layer reopens
@@ -117,8 +91,8 @@ module ActiveJob
   # select a queue adapter. Any class is taken: the interface is the contract
   # (see the file header), and the setter's job is the swap, not a registry — an
   # allowlist would turn every new adapter into a core change. A typo'd constant
-  # fails at compile/load; a class missing the interface fails loudly at its
-  # first dispatch.
+  # fails at compile/load; a class missing the interface raises at its first
+  # dispatch.
   #
   # @param adapter [Class] an adapter class — `ProcessQueue` or an app's own
   # @return [void]
@@ -142,7 +116,7 @@ module ActiveJob
   end
 
   # declare that an executor exists in this process; `enqueue` queues only after
-  # this. `Snails::Main.start` calls it once at boot, so the flip is exit-only:
+  # this. `Snails::Main.start` calls it once at boot, so the switch is one-way:
   # there is no unregister.
   #
   # @return [void]
@@ -181,7 +155,7 @@ module ActiveJob
     RECURRING << entry
   end
 
-  # the identity a recurring fire enqueues with: the interval's start (`now`
+  # the run key a recurring fire enqueues with: the interval's start (`now`
   # floored to the interval) as a Time, so every process firing inside the same
   # interval computes the same value and the adapter's unique key drops the
   # repeats.
@@ -217,8 +191,8 @@ module ActiveJob
   # keyed by the same name, and the body runs as `job_class.perform(data)` — a
   # class method; this runtime never instantiates a job. `data` is the decoded
   # payload (nil when none). The base implements `job_name` (the class name);
-  # the bodies stay raising specs (the `Sqlx::Base` pattern) — a job that forgot
-  # a body fails loud with the contract named, wherever it was driven from.
+  # the method bodies stay raising stubs (the `Sqlx::Base` pattern). A job that
+  # forgot a body raises with the contract named, wherever it was driven from.
   class Base
     # the key the job registers and is dispatched under: the recurring beat's
     # name, the adapter's handler catalog entry, and the name a store-backed
@@ -228,8 +202,8 @@ module ActiveJob
     # (`Object.const_get` resolves it on the store-backed drain).
     #
     # @return [String] the job's name — the class name by default; not
-    #   input, and not validated: a name no constant carries surfaces as
-    #   the runner's own loud miss at dispatch
+    #   input, and not validated: a name no constant carries is a lookup
+    #   miss at dispatch
     # @example derived — the class name is the key, nothing to declare
     #   class CleanupJob < ActiveJob::Base
     #   end
@@ -244,7 +218,7 @@ module ActiveJob
     # one call shape covers both (`recurring`'s beat, `enqueue`, a store-backed
     # drain); a job that takes no arguments still declares the parameter and
     # ignores it. The runtime never instantiates a job. The base raises so a job
-    # that forgot the body fails loud with the contract named instead of a bare
+    # that forgot the body raises with the contract named instead of a bare
     # `NoMethodError` at its first fire.
     #
     # @param data [Object, nil] the decoded payload, nil for a payload-less job

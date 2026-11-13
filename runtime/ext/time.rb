@@ -1,15 +1,8 @@
-# Time — the date helpers. Every method delegates to
-# `Snails::DateAndTime::Calculations`, which owns the civil-calendar
-# arithmetic: day shifts walk the calendar (DST cannot move the clock),
-# month steps clamp to the target month's last day, and rendering keeps the
-# receiver's zone (the process zone, UTC, or a fixed offset).
-#
-# The reopen makes Time-typed parameter slots strict program-wide: a
-# known-type non-Time argument is a build refusal, an unknown-type one a
-# boundary TypeError before the body runs — so no method needs an in-body
-# guard.
-#
-# Zone conversion lives in `Snails::TimeZone`, not here.
+# Time — the date helpers, delegating the civil-calendar arithmetic to
+# `Snails::DateAndTime::Calculations` (day shifts walk the calendar, month
+# steps clamp to the target month's last day); zone conversion lives in
+# `Snails::TimeZone`. The reopen makes Time-typed parameter slots strict
+# program-wide, so a wrong argument fails at the boundary, not in the body.
 class Time
   # ---- boundaries ----
 

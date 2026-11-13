@@ -1,10 +1,7 @@
 # Date — the stored DATE column codec.
-#
-# The `date` package is not part of this file's default load: requiring it
-# compiles the package's class bodies into every binary, so the runtime keeps
-# this file out of `runtime/ext.rb`. Apps with DATE columns load it from the
-# generated `gen/model_columns.rb`; an app that names `Date` itself requires
-# it in its own config.
+# This file is not loaded by `runtime/ext.rb`: requiring `date` compiles the
+# package's class bodies into every binary. Apps with DATE columns load it from
+# the generated `gen/model_columns.rb`; an app naming `Date` requires it itself.
 require "date"
 
 class String

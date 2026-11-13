@@ -1,62 +1,8 @@
-# Primitive Sqlx::Database surface — the layer per-model adapter code sits on.
-# The contract is database-agnostic and documented here for every backend;
-# this file is the SQLite-via-libsqlite3-FFI implementation. The app-owned
-# config/database.rb requires this file or its PostgreSQL sibling, so the
-# static graph reaches exactly one backend and the vendored runtime/ is
-# identical across adapters.
-#
-# API (the contract every Sqlx::Database shim must satisfy):
-#
-#   Sqlx::Database.configure(path)          — open a database (":memory:" for tests)
-#   Sqlx::Database.configure_default!       — configure from the adapter's env
-#   Sqlx::Database.close                    — close the database
-#   Sqlx::Database.exec(sql)                — run DDL / INSERT / UPDATE / DELETE
-#   Sqlx::Database.exec_read(sql, values)   — run a SELECT, return name-keyed rows
-#   Sqlx::Database.exec_write(sql, values)  — run a write, return rows + count
-#   Sqlx::Database.with_connection { ... }  — request-scoped lease scope (checkout on first access)
-#   Sqlx::Database.require_leases!           — require a lease per access
-#   Sqlx::Database.last_insert_rowid        — id of the last INSERTed row
-#   Sqlx::Database.changes                  — affected-row count of the last write
-#   Sqlx::Database.owns_schema?             — whether this adapter owns DDL
-#   Sqlx::Database.adapter_name             — the dialect name
-#   Sqlx::Database.quote(value)             — SQL literal for `Sqlx.quote`
-#   Sqlx::Database.sql_trace?               — whether SQL tracing is on
-#
-# Every statement entry (`exec`, `exec_read`, `exec_write`) accumulates its
-# elapsed time into `Snails::Logger::Context` (`add_db_us`); that is what the
-# request record reports as `snails.db_ms`. A backend that omits the call
-# reports zero, so a new backend must follow this part of the contract.
-#
-# Everything else — the cursor (`prepare`/`step?`/`finalize`), column and
-# bind readers, escape helpers, query cache, and connection internals — is
-# private: it is this adapter's implementation, not a caller surface.
-#
-# The per-request read cache is shared with the PostgreSQL sibling — one
-# store in `runtime/database/query_cache.rb`. Each adapter owns the cache
-# KEY: this one renders the statement and its bind values in the adapter's
-# literal form, so a bound read is cached per value rather than skipped.
-# Both open the cache when the first database access checks a connection out
-# inside a `with_connection` scope, invalidate it on any write or DDL, and
-# drop it when the outermost scope ends.
-#
-# `exec_write` binds each value through the adapter's type dispatch;
-# `exec_read` returns name-keyed rows and is the read entry used by
-# `Sqlx::Base` and the schema loader. The app never inlines values into
-# SQL text; `Sqlx.quote` is the literal renderer for the rare inline case.
-#
-# The lease engine (`with_connection`/`require_leases!`) lives in
-# `database/lease.rb` and is shared with the PostgreSQL sibling; this file
-# supplies the checkout hook and its connection pool.
-#
-# Module-level state is `@pools`, N independent DatabasePool shards of M dbh
-# pointers each (`configure` says why it is sharded). The shards are built by
-# `configure` but open their connections on first use, so a prefork parent
-# that only configures hands no live handle to its children. The prefork
-# contract is therefore: configure before fork, and do not touch the database
-# in the parent. `current_conn` checks a connection out on first use inside a
-# `with_connection` scope and falls back to the pool's first connection
-# outside a scope until `require_leases!` (called when the server starts)
-# makes every access hold a scope — then it fails instead.
+# SQLite backend for `Sqlx::Database`, via libsqlite3 FFI. The lease engine is shared
+# with the PostgreSQL sibling in `database/lease.rb`. Every statement entry must add
+# its elapsed time through `Snails::Logger::Context.add_db_us`, or `snails.db_ms`
+# reports zero. In a prefork setup, configure before fork and never touch the
+# database in the parent.
 
 require_relative "lease"
 
@@ -400,7 +346,7 @@ module Sqlx
                 # serve, slower, rather than fail to boot.
                 PRAGMAS.each { |p| SQLite3.sqlite3_exec(dbh, p, nil, nil, nil) }
                 # The lock wait is a callback, not a pragma; `busy_wait` says
-                # why. A refused install is loud: without a handler SQLite
+                # why. A refused install raises: without a handler SQLite
                 # answers BUSY immediately, so the pool would be far less
                 # available than configured.
                 rc = SQLite3.sqlite3_busy_handler(dbh, Sqlx::Database.method(:busy_wait), nil)

@@ -7,9 +7,9 @@ module Sqlx
     # the hand-written enum declaration for table-oriented models: one validated
     # object per enum, held in a model constant. It replaces the two parallel
     # constants a model would otherwise write by hand, whose pair can drift
-    # silently. The name follows the mental model, but it generates no methods
-    # (spinel has no metaprogramming); the members are the literal shape
-    # spelled out in the `@example` below.
+    # silently. The name matches how app authors think of it, but it generates
+    # no methods (spinel has no metaprogramming); the members are written out
+    # by hand, as in the example below.
     #
     # @param pairs [Hash{Symbol => Integer}] label => storage value, in
     #   declaration order. Non-empty, Symbol keys, Integer values, and
@@ -19,7 +19,7 @@ module Sqlx
     # @raise [ArgumentError] on an empty declaration, a non-Symbol key,
     #   a non-Integer value, or a duplicated value (two labels sharing
     #   one slot would alias each other silently)
-    # @example standard implementation shape — each member is a
+    # @example standard implementation form — each member is a
     #   hand-written one-liner (endless def) because spinel has no
     #   metaprogramming to generate them; the predicate queries the
     #   declaration directly so an unknown label raises instead of the

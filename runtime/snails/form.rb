@@ -1,20 +1,8 @@
-# The form object — validation at the input boundary, without the ORM. It
-# projects an input hash onto declared fields, runs declared rules in order, and
-# answers an ordered message list. There is no persistence surface: no `save`,
-# dirty tracking, callbacks, or associations, and a `Sqlx` row gains no `valid?`
-# (a row is already stored; validation is for input that is not).
+# The form object: projection of an input hash onto `FIELDS`, ordered rule
+# runs, and an ordered message list — validation with no persistence surface.
 #
-# Fields declare with the same literal accessor loop a Sqlx model uses for its
-# columns, so `form.email` reads and the declaration carries no new vocabulary.
-# Spinel unrolls a literal class-body loop, and `FIELDS` doubles as the registry
-# for projection, `validates` checks, and `errors.add`. Values live behind
-# `read_attribute` / `write_attribute` with no dynamic dispatch.
-#
-# Rules register in module-level arrays, not class ivars: spinel does not carry
-# a class ivar into a subclass, so `valid?` selects entries by class name and a
-# subclass does not inherit its parent's rules. Messages resolve through `I18n`
-# at validation time and fall back to the default messages. Declaration checks
-# live in `form/rule_options.rb`, the engine in `form/rule_engine.rb`.
+# Rules register in module-level arrays, not class ivars: a subclass does not
+# inherit its parent's rules, and `valid?` selects entries by class name.
 module Snails
   class Form
     # ---- declaration registries (module-level, owner-partitioned) -----
@@ -45,7 +33,8 @@ module Snails
     #   so a caller cannot mutate the `FIELDS` registry
     # @raise [ArgumentError] the form declares no `FIELDS` loop — a
     #   form without one cannot project input or check rule targets, so
-    #   the guidance line replaces a bare NameError
+    #   the error message explains the missing declaration instead of
+    #   raising a bare NameError
     # @example
     #   FIELDS = %w[email password].each { |n| define_method(n) { read_attribute(n) } }
     def self.field_names
@@ -129,7 +118,7 @@ module Snails
     # register an instance method as a custom validation. It runs in
     # registration order like a rule and reports through `errors.add`, for
     # conditions the declarative rules do not express (short-circuits,
-    # cross-field rules). `if:`/ `unless:` guard the call with a Symbol method
+    # cross-field rules). `if:`/`unless:` guard the call with a Symbol method
     # name, as on a rule. The method is dispatched with `send`, so a typo'd name
     # raises NoMethodError at the first `valid?` instead of skipping silently.
     #
@@ -215,7 +204,7 @@ module Snails
     # the write seam (there are no generated setters: spinel refuses an
     # interpolated `define_method` name, so writes stay a plain call). The
     # projection and the `normalize` hook write here. Input only — no dirty
-    # tracking; a name outside `FIELDS` is a caller bug and fails loud instead
+    # tracking; a name outside `FIELDS` is a caller bug and raises instead
     # of storing a value no reader will see.
     #
     # @param name [Symbol, String] the field name

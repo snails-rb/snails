@@ -1,22 +1,8 @@
 # The `multipart/form-data` parser and the `UploadedFile` a file part becomes.
-#
-# The body drains (`Tep::Request#consume_body_via_io` and
-# `#consume_body_via_scheduler`) call `Multipart.parse` and put each file part
-# into the params tree under the same nested key a text field would take. The
-# synthesized `<Resource>Params.from_raw` narrows it back through
-# `UploadedFile.from_params`; the tree carries `String`, `Hash`, `Array`, and
-# `UploadedFile` values (plus `nil` for a key without a value), so this class
-# is a fourth arm in the untyped Hash.
-#
-# The body is BYTES: every offset is a byte offset (`byteindex`, `byteslice`,
-# `bytesize`), because a JPEG is not valid UTF-8 and a character index would be
-# wrong.
-#
-# Read: `Content-Disposition: form-data; name="…"; filename="…"` and the part's
-# `Content-Type`. A part with a filename is a file, without one a text field; an
-# empty filename (a file input nobody picked) is dropped, so the field is not
-# provided. Nested `multipart/mixed`, `Content-Transfer-Encoding`, and RFC 2231
-# filenames are not modeled.
+# The params tree carries String, Hash, Array, and UploadedFile (plus nil for a
+# key without a value), and a file part lands under the same nested key a text
+# field takes. Every offset is a byte offset (`byteindex`, `byteslice`,
+# `bytesize`): a JPEG is not valid UTF-8, so a character index would be wrong.
 module ActionDispatch
   module Http
     # A multipart part, and what `fixture_file_upload` hands a test: the name

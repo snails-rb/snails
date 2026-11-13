@@ -1,17 +1,8 @@
-# Route-declaration DSL — the verb helpers and the RESTful expansion behind
-# every app's `config/routes.rb`.
+# The route-declaration DSL behind every app's `config/routes.rb`: verb
+# helpers and `resources`, with `RouteTable` reopened by the app.
 #
-# `RouteTable` is defined here and reopened by the app, which supplies only
-# `def self.table`. The verb helpers and the RESTful default actions
-# (GET→index, POST→create, PUT→update, DELETE→destroy) are core-owned, so every
-# app declares a row in the same form and the route-helper generator reads one
-# grammar. `ActionDispatch::Router` owns matching only; `resources` expands a
-# resource, and its two private helpers (`check_only`, `action_wanted`) sit
-# beside it.
-#
-# Helpers construct `Route` rows without reading controller constants, so a row
-# may name a class boot has not loaded. The table is built lazily on the first
-# dispatch.
+# Helpers build `Route` rows without reading controller constants, so a row may
+# name a class boot has not loaded; the table is built on the first dispatch.
 
 module Snails
   module RouteTable
@@ -97,8 +88,8 @@ module Snails
 
     # every name in `only` must be one of the five RESTful actions. A typo there
     # would otherwise silently drop the row and the app would see a 404 where it
-    # declared a route. Loud at table construction (boot), not at the first
-    # request. A nil list has no names to check.
+    # declared a route. It raises at table construction (boot), not at the
+    # first request. A nil list has no names to check.
     #
     # @param only [Array[Symbol], nil] the action subset `resources` will keep
     # @raise [ArgumentError] `only` names an action outside the five RESTful ones

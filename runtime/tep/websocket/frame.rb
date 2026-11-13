@@ -1,6 +1,6 @@
 # Tep::WebSocket::Frame -- single-frame codec (parse and emit).
 #
-# Server-shaped: emit never masks (§5.3), and parse treats unmasked
+# Server-side: emit never masks (§5.3), and parse treats unmasked
 # client frames, reserved bits or opcodes, and oversized or fragmented
 # control frames as protocol violations.
 module Tep

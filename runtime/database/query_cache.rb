@@ -1,22 +1,8 @@
-# The request-scoped read cache both database adapters share. Every connection
-# checked out inside a `with_connection` scope runs inside one: an identical
-# SELECT replays the first result, and any write or DDL invalidates it. The
-# cache lives on the scope's thread/fiber, never on a connection, so two
-# requests never share rows.
-#
-# The store never looks at statement text — the cache KEY is adapter-owned,
-# any string that covers the SQL and its bind values. The contract is the
-# same on every backend: a bound read is cached per value rather than
-# skipped, one statement holds at most `QueryCache::ROWS` rows, a request
-# holds at most `QueryCache::ENTRIES` statements, and rows are copied on
-# store and on the way out so a caller mutating a returned row cannot
-# poison a later hit.
-#
-# Invalidation is generation-based and process-wide: a write bumps the
-# generation, and an entry stored under an older generation is never
-# replayed. A write on one thread therefore cannot leave another thread's
-# scope holding pre-write rows, and an in-flight read cannot publish its
-# pre-write result after the write it raced.
+# Request-scoped read cache shared by both database adapters. It lives on the scope's
+# thread/fiber, never on a connection, so two requests never share rows. The cache
+# key is adapter-owned, and rows are copied on store and on the way out. Invalidation
+# is process-wide and generation-based: a write bumps the generation, and an entry
+# stored under an older generation is never replayed.
 
 module Sqlx
   # One cached SELECT result: the rows plus the cache generation the read

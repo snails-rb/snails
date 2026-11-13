@@ -1,10 +1,8 @@
-# Tep::WebSocket -- RFC 6455 WebSocket support.
+# Tep::WebSocket -- RFC 6455 support: opcodes, close codes, and the frame cap.
 #
 # A handler validates the upgrade with Handshake.check, then calls
-# `res.start_websocket(accept_key, driver)`; the server writes the 101
-# head and hands the connection to Connection's recv loop. That loop
-# parks for the connection's lifetime, so only Tep::Server::Threaded
-# serves it -- the fiber server answers an upgrade with a 501.
+# `res.start_websocket`; only Tep::Server::Threaded serves the recv loop, which
+# parks for the connection's lifetime. The fiber server answers 501.
 module Tep
   module WebSocket
     # RFC 6455 §5.2 opcode values.

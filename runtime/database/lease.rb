@@ -1,18 +1,8 @@
-# The connection lease both database adapters share. A lease scope is the unit
-# of connection ownership: `with_connection` opens the scope, and the first
-# database access inside it checks a connection out of the adapter's pool. A
-# scope that never touches the database therefore never checks one out. Nested
-# scopes reuse the outer scope; a thread outside a scope falls back to the
-# adapter's single connection until `require_leases!`, after which the adapter
-# refuses the access instead of letting two threads share a session.
-#
-# The adapter supplies one hook — `lease_checkout` returns a `LeaseToken` (or
-# nil before `configure`). `LeaseToken` binds the pool and position; its
-# `connection` and `release` calls are the only adapter-specific mechanics.
-# A pool may discard a connection mid-lease (a lost session). `release` receives
-# the connection the lease bound, so the pool can tell a late release from a
-# replacement at the same position. The request read cache opens when the
-# connection is checked out and closes with the outermost scope.
+# Connection lease scope shared by both database adapters. `with_connection` opens
+# the scope; the first database access inside checks a connection out, so nested
+# scopes reuse the outer one and a scope that never touches the database leases nothing.
+# After `require_leases!` an access outside a scope raises. `LeaseToken#release` passes
+# the bound connection, so a pool can ignore a release for a discarded connection.
 require_relative "query_cache"
 
 module Sqlx
@@ -48,7 +38,7 @@ module Sqlx
     # thread already inside a scope re-enters it: the outer connection and
     # request cache carry on, so a nested block can neither rebind nor unbind
     # its outer scope. Before `configure` there is nothing to lease, so the
-    # block runs without a cache; a database access inside still fails loudly on
+    # block runs without a cache; a database access inside still raises on
     # the absent connection.
     #
     # @return [Object] the block's value

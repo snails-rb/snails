@@ -1,8 +1,6 @@
-# the app entry contract shared by every snails app.
+# The app entry contract shared by every snails app.
 #
-# The entry index loads the request path (`main/dispatch.rb`) and the process
-# entry (`main/server.rb`). Boot requires this file before the app's
-# `config/environment.rb`, so an app reopen wins over these defaults (the last
-# loaded definition wins).
+# Loads the request path and the process entry; boot requires this before the
+# app's `config/environment.rb`, so an app's reopen wins over these defaults.
 require_relative "main/dispatch"
 require_relative "main/server"

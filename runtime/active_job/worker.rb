@@ -1,10 +1,8 @@
-# The job stack's drain loop: poll the queue adapter, run one drain, and
-# repeat. `ActiveJob::Launcher.start` spawns one of these per worker thread
-# (prefork children included); the periodic half lives in
-# `active_job/scheduler`.
+# The drain loop: poll the queue adapter, run one drain, repeat.
+# `ActiveJob::Launcher.start` spawns one per worker thread, alongside the
+# scheduler loop.
 #
-# A recurring beat only enqueues the job (`ActiveJob.recurring`); this loop
-# executes it like any other queued job.
+# A recurring beat only enqueues the job; this loop executes it like any other.
 
 module ActiveJob
   module Worker

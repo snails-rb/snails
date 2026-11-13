@@ -1,14 +1,8 @@
-# The framework's one error boundary policy for long-lived loops. A server
-# request, a job body, a periodic callback, and a drain are each
-# one unit; one unit's failure must not take the loop (or the process)
-# with it. This module owns the one decision every unit boundary shares —
-# which exceptions leave the boundary instead of becoming a unit failure
-# — so the loops cannot drift into different class lists.
+# One error boundary policy for long-lived loops: each request, job, periodic
+# callback and drain is a unit whose failure must not take the loop down.
 #
-# A boundary is a native `rescue Exception` at the unit's edge, with
-# `raise if Snails::ErrorBoundary.fatal?(failure)` as its first line.
-# Ruby's failure channel stays an exception; no runner returns a failure
-# value for the caller to check.
+# Every boundary is a native `rescue Exception` that starts with
+# `raise if Snails::ErrorBoundary.fatal?`, so the class list cannot drift.
 module Snails
   module ErrorBoundary
     # true when the exception means the process is stopping (`SystemExit`,

@@ -1,32 +1,7 @@
-# Primitive Sqlx::Database surface — PostgreSQL via libpq FFI. The sibling of
-# runtime/database/sqlite.rb: same `module Sqlx::Database` contract, documented
-# at the head of that file. Everything outside that high-level list is private.
-#
-# The app-owned config/database.rb requires this file, so spinel's static graph
-# reaches this backend only; a SQLite app never loads it.
-#
-# This file emits no DDL — the schema belongs to the application's deployment
-# (`owns_schema?` answers false; the server never runs DDL). A per-process pool
-# of connections: one libpq connection serves one lease at a time, so two
-# concurrent PQexec calls never share a session. A PGresult is a client-side
-# copy, so rows are read after the lease's statement returns. A connection that
-# fails during a statement is dropped from the pool; a later checkout that
-# finds no free connection opens a replacement. A request-scoped read cache
-# holds SELECT results for the duration of a `with_connection` scope — it opens
-# when the first database access checks a connection out; writes and DDL
-# invalidate it.
-# The cache itself is the shared store in
-# `runtime/database/query_cache.rb`; this adapter's key is the statement as
-# executed (bind values substituted). There is no statement cache — statement
-# preparation is per-call and finalization frees.
-#
-# Two SQLite spellings are shimmed at this boundary: a `sqlite_sequence`
-# delete becomes an identity-sequence reset, and booleans render as '1'/'0',
-# a literal PostgreSQL coerces for BOTH boolean and integer columns.
-#
-# The lease engine (`with_connection`/`require_leases!`) lives in
-# `database/lease.rb` and is shared with the SQLite sibling; this file
-# supplies the checkout hook and its connection pool.
+# PostgreSQL backend for `Sqlx::Database`, via libpq FFI. It implements the same
+# contract as the SQLite sibling and runs no DDL (`owns_schema?` is false). The
+# pool gives one libpq connection to one lease at a time and drops a connection
+# that fails during a statement; the next checkout opens a replacement.
 
 require_relative "lease"
 
@@ -229,7 +204,7 @@ module Sqlx
     # discards that connection and leases again.
     class PgPool
       # How long a checkout may wait for a free connection. A request that
-      # cannot get one fails loudly instead of parking behind a long
+      # cannot get one raises instead of waiting behind a long
       # transaction; the knob is `checkout_timeout`.
       CHECKOUT_TIMEOUT_SECONDS = 5.0
 

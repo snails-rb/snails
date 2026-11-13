@@ -1,9 +1,8 @@
-# Tep::WebSocket::Connection -- per-connection recv loop.
+# Tep::WebSocket::Connection -- per-connection recv loop, run on the connection's
+# own green thread after the 101 response. It parks on the IO wrapper until
+# bytes arrive and dispatches each complete frame.
 #
-# Runs on the connection's own green thread once the 101 response has
-# been written: parks on the IO wrapper until bytes arrive, then
-# dispatches every complete frame the accumulator holds. The accumulator
-# is this connection's own String, so no shared buffer exists.
+# The accumulator is this connection's own String; no buffer is shared.
 module Tep
   module WebSocket
     class Connection

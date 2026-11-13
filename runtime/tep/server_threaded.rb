@@ -1,10 +1,8 @@
-# Tep::Server::Threaded -- one green thread per connection. recv/write park on
-# EAGAIN and free the OS worker, so a held WebSocket costs one small stack and a
-# slow subscriber stalls only its own writer.
+# Tep::Server::Threaded -- one green thread per connection; recv and write park
+# on EAGAIN, so a slow writer blocks only its own thread.
 #
-# Client fds stay non-blocking (sp_net parks only on EAGAIN); each connection
-# owns an `IO.for_fd` wrapper for timed waits, since a raw fd has no
-# `wait_readable`.
+# Client fds stay non-blocking. Timed waits go through each connection's
+# `IO.for_fd` wrapper, because a raw fd has no `wait_readable`.
 module Tep
   class Server
     class Threaded

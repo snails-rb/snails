@@ -1,18 +1,8 @@
-# Per-request context for code that runs outside a controller instance: the
-# dispatcher parks the request and controller here for the duration of the
-# action, and readers reach them through `ActionController::Current`.
-#
-# @note The state is per thread (`Thread.current`): a threaded server serves
-#   requests concurrently, and a single module-level slot would let one request
-#   read another's controller. Each key is assigned from exactly one shape,
-#   which is what lets spinel type it.
-#
-# @note The dispatcher sets both slots immediately before `process_action` and
-#   clears them in `ensure` after it returns or raises; outside an action they
-#   are nil (background jobs have no request context).
-#
-# @note The accessors are written as explicit `def self.` methods because that
-#   is the statically resolvable form under AOT.
+# Per-request context for code outside a controller instance: the dispatcher
+# stores the request and controller here for the action's duration.
+# Per-thread (`Thread.current`), so concurrent requests cannot read each
+# other's controller; slots are set before the action and cleared in `ensure`.
+# Explicit `def self.` methods are the form AOT resolves statically.
 module ActionController
   class API
     # the request object the dispatcher wires before the action runs.

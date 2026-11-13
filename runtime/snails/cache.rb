@@ -1,20 +1,8 @@
-# the process-local in-memory store behind the caching surface. One instance per
-# process; prefork workers do not share it.
+# The process-local cache: one instance per process, not shared across prefork
+# workers; expiry is lazy, the store flushes at a bound, and nil is a valid entry.
 #
-# The store maps a String key to any value plus an optional expiry (epoch
-# seconds; 0 means never). Expiry is checked lazily on read. The entry count is
-# bounded, and the store is flushed at the bound — a finite store, not an LRU.
-#
-# Thread safety: the default server runs one green thread per connection on an
-# M:N scheduler without a global VM lock, so two threads can mutate the hashes
-# at once and even a single store operation is not atomic. The lock also covers
-# compound operations (`increment` is a read-modify-write, `fetch` is a
-# miss-check-then-write). `fetch` runs its block outside the lock, so two
-# threads that miss the same key may both compute and the later write wins —
-# duplicate work, not a wrong answer.
-#
-# A stored nil is a valid entry: `fetch` decides hit or miss with the internal
-# sentinel, not with `read`, so a block that returns nil is not re-run.
+# With no global VM lock, the lock must cover compound operations, and `fetch`
+# runs its block outside it, so two misses may compute the same value.
 module Snails
   # the process-wide store, memoized so every call answers the same instance (a
   # fresh `Cache.new` would make every `fetch` a miss).
