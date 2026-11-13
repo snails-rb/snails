@@ -12,6 +12,14 @@ Status: 1.0 release candidate. The public API may still change before 1.0.
 
 This is not a Rails replacement. It is API-only: no views, no asset pipeline, no ActiveRecord or gem compatibility. Models are plain classes over SQL, and migrations are SQL files. See the [FAQ](manual/28-faq.md) and [Coming from Rails](manual/04-coming-from-rails.md) for the full boundary.
 
+## Demo
+
+![Terminal demo: snails new demo, bin/test, bin/dev, and GET /up](demo/demo.gif)
+
+`snails new demo` creates the project, `bin/test` runs the suite against a real server, and `bin/dev` serves it. `/up` is the framework's default health check — every Snails app answers it.
+
+The recording starts with the pinned compiler cached and the first app build warmed; a cold first build takes about two minutes.
+
 ## Install
 
 ```sh
@@ -92,6 +100,7 @@ scaffold/       # snails new and --scaffold templates, plus the harness skeleton
 bin/snails      # the CLI entry point
 cli/            # the CLI implementation shipped in the dist
 scripts/        # repository-only verification and release tools (not in the dist)
+demo/           # README demo tape and rendered GIF
 install.sh      # curl installer for the CLI
 pins.toml       # SPINEL_REV — the spinel revision this core is verified with
 manual/         # product documentation (English)
