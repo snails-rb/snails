@@ -10,9 +10,9 @@ Status: 1.0 release candidate. The public API may still change before 1.0.
 
 ## Why Snails
 
-The scope follows from a deliberate choice: Snails keeps the conventions that make an API legible — routes, controllers, form objects, mailers, jobs, and a conventional folder layout — and leaves out the layers that assume a monolithic app, a Ruby runtime, or a full ORM. There are no views or asset pipeline, no Active Record, and no gem compatibility. Models are plain classes over SQL, and migrations are SQL files. The server and the CLI run without a Ruby runtime, and `bin/test` exercises a real HTTP server instead of mocks.
+Snails keeps the Rails conventions that make an API app readable — routes in `config/routes.rb`, controllers with actions, form objects for validation, mailers, jobs, and a conventional folder layout — and leaves out the parts that assume a server-rendered monolith, a Ruby runtime, or a full ORM. There is no view layer or asset pipeline, no Active Record, and no gem compatibility. Models are plain classes over SQL, and migrations are SQL files. The CLI and the server run without Ruby, and `bin/test` exercises the real HTTP server instead of mocks.
 
-The reasoning, the cost of each choice, and the cases where Rails is the better fit are in [Why Snails](https://snails-rb.org/blog/why-snails/). [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.
+The reasoning and the cost of each choice are in [Why Snails](https://snails-rb.org/blog/why-snails/). [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.
 
 ## Install
 
@@ -85,6 +85,7 @@ The manual is the product documentation. It lives in [`manual/`](manual/), is wr
 
 - [Troubleshooting](manual/27-troubleshooting.md)
 - [FAQ](manual/28-faq.md)
+- [Performance](manual/29-performance.md)
 
 ## Layout
 

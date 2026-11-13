@@ -40,7 +40,7 @@ No. Your app and the framework compile into one native binary; a gem that expect
 
 ### Why is there no Active Record?
 
-Active Record is a good fit when a team wants associations, callbacks, and one object model over the database. Snails keeps the model layer smaller: a standard query surface for the common reads and writes, plus raw SQL for the queries that need it. That cuts repeated boilerplate and gives the common path a shape that is easier to review; it does not assume every generated query is correct. The surface keeps values parameterized and the SQL visible (see [Database and Models](09-database-and-models.md)). The [Why Snails](https://snails-rb.org/blog/why-snails/#active-record-keep-the-sql-visible) article covers the trade.
+Active Record is a good fit when a team wants associations, callbacks, and one object model over the database. Snails keeps the model layer smaller: a standard query surface for the common reads and writes, plus raw SQL for the queries that need it. That cuts repeated boilerplate and gives the common path a shape that is easier to review; it does not assume every generated query is correct. The surface keeps values parameterized and the SQL visible (see [Database and Models](09-database-and-models.md)). The [Why Snails](https://snails-rb.org/blog/why-snails/#no-active-record) article covers the trade.
 
 ### Why are migrations SQL files?
 
