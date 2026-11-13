@@ -68,10 +68,10 @@ The generator writes `db/migrate/<UTC>_create_snails_queue.sql` and refreshes `d
 Retention is off until the app puts the prune job on the clock:
 
 ```ruby
-ActiveJob.recurring(Snails::QueuePruneJob, 86400)
+ActiveJob.recurring(Snails::Queue::PruneJob, 86400)
 ```
 
-`QueuePruneJob` deletes finished rows older than seven days in batches. Without it, finished rows accumulate — each one is still the run's history.
+`PruneJob` deletes finished rows older than seven days in batches. Without it, finished rows accumulate — each one is still the run's history.
 
 ## Workers and failures
 

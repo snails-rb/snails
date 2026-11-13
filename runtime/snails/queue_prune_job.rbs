@@ -1,5 +1,0 @@
-module Snails
-  class QueuePruneJob < ActiveJob::Base
-    def self.perform: (untyped? data) -> void
-  end
-end
