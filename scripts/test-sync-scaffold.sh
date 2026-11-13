@@ -70,13 +70,12 @@ chk "the refusal names the retired boot" $? 0
 chk "the refusal writes nothing" $? 0
 
 mk_contract_app() {
-  # Model a consumer app tree: the scaffold-owned server entry + the
-  # vendored core boot + the require-all files (the eight folder groups,
-  # the generated path helpers, and the model-column attach file) whose
-  # controllers seed already loads the controllers + a routes table that
-  # declares GET /up and nothing else. The health controller is vendored
-  # core (snails-core/) — the app carries no copy, and it carries no
-  # app-level boot.rb.
+  # Model a consumer app tree: the scaffold-owned server entry, the vendored
+  # core boot, and the require-all files (the eight folder groups, the
+  # generated path helpers, and the model-column attach file). The
+  # controllers seed loads the controllers, and the routes table declares
+  # GET /up and nothing else. The health controller is vendored core
+  # (snails-core/); the app carries no copy and no app-level boot.rb.
   mkdir -p "$1/config" "$1/gen" "$1/$SNAILS_VENDOR_DIR" "$1/$SNAILS_VENDOR_DIR/snails" "$1/$SNAILS_VENDOR_DIR/boot"
   cp "$MAIN" "$1/main.rb"
   cp "$BOOT" "$1/$SNAILS_VENDOR_DIR/boot.rb"
@@ -153,7 +152,7 @@ bash "$V" c-twoprofiles >/dev/null 2>&1
 chk "a profile file with two selections fails" $? 1
 
 # The GET /up row reads as Route.new or a verb helper — including the
-# paren helper form, the shape a core-helper app writes.
+# paren helper form, the form a core-helper app writes.
 mk_contract_app c-paren
 sed -i 's|ActionDispatch::Router::Route.new("GET", "/up", Snails::HealthController, :show)|get("/up", Snails::HealthController, :show)|' c-paren/config/routes.rb
 bash "$V" c-paren >/dev/null 2>&1
@@ -390,7 +389,8 @@ chk "migration keeps the adapter named by the old require" $? 0
 grep -q '# app comment kept' s-adapter-migrate/config/database.rb
 chk "migration preserves the app comment" $? 0
 
-# Both names present, or a retired file with no anchored require: loud.
+# Both names present, or a retired file with no anchored require: a clear
+# error.
 mk_contract_app s-adapter-both
 printf 'require_relative "../runtime/db_sqlite"\n' > s-adapter-both/config/db.rb
 bash "$SR" s-adapter-both >/dev/null 2>&1

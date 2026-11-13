@@ -1,7 +1,7 @@
 #!/bin/bash
-# snails small harness — compiles and contracts the core under spinel
-# WITHOUT any consumer app. The expected output is what the
-# bundle runner proves about the core graph itself; consumer-side expected outputs
+# snails small harness — compiles the core under spinel and checks its
+# contracts without any consumer app. The expected output is what the bundle
+# runner proves about the core graph itself; consumer-side expected outputs
 # (bin/native-test etc.) stay separate.
 #
 # Workspace assembly: harness/fixture (minimal app) + snails-core/ (the
@@ -18,7 +18,7 @@
 # harness uses: the whole graph is compiled once and each case file runs
 # in its own process against its .expected snapshot. `spin test` would
 # compile one binary per file (and its mtime cache is all-or-nothing), so
-# a one-file change recompiled all of them.
+# a one-file change recompiles all of them.
 #
 # Usage: bash scripts/test-runtime.sh [--pg] [--no-cache] [<case file>...]
 #   --pg            run the common fixture tests plus the pg-only group

@@ -1,8 +1,8 @@
 -- The DB-backed queue (`ActiveJob::DatabaseQueue`), sqlite variant.
 -- One row per job in snails_queue_jobs — a finished row (succeeded or
 -- failed) is that run's history — plus the recurring-occurrence ledger
--- snails_queue_occurrences, one row per (job name, interval start),
--- which is what makes a recurring beat queue once across processes.
+-- snails_queue_occurrences, one row per (job name, interval start), which
+-- ensures a recurring beat is enqueued once across processes.
 -- A one-off delayed job writes only the queue row: the ledger is
 -- recurring traffic alone.
 --
@@ -11,7 +11,7 @@
 -- migration files. Every statement is idempotent, so
 -- reapplying it over an existing database is safe. AUTOINCREMENT keeps
 -- row ids increasing for the life of the table (a pruned id is never
--- reused), which the claim order ("oldest due row first") reads.
+-- reused), which the claim order ("oldest due row first") relies on.
 CREATE TABLE IF NOT EXISTS snails_queue_jobs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,

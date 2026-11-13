@@ -2,23 +2,25 @@
 #
 # The snails project's spinel image — the pinned spinel toolchain plus the
 # app build dependencies — published as ghcr.io/snails-rb/spinel:<SPINEL_REV>.
-# Consuming app Dockerfiles FROM it in a build stage; the tag is the pins.toml
-# SPINEL_REV. This is a builder image, not a runtime base: the app runtime
-# stage is app-owned and installs the shared libraries and tzdata it needs.
+# Consuming app Dockerfiles use it as the base of a build stage; the tag is
+# the pins.toml SPINEL_REV. This is a builder image, not a runtime base: the
+# app runtime stage is app-owned and installs the shared libraries and
+# tzdata it needs.
 #
-# Two stages keep the published image to the toolchain and the contracts an
-# app build actually uses. The builder stage needs Ruby and the prism gem
+# Two stages limit the published image to the toolchain and the dependencies
+# an app build actually uses. The builder stage needs Ruby and the prism gem
 # because spinel's table generators run in Ruby; the published stage only runs
 # the compiled spinel/spin binaries, so Ruby, the gems, curl, and clang stay
 # out of it.
 #
 # This is a snails-published build image, not an upstream matz/spinel image.
-# The build context carries nothing (spinel is cloned during the build).
+# It is built from an empty context; spinel is cloned during the build.
 #
-# Publish path: .github/workflows/spinel-image.yml (both arches, native).
+# Publish path: .github/workflows/spinel-image.yml (both architectures,
+# native).
 
-# Each base is a multi-arch index digest so tag drift cannot change one arch
-# behind the other and neither stage gets a different base than the other.
+# Each base is a multi-arch index digest, so tag drift cannot change one
+# architecture without the other, and neither stage gets a different base.
 ARG RUBY_IMAGE=ruby:3.3-slim-bookworm@sha256:245eafdd393b298a1bcc6948504b59a117539d46a7fd12ebb8bd2c103f814566
 ARG DEBIAN_IMAGE=debian:bookworm-slim@sha256:99c0b25c46d0214d5a2091092e7908907dcaecd6a962cde0ac700acee222b6f3
 
@@ -30,8 +32,8 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 # requires the prism gem. Ruby 3.3 ships a bundled prism, but the pinned
 # prism/rbs gems are installed explicitly so the generated tables do not
 # depend on the base image's Ruby release. curl fetches the parser sources in
-# `make deps`; the -dev packages build spinel's carried openssl/ffi/sqlite3
-# code.
+# `make deps`; the development packages build spinel's carried
+# openssl/ffi/sqlite3 code.
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       build-essential \
       ca-certificates \
@@ -66,8 +68,9 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Every package below is a contract of an app build, not a copy of the old
 # buildpack base: build-essential provides cc and the C headers; git, patch,
-# pkg-config, and make are what `spin` invokes for dependencies; the -dev
-# packages are what the packages an app can require put on the link line
+# pkg-config, and make are what `spin` invokes for dependencies; the
+# development packages provide the headers that the packages an app can
+# require put on the link line
 # (openssl: -lssl -lcrypto, ffi: -lffi, sqlite3: -lsqlite3, pg: -lpq) plus the
 # scaffold's jemalloc allocator. clang/libclang, libyaml, zlib, and curl are
 # not used by any of those, so they are deliberately absent. tzdata is not
@@ -109,9 +112,9 @@ ENV PATH="/opt/spinel/lib/spinel:${PATH}"
 # registry: both binaries report the pin (prefix match either way, the same
 # rule the toolchain resolver applies to a copy), and the packages this image
 # exists to link (openssl, ffi, json, sqlite3, pq) compile and run under
-# --strict-require. A missing -dev package would otherwise surface only in a
-# consumer build; sqlite3 is the sharp case because spinel's Makefile drops
-# the package silently when its headers are absent.
+# --strict-require. A missing development package would otherwise surface
+# only in a consumer build; sqlite3 is the critical case because spinel's
+# Makefile drops the package silently when its headers are absent.
 RUN set -euo pipefail; \
     for bin in spin spinel; do \
       printed="$("$bin" --version 2>/dev/null | grep -oE '[0-9a-f]{7,40}' | head -n1)"; \

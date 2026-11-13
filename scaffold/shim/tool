@@ -1,8 +1,8 @@
 #!/bin/bash
 # snails shim — installed by `snails install-shim`; do not edit.
 # Pinned trees use their SPINEL_REV toolchain; elsewhere the personal
-# standalone install (~/.local/lib/spinel, SNAILS_SPINEL_HOME overrides) is
-# used. Requires the snails CLI on PATH.
+# standalone install (~/.local/lib/spinel; SNAILS_SPINEL_HOME overrides it)
+# is used. Requires the snails CLI on PATH.
 tool="${0##*/}"
 command -v snails >/dev/null 2>&1 || {
   echo "$tool: the snails CLI is not on PATH (required by the shim — install it, or use a dist path directly)" >&2

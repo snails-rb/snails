@@ -20,9 +20,9 @@
 # constant.
 #
 # SNAILS_ENV (development|test|staging|production) is read on first use.
-# The process zone: stored UTC instants present in this zone, and the app
-# reads it back as `Snails.app.time_zone`. An unknown name raises here, so a
-# typo fails at boot instead of leaving the process in UTC.
+# The process zone: stored UTC instants are presented in this zone, and the
+# app reads the zone back as `Snails.app.time_zone`. An unknown name raises
+# here, so a typo fails at boot instead of leaving the process in UTC.
 Snails.time_zone = "UTC"
 
 # Signing key — `Snails.app.secret_key_base` is the standard reader. Its

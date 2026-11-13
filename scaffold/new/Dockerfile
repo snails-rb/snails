@@ -32,8 +32,8 @@ ARG SNALS_REV=unset
 ARG SPINEL_REV=unset
 
 # Runtime packages: the binary's dynamic links — jemalloc, OpenSSL,
-# libstdc++ — plus the DB client package (its CLI is what the in-container
-# migration runner shells out to, and it ships the client library the
+# libstdc++ — plus the database client package (its CLI is what the
+# in-container migration runner invokes, and it ships the client library the
 # binary links), tzdata (boot requires it), and curl for the healthcheck.
 # Add the matching runtime package when the app adds a native package.
 RUN apt-get update -qq \
@@ -63,8 +63,8 @@ COPY --chown=app:app --from=app-build "/app/build/bin/${APP_NAME}" /usr/local/bi
 # whole tree, under build/image-context/), the inputs the runner reads
 # (adapter config, DB ownership pins, the migration files), and the CLI on
 # PATH. There is no entrypoint shim: CMD is the app, and a one-off command
-# replaces CMD, so the standard `compose run <service> <command>` form runs
-# the runner by name.
+# replaces CMD, so the standard `compose run <service> <command>` form
+# invokes the migration runner by name.
 COPY --from=app-build /app/build/image-context/snails /usr/local/lib/snails
 RUN ln -s /usr/local/lib/snails/bin/snails /usr/local/bin/snails
 COPY --from=app-build /app/config/database.rb /app/config/database.rb

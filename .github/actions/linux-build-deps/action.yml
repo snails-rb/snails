@@ -2,8 +2,8 @@ name: linux build deps
 description: >
   The system packages every Linux job needs before the spinel toolchain
   installs: clang and libclang for the compile, sqlite3 for the adapter and the
-  migration runner, and the -dev headers the fixtures link (sqlite3, pq,
-  jemalloc). Call it before .github/actions/spinel-toolchain.
+  migration runner, and the development headers the fixtures link against
+  (sqlite3, pq, jemalloc). Call it before .github/actions/spinel-toolchain.
 
 runs:
   using: composite

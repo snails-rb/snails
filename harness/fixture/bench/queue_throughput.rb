@@ -7,7 +7,7 @@
 #
 # Default run: every job body is a no-op, so the numbers are LOOP
 # CEILINGS — the queue's own overhead, not the throughput of real work.
-# Set BENCH_JOB_SLEEP_MS to give each body an I/O-shaped wait (a
+# Set BENCH_JOB_SLEEP_MS to give each body an I/O-like wait (a
 # provider call proxy), BENCH_ROWS for the slow-profile row count, and
 # BENCH_CONCURRENCY for a direct-drain concurrency spike. The spike runs
 # DatabaseQueue.drain on N threads; it is the adapter's own parallel

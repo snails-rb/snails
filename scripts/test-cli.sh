@@ -2,8 +2,8 @@
 # Regression test for the snails CLI (bin/snails) — the single consumer
 # entry point that wraps the sync/scaffold/pin engine, including the
 # SPINEL_REV toolchain contract (materialize → fresh --check → stale
-# detection → repair, and the loud failure for a pins file without the
-# toolchain rev).
+# detection → repair, and the clear failure for a pins file without the
+# toolchain revision).
 #
 # Usage: bash scripts/test-cli.sh
 # Exit: 0=all cases pass, 1=failure.
@@ -317,7 +317,7 @@ grep -q "$SNAILS_VENDOR_DIR is stale — run: snails sync app" stale.err
 chk "the stale frame names the repair" $? 0
 
 # --verbose swaps the category summary and the per-file list in. The three
-# shapes get one entry each: a nested changed file, a nested pin-only
+# forms get one entry each: a nested changed file, a nested pin-only
 # file, and a top-level tree-only file.
 echo 'local extra' > app/$SNAILS_VENDOR_DIR/local_extra.rb
 rm app/$SNAILS_VENDOR_DIR/tep/app.rb
@@ -407,13 +407,13 @@ chk "verify-pin missing arg without a cwd pins file" $? 2
 # 6. sync --pins vendors the PIN when the checkout moved past it.
 #    Synthetic snails checkout: commit A is the pin, the OLDEST layout
 #    (engine dir script/) whose pins.toml carries the retired
-#    SPINEL_VALIDATED_REVS list — the pre-pair-record shape, so
+#    SPINEL_VALIDATED_REVS list — the pre-pair-record format, so
 #    the compatibility reader is exercised by every fixture pinned to A.
 #    Commit B renames the engine dir to scripts/ (the previous
 #    generation) and adds core content the pin
 #    does not have; commit C renames the engine dir to cli/ (current)
 #    and writes the SPINEL_REV record; commit D drops the declaration
-#    (the verify-pins gate is held to each shape). A sync pinned to A or
+#    (the verify-pins gate is held to each form). A sync pinned to A or
 #    B must restore that rev's engine and vendor it under the new CLI.
 PINSNAILS="$WORK/pin-snails"
 mkdir -p "$PINSNAILS"
@@ -428,7 +428,7 @@ gitsnap() {
 }
 mv "$PINSNAILS/cli" "$PINSNAILS/script"
 # A real pre-rename rev's engines reference their own directory name; the
-# snapshot gets that shape so the extracted engine is self-consistent.
+# snapshot gets that form so the extracted engine is self-consistent.
 sed -i 's|/cli/|/script/|g' "$PINSNAILS/script/sync-runtime.sh"
 printf 'SPINEL_VALIDATED_REVS="1d26ef6"\n' > "$PINSNAILS/pins.toml"
 gitsnap init -q
@@ -1187,7 +1187,7 @@ fi
 
 # 12. verify-pins — the pin declaration gate (SNALS_REV restorable + the
 #     SPINEL_REV pair record), with walk-up discovery and --pins.
-#     PINSNAILS carries the transition shapes: commit A (PIN_REV) is an
+#     PINSNAILS carries the transition forms: commit A (PIN_REV) is an
 #     old-layout rev (engine dir script/) whose pins.toml declares the
 #     retired list — the pair
 #     check reads its last token; commit C (SCALAR_REV) carries the
@@ -1236,7 +1236,7 @@ chk "pins check prints the ok line for the src/ app" $? 0
 bash "$CLI" verify-pins -h >/dev/null 2>&1
 chk "verify-pins -h exits 0 (the engines' capability probe)" $? 0
 
-# The SPINEL_REV record shape: the pair is checked against the pinned
+# The SPINEL_REV record format: the pair is checked against the pinned
 # rev's own declaration, which the CLI tree is ahead of.
 cat > vp/record.toml <<CONF
 SPINEL_REV="abc1234"
@@ -1254,7 +1254,7 @@ SNALS_REV="$PIN_REV"
 CONF
 bash "$PINSNAILS/bin/snails" verify-pins --pins vp/bad-spinel.toml > vp-spinel.out 2>&1
 chk "verify-pins fails on a spinel rev the pair does not declare" $? 1
-grep -q 'is not the rev declared for SNALS_REV' vp-spinel.out
+grep -q 'is not the revision declared for SNALS_REV' vp-spinel.out
 chk "the pair mismatch is named" $? 0
 grep -q '(1d26ef6)' vp-spinel.out
 chk "the pair mismatch names the declared rev" $? 0

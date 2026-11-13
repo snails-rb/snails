@@ -1,34 +1,35 @@
 #!/bin/bash
-# snails — the single CLI for consuming the shared runtime in an app tree.
+# snails — the CLI for using the shared runtime in an app tree.
 #
-# Consumers call one command instead of carrying per-app vendor scripts
-# (the two `script/sync-shared-runtime.sh` copies were identical):
+# Consumers call one command instead of carrying per-app vendor scripts:
+# it replaces the two identical `script/sync-shared-runtime.sh` copies.
 #
 #   bin/snails sync [<app_root>] [--pins FILE] [--from-checkout] [--check] [--verbose]
 #       Vendor the core into <app_root>/snails-core (the boot chain ships
 #       with it), seed missing gen/* require-all files, and verify the
 #       scaffold contract. Without `--pins` the nearest pins
 #       file at or above <app_root> is the pin (walk-up discovery, bounded
-#       by the directory holding .git). `--pins` reads SNALS_REV from the
-#       file — a full 40-hex rev (the edge channel: content no release
-#       names yet) or a vX.Y.Z release version (resolved to its tagged
-#       commit) — and vendors the core FROM THAT REV — the pin declares the
-#       content, so a checkout that has moved past it never blocks the
-#       sync (and never leaks its own content in). An installed dist (no
+#       by the directory that holds .git). `--pins` reads SNALS_REV from the
+#       file — a full 40-character hexadecimal revision (the edge channel for
+#       content that no release names yet) or a vX.Y.Z release version
+#       (resolved to its tagged
+#       commit) — and vendors the core from that revision. The pin declares
+#       the content, so a checkout that has moved past it never blocks the
+#       sync and never contributes its own content. An installed distribution (no
 #       checkout) resolves the same pin through the published dist
 #       releases: the dist's own rev, `~/.cache/snails/dist/<rev>`, then a
 #       verified download. `--from-checkout` confirms the checkout source;
 #       the pins file must declare `SNALS_SOURCE="checkout"` (a tree
-#       without a pin rev keeps the pre-declaration behavior). The same
+#       without a pin revision keeps the pre-declaration behavior). The same
 #       pins file's SPINEL_REV materializes
 #       the pinned spinel toolchain next to it (<pins dir>/.spinel/toolchain)
 #       from the cache, a matching PATH install, or a source build.
 #       `--check` writes nothing: it syncs a copy, diffs the vendored
-#       core, and reports a missing/stale toolchain.
-#       Progress prints on stderr; the result is one stdout line naming
-#       the vendored revs. `--verbose` adds the detail the default
-#       output omits — the drift list under `--check`, the internal
-#       paths (dist cache, scaffold source) otherwise.
+#       core, and reports a missing or stale toolchain.
+#       Progress is printed on stderr; the result is one stdout line naming
+#       the vendored revisions. `--verbose` adds the detail the default
+#       output omits: the drift list under `--check`, and otherwise the
+#       internal paths (distribution cache, scaffold source).
 #
 #   bin/snails new <dir> [--database=sqlite|postgresql] [--scaffold]
 #       Create a project skeleton from the scaffolds — the server entry,
@@ -51,31 +52,33 @@
 #       Print where the pins file is: the nearest pins.toml at or above
 #       <app_root> (default the current directory), bounded by the
 #       directory holding .git. The pins file sits at the app root, so a
-#       start inside the app answers with that file. One stdout line; no
-#       pins file is exit 1. The walk itself is cli/pins.sh — the same
-#       resolution sync, verify-pins, and the engines use.
+#       start inside the app answers with that file. The command prints one
+#       stdout line and exits 1 when there is no pins file. The walk itself
+#       is cli/pins.sh — the same resolution sync, verify-pins, and the
+#       engines use.
 #
 #   bin/snails verify-pin [rev|pins.toml] [--verbose]
-#       Pin usability check: rev restores the core paths, plus a notice
+#       Pin usability check: the revision restores the core paths, plus a notice
 #       when this checkout has moved past the pin (cli/verify-pin.sh;
-#       --verbose lists the commits behind the notice).
-#       In dist mode the check is publication — the rev's release must
-#       exist (the dist's own rev is trivially usable). With no argument,
+#       --verbose lists the commits behind the notice). In distribution
+#       mode, the check is whether the release was published; the
+#       distribution's own revision is always usable. With no argument, it
 #       reads the pins file in the current directory.
 #
 #   bin/snails verify-pins [<app_root>] [--pins FILE] [--verbose]
 #       The pin declaration gate for a consumer project: the pins file
 #       (named by --pins, else discovered at or above <app_root>, default
-#       the current directory) must declare a SNALS_REV this core restores
-#       — a full 40-hex rev or a vX.Y.Z release version (resolved to its
-#       tagged commit) — (verify-pin semantics, notices pass through)
-#       and a SPINEL_REV
-#       equal to the one declared at that SNALS_REV — the validated
-#       (core rev, spinel rev) pair. The pinned rev's record decides, so
-#       an older pair keeps verifying under a newer CLI; in dist mode the
-#       record comes from this dist's own pin, the per-rev dist cache, or
-#       the published pins file. App-owned files (CI wiring, docs) are
-#       not this command's business.
+#       the current directory) must declare a SNALS_REV that this core can
+#       restore — a full 40-character hexadecimal revision or a vX.Y.Z
+#       release version
+#       (resolved to its tagged commit), using verify-pin's rules with
+#       notices passed through — and a SPINEL_REV equal to the one declared
+#       at that SNALS_REV: the validated (core revision, spinel revision)
+#       pair. The pinned revision's record decides, so an older pair keeps
+#       verifying under a newer CLI. In distribution mode, the record comes
+#       from this distribution's own pin, the per-revision distribution
+#       cache, or the published pins file. App-owned files (CI wiring,
+#       docs) are outside this command.
 #
 #   bin/snails gen-require-all [<app_root>] [--check] [--verbose]
 #       Regenerate the literal require lists spinel's AOT graph needs from
@@ -85,16 +88,16 @@
 #       carries no copy of it (bin/test and bin/dev call this command).
 #
 #   bin/snails generate job_queue [<app_root>]     (alias: g)
-#       Stamp the DB-backed job queue into an app tree: the migration
-#       history (db/migrate/<UTC version>_create_snails_queue[.pg].sql —
-#       the app's database configuration picks the variant) plus the
-#       provisioning schema dump (db/schema.sql — regenerated by
-#       `migrate dump` on both adapters; pg needs PG_URL for the
-#       replay), then print the config/environment.rb
-#       wiring lines (the queue adapter selection, and the retention
-#       registration commented out — retention is opt-in). Already
-#       present — a migration, or the tables in the schema dump — is a
-#       one-line result that writes nothing.
+#       Stamp the DB-backed job queue into an app tree: the migration file
+#       (db/migrate/<UTC version>_create_snails_queue[.pg].sql — the app's
+#       database configuration picks the variant) plus the provisioning
+#       schema dump (db/schema.sql — regenerated by `migrate dump` on both
+#       adapters; pg needs PG_URL for the replay), then print the
+#       config/environment.rb lines to add (the queue adapter selection,
+#       and the retention registration commented out — retention is
+#       opt-in). If the queue is already present — through a migration or
+#       the tables in the schema dump — the command prints one line and
+#       writes nothing.
 #
 #   bin/snails verify-scaffold [<app_root>]
 #       Scaffold contract check (cli/verify-scaffold.sh).
@@ -110,8 +113,8 @@
 #       schema dump (db/schema.sql — tables, indexes, views) from those
 #       migration files — generated output, never hand-edited — and
 #       `verify` proves the committed schema dump equals that output;
-#       `check` exits 1 while the database is uninitialized or a
-#       migration is pending (the dev-server boot check, read-only). For
+#       `check` exits 1 when the database is uninitialized or a migration
+#       is pending (the read-only dev-server boot check). For
 #       pg, dump and verify replay into a throwaway schema on the target
 #       and drop it on exit.
 #       (cli/migrate.sh — bash, executor = the adapter's own CLI).
@@ -124,26 +127,27 @@
 #       personal standalone install takes over ($SNAILS_SPINEL_HOME,
 #       default ~/.local/lib/spinel; an empty value disables) — the
 #       "project pins, otherwise the personal default" split, surfaced
-#       to the shell by the spin/spinel shims. Every refusal (no pins
-#       and no standalone, a command outside the toolchain) stays loud.
+#       to the shell by the spin/spinel shims. Every refusal (no pins file
+#       and no standalone install, or a command outside the toolchain) fails
+#       with a clear error.
 #
 #   bin/snails install-shim [--bin-dir DIR]
-#       Write/update the spin/spinel PATH shims — the interactive half of
-#       the split `exec` implements: each shim delegates to `snails exec
-#       <tool>`, so a pinned tree resolves its SPINEL_REV toolchain and
-#       anything else falls back to the personal standalone install.
-#       The body is the external file scaffold/shim/tool — copied
-#       verbatim, never generated inline. Content-gated writes (a current
-#       shim is untouched); the classic personal-install symlink
-#       ($SNAILS_SPINEL_HOME, default ~/.local/lib/spinel) is replaced
-#       with the binary left in place; any other existing file is refused
-#       loudly.
+#       Write or update the spin/spinel PATH shims — the interactive
+#       counterpart of `exec`: each shim delegates to `snails exec <tool>`,
+#       so a pinned tree resolves its SPINEL_REV toolchain and anything else
+#       falls back to the personal standalone install. The body is the
+#       external file scaffold/shim/tool, copied verbatim and never
+#       generated inline. Writes happen only when content changes (a current
+#       shim is untouched). The classic personal-install symlink
+#       ($SNAILS_SPINEL_HOME, default ~/.local/lib/spinel) is replaced with
+#       the binary left in place; any other existing file is refused with an
+#       error.
 #
 # App-root commands (sync, harness, verify-scaffold, gen-*, generate, migrate) accept
 # a missing app root: it resolves through cli/app-root.sh to the
 # nearest directory at or above $PWD carrying config/database.rb — the
-# pins file lives there too, so the app is the only thing to find. A
-# start outside the app is not a resolution: pass the app root.
+# pins file lives there too, so the app is the only thing to find. Starting
+# outside the app does not resolve; pass the app root.
 #
 # The sync engine stays in cli/ (sync-runtime.sh + verify-scaffold.sh);
 # this CLI is the stable entry point consumers use,
@@ -166,8 +170,8 @@ source "$SNAILS_ROOT/cli/vendor-dir.sh"
 
 # An installed dist carries a REV file (written at publish time) and no
 # git checkout of its own; a dev checkout has .git and no REV. The mode
-# decides how a pin rev resolves: git restores it, a dist downloads the
-# published dist release.
+# decides how a pin revision resolves: git restores it, a distribution
+# downloads the published distribution release.
 DIST_MODE=0
 # `.git` may be a directory (checkout) or a file pointing at the real git
 # dir (linked worktree); `-e` covers both, and a dist has neither.
@@ -308,14 +312,15 @@ Commands:
   verify   Check the committed schema dump against the migration files
   dump     Regenerate db/schema.sql (tables, indexes, views) from the
            migration files — the schema dump is generated output
-  check    Exit 1 while the database is uninitialized or a migration is
+  check    Exit 1 when the database is uninitialized or a migration is
            pending (read-only)
 
 Options:
   --app DIR          App root (default: nearest config/database.rb above $PWD)
   --database TARGET  Database target (default: adapter env, then storage/development.sqlite3)
-                     sqlite dump takes none (file-only); pg dump/verify
-                     replay into a throwaway schema on this target
+                     sqlite dump takes no target (it reads migration files
+                     only); pg dump/verify replay into a throwaway schema on
+                     this target
   --verbose          Print pending labels and the full repair command
 
 Examples:
@@ -644,9 +649,9 @@ dist_own_version() {
   printf '%s' "$version"
 }
 
-# dist_own_rev — the full rev this dist was packaged from, or empty in a
-# checkout. The stamped metadata is authoritative; the REV file covers a
-# dist whose metadata was not stamped.
+# dist_own_rev — the full revision this distribution was packaged from, or
+# empty in a checkout. The stamped metadata is authoritative; the REV file
+# covers a distribution whose metadata was not stamped.
 dist_own_rev() {
   local file="$SNAILS_ROOT/runtime/snails/version.rb" rev=""
   if [[ -f $file ]]; then
@@ -732,7 +737,7 @@ cmd_doctor() {
   else
     app_root="$(app_root_for "$app_root")"
   fi
-  [[ -d $app_root ]] || { echo "[snails] no such app_root: $app_root" >&2; exit 1; }
+  [[ -d $app_root ]] || { echo "[snails] no such app root: $app_root" >&2; exit 1; }
 
   printf '[snails] doctor: %s\n' "$app_root"
   printf '  ok    CLI %s\n' "$(cli_version_text)"
@@ -921,19 +926,20 @@ pins_rev_is_full() {
 # pins_rev_is_version <rev> — the release-channel declaration: a vX.Y.Z
 # tag name (optional -prerelease), naming a published core release. It
 # and the 40-hex form are disjoint (v is not hex), so one pins file can
-# never mean two things: a version is the release channel, a full rev is
-# the edge channel for content no release names yet.
+# never mean two things: a version is the release channel, and a full
+# revision is the edge channel for content that no release names yet.
 pins_rev_is_version() {
   [[ $1 =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
 }
 
 # resolve_pin_rev <rev> [pins_label] — the declared pin turned into the
-# full 40-hex commit id every downstream step keys on: a full rev passes
-# through untouched; a vX.Y.Z pin resolves through its release tag — git
-# in a checkout, the tag's commit in the source repository for an
-# installed dist (SNAILS_GIT_BASE_URL overrides the API base for tests,
-# like SNAILS_DIST_BASE_URL). Prints the full rev on stdout; an
-# unresolvable version fails loud naming the tag and the repair.
+# full 40-hex commit id every downstream step keys on: a full revision
+# passes through untouched; a vX.Y.Z pin resolves through its release tag —
+# git in a checkout, the tag's commit in the source repository for an
+# installed distribution (SNAILS_GIT_BASE_URL overrides the API base for
+# tests, like SNAILS_DIST_BASE_URL). Prints the full revision on stdout; an
+# unresolvable version fails with a clear error naming the tag and the
+# repair.
 resolve_pin_rev() {
   local rev="$1" label="${2:-}" resolved
   if pins_rev_is_full "$rev"; then
@@ -962,16 +968,16 @@ resolve_pin_rev() {
   printf '%s' "$resolved"
 }
 
-# Read the retired DB adapter declaration (DB=sqlite|pg). The adapter now lives
-# in the app's config/database.rb (app-owned database configuration); this value seeds
-# that file when sync finds a tree without it, and is passed to the engine
-# so a pin rev from before the app-owned database configuration still materializes its
-# runtime/db.rb database configuration correctly. Unset means sqlite (the core default).
+# Read the retired DB adapter declaration (DB=sqlite|pg). The adapter now
+# lives in the app's config/database.rb. This value seeds that file when sync
+# finds a tree without it, and is passed to the engine so a pin from before
+# the app-owned database configuration still materializes its runtime/db.rb
+# correctly. Unset means sqlite (the core default).
 pins_db() {
   pins_get "$1" DB
 }
 
-# pins_declared_spinel <file> — the spinel rev a pins file declares:
+# pins_declared_spinel <file> — the spinel revision a pins file declares:
 # SPINEL_REV (the pair record) or, for revs from before the record, the
 # last token of the retired SPINEL_VALIDATED_REVS list (the value `new`
 # stamped back then, so existing pairs keep verifying). Prints nothing
@@ -1015,8 +1021,8 @@ dist_git_base() {
 }
 
 # dist_version_cache_file <version> — the local map from a version tag to
-# the rev it names. Version tags are immutable, so a recorded mapping never
-# goes stale and repeat pin checks stay off the API.
+# the revision it names. Version tags are immutable, so a recorded mapping
+# never goes stale, and repeat pin checks stay off the API.
 dist_version_cache_file() {
   printf '%s' "${XDG_CACHE_HOME:-$HOME/.cache}/snails/dist/versions/$1"
 }
@@ -1031,11 +1037,12 @@ dist_version_rev_store() {
   printf '%s\n' "$rev" > "$cache" 2>/dev/null || true
 }
 
-# dist_version_rev <version> — the source rev a version tag names. The
+# dist_version_rev <version> — the source revision a version tag names. The
 # release repository is the source repository, so the tag points at the
-# rev (annotated or lightweight). This dist's own version resolves locally;
-# any other version reads the local map, then the tag. Prints the full rev;
-# fails when the tag is missing or names something other than a commit.
+# revision (annotated or lightweight). This distribution's own version
+# resolves locally; any other version reads the local map, then the tag.
+# Prints the full revision; fails when the tag is missing or names something
+# other than a commit.
 dist_version_rev() {
   local version="$1" cache rev own_version
   local ref_json object_sha object_type tag_json tag_sha tag_type
@@ -1083,8 +1090,8 @@ dist_version_rev() {
   printf '%s' "$rev"
 }
 
-# dist_cache_dir <rev> — the per-rev dist cache (evictable state, like the
-# spinel toolchain cache next to it).
+# dist_cache_dir <rev> — the per-revision distribution cache (evictable
+# state, like the spinel toolchain cache next to it).
 dist_cache_dir() {
   printf '%s' "${XDG_CACHE_HOME:-$HOME/.cache}/snails/dist/$1"
 }
@@ -1099,13 +1106,13 @@ sha256_check() {
   fi
 }
 
-# fetch_dist <rev> — download, verify, and cache the published dist for a
-# rev. The rev must be the full 40-hex form: the release tag and asset
-# name derive from it, so an abbreviated pin cannot be resolved without
-# a checkout. Atomic — a failed download or a checksum mismatch never
-# leaves a cache entry behind. Progress goes to stderr; the resolved
-# cache path goes to stdout only from resolve_dist, because callers
-# capture it.
+# fetch_dist <rev> — download, verify, and cache the published distribution
+# for a revision. The revision must be the full 40-character hexadecimal
+# form: the release tag and asset name derive from it, so an abbreviated pin
+# cannot be resolved without a checkout. The write is atomic: a failed
+# download or a checksum mismatch never leaves a cache entry behind.
+# Progress goes to stderr; the resolved cache path goes to stdout only from
+# resolve_dist, because callers capture it.
 fetch_dist() {
   local rev="$1" dest tmp
   if [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then
@@ -1151,9 +1158,10 @@ fetch_dist() {
   fi
 }
 
-# resolve_dist <rev> — the engine tree for a pin in dist mode: this dist
-# itself when the pin is its own rev, the cache when present, otherwise
-# a fresh verified download. Only the path goes to stdout.
+# resolve_dist <rev> — the engine tree for a pin in distribution mode: this
+# distribution itself when the pin is its own revision, the cache when
+# present, otherwise a fresh verified download. Only the path goes to
+# stdout.
 resolve_dist() {
   local rev="$1" own="" dest
   [[ -f $SNAILS_ROOT/REV ]] && own="$(<"$SNAILS_ROOT/REV")"
@@ -1170,9 +1178,10 @@ resolve_dist() {
   printf '%s' "$dest"
 }
 
-# verify_pin_dist <rev> — dist-mode pin check: the rev resolves through a
-# published release (this dist's own rev trivially does). The checksum
-# sidecar's presence is the publication proof; nothing is downloaded.
+# verify_pin_dist <rev> — distribution-mode pin check: the revision
+# resolves through a published release (the distribution's own revision
+# always does). The presence of the checksum sidecar proves publication;
+# nothing is downloaded.
 verify_pin_dist() {
   local rev="$1" own=""
   [[ -f $SNAILS_ROOT/REV ]] && own="$(<"$SNAILS_ROOT/REV")"
@@ -1187,9 +1196,9 @@ verify_pin_dist() {
   if dist_download "rev-$rev" "snails-dist-$rev.tar.gz.sha256" /dev/null; then
     echo "[snails] SNALS_REV($rev) is published — usable (release rev-$rev)"
   else
-    # An unpublished full rev is an edge pin: it names content no release
-    # carries yet. Say which channel the reader is on — the refusal is
-    # the channel split, not a broken pin.
+    # An unpublished full revision is an edge pin: it names content that
+    # no release carries yet. The refusal explains the channel split; the
+    # pin itself is not broken.
     echo "[snails] SNALS_REV($rev) is not published — no reachable release rev-$rev" >&2
     echo "[snails] this is an edge pin: use a snails checkout (SNAILS_DIR) for it, or pin a released vX.Y.Z version" >&2
     return 1
@@ -1211,11 +1220,12 @@ declared_spinel_checkout() {
   printf '%s' "$value"
 }
 
-# declared_spinel_dist <rev> — the spinel rev declared at <rev> in dist
-# mode: this dist's own pin when <rev> is its own REV, the per-rev dist
-# cache next (a previous sync fetched that tree), the release's pins.toml
-# asset last. Return 0 with the value printed; 1 = reached but declares
-# none; 2 = not reachable (reported by the caller).
+# declared_spinel_dist <rev> — the spinel revision declared at <rev> in
+# distribution mode: this distribution's own pin when <rev> is its own REV,
+# the per-revision distribution cache next (a previous sync fetched that
+# tree), the release's pins.toml asset last. Return 0 with the value
+# printed; 1 = reached but declares none; 2 = not reachable (reported by the
+# caller).
 declared_spinel_dist() {
   local rev="$1" own="" dir value tmp
   [[ -f $SNAILS_ROOT/REV ]] && own="$(<"$SNAILS_ROOT/REV")"
@@ -1243,10 +1253,10 @@ declared_spinel_dist() {
 }
 
 # resolve_engine_dir <tree> — print the engine directory of a core tree
-# (a pin rev extraction, a dist cache entry, an installed dist, or this
-# checkout). The directory was renamed twice: script -> scripts -> cli. A
-# tree carries exactly one generation, so the newest name wins when more
-# than one is somehow present.
+# (a pin revision extraction, a distribution cache entry, an installed
+# distribution, or this checkout). The directory was renamed twice:
+# script -> scripts -> cli. A tree carries exactly one generation, so the
+# newest name wins when more than one is somehow present.
 resolve_engine_dir() {
   local tree="$1"
   if [[ -d $tree/cli ]]; then
@@ -1260,11 +1270,11 @@ resolve_engine_dir() {
 
 # report_core_drift <pin_tree> <app_tree> — the verbose half of
 # `sync --check`: a category summary plus one entry per difference. Paths
-# print app-relative (`snails-core/<rel>`) and the staging tree reads as the
-# pin it is — its mktemp path is internal detail, not the reader's. The
-# default check path deliberately prints the action line alone, so the
-# drift list lives only here. diff messages are parsed, so the
-# categories come from the C locale's spellings.
+# are printed app-relative (`snails-core/<rel>`), and the staging tree is
+# shown as the pin it represents; its mktemp path is internal detail, not
+# the reader's. The default check prints only the action line, so the drift
+# list lives only here. diff messages are parsed, so the categories come
+# from the C locale's spellings.
 report_core_drift() {
   local pin_tree="$1" app_tree="$2" line rest rel entries=()
   local changed=0 pin_only=0 tree_only=0
@@ -1322,13 +1332,13 @@ cmd_sync() {
     # same root through resolve_app_root.
     app_root="$(app_root_for "$app_root")"
   fi
-  [[ -d $app_root ]] || { echo "[snails] no such app_root: $app_root" >&2; exit 1; }
+  [[ -d $app_root ]] || { echo "[snails] no such app root: $app_root" >&2; exit 1; }
 
-  # The core checkout is the vendor SOURCE, not an app tree: syncing it
-  # onto itself would delete its runtime/ (self-vendor), and a dist CLI
-  # pointed at a checkout would overwrite it with the CLI tree's copy.
-  # Refuse by identity, and by the scaffold/ marker — a consumer app
-  # never carries scaffold/.
+  # The core checkout is the vendor source, not an app tree: syncing it
+  # onto itself would delete its runtime/, and a distribution CLI pointed at
+  # a checkout would overwrite it with the CLI tree's copy. Refuse based on
+  # identity and on the scaffold/ marker; a consumer app never carries
+  # scaffold/.
   if [[ "$(cd "$app_root" && pwd -P)" == "$(cd "$SNAILS_ROOT" && pwd -P)" ]]; then
     echo "[snails] $app_root is the core checkout itself — sync targets an app tree" >&2
     exit 1
@@ -1338,11 +1348,11 @@ cmd_sync() {
     exit 1
   fi
 
-  # Pin resolution: explicit --pins wins, otherwise the nearest pins file
+  # Pin resolution: explicit --pins wins; otherwise the nearest pins file
   # at or above <app_root> declares the project pin. The pins file's
   # SNALS_SOURCE selects the vendoring source: "pin" restores SNALS_REV,
-  # "checkout" takes the core checkout's working tree. A tree without a
-  # pin rev is declaration-only and keeps the pre-declaration behavior —
+  # and "checkout" takes the core checkout's working tree. A tree without a
+  # pin revision is declaration-only and keeps the pre-declaration behavior,
   # vendoring from this checkout. --from-checkout confirms the checkout
   # source; it never overrides the declaration.
   if [[ -z $pins ]]; then
@@ -1368,12 +1378,12 @@ cmd_sync() {
     exit 1
   fi
 
-  # With a pin rev the pin is the content source: a checkout restores the
-  # core paths of that rev with git, an installed dist downloads the
-  # published dist release — either way the engine and the vendored bytes
-  # are the pin's, not this tree's. A declared pin (full rev or vX.Y.Z
-  # version) is resolved to its full rev here, once; every step below
-  # keys on the full form.
+  # With a pin revision, the pin is the content source: a checkout restores
+  # the core paths of that revision with git, and an installed distribution
+  # downloads the published distribution release. Either way, the engine and
+  # the vendored bytes come from the pin, not this tree. A declared pin (full
+  # revision or vX.Y.Z version) is resolved to its full revision here, once;
+  # every step below uses the full form.
   local engine="$SNAILS_ROOT" rev="" pin_declared=""
   if [[ -n $pins ]]; then
     [[ -f $pins ]] || { echo "[snails] no such pins file: $pins" >&2; exit 1; }
@@ -1389,16 +1399,18 @@ cmd_sync() {
       rev="$(resolve_pin_rev "$rev" "$pins")" || exit 1
     fi
     # DB is the retired adapter declaration: the engine seeds a missing
-    # config/database.rb database configuration from it (sqlite default), and an engine
-    # from a rev that predates the app-owned database configuration materializes its
-    # runtime/db.rb from it — so such a pin still syncs its adapter
-    # correctly. The current engine ignores it once the database configuration exists.
+    # config/database.rb from it (sqlite default), and an engine from a
+    # revision that predates the app-owned database configuration
+    # materializes its runtime/db.rb from it, so such a pin still syncs its
+    # adapter correctly. The current engine ignores it once the database
+    # configuration exists.
     db="$(pins_db "$pins")"
   fi
   if [[ -n $rev && $from_checkout -eq 0 ]]; then
     if ((DIST_MODE)); then
-      # No git here: the pin resolves through the dist's own rev, the
-      # per-rev cache, then a verified download (all loud on failure).
+      # There is no git here: the pin resolves through the distribution's
+      # own revision, the per-revision cache, then a verified download.
+      # Every failure is reported.
       engine="$(resolve_dist "$rev")" || exit 1
     else
       bash "$SNAILS_ROOT/cli/verify-pin.sh" "$rev" >&2
@@ -1532,9 +1544,9 @@ cmd_sync() {
 
     # One result line on stdout says what is now vendored; the steps and
     # their detail (internal paths) stay on stderr. `checkout` covers a
-    # pin-less run from a working tree; an installed dist names its REV.
-    # A version pin reports the declared name (v1.0.0 reads better than
-    # its resolved rev); a rev pin keeps the 7-char label.
+    # pin-less run from a working tree; an installed distribution names its
+    # REV. A version pin reports the declared name (v1.0.0 reads better than
+    # its resolved revision); a revision pin keeps the 7-character label.
     local core_label="checkout" spinel=""
     if [[ -n $pin_declared ]]; then
       if pins_rev_is_version "$pin_declared"; then
@@ -1646,9 +1658,9 @@ cmd_new() {
   # (Previously stamped into <dir>/scripts/; bin/test·bin/dev call the CLI.)
 
   # Values for the pins.toml template: the core release this project was
-  # generated from and the spinel rev that release declares it was
-  # validated with. An installed dist names its release version — the pin
-  # must name published content, and a version is the release channel. An
+  # generated from, and the spinel revision that release was validated with.
+  # An installed distribution names its release version; the pin must name
+  # published content, and a version is the release channel. An
   # unversioned dist falls back to its packaged rev, and a dev checkout
   # resolves HEAD (both are the edge channel). `snails verify-pins` later
   # checks the spinel pair against the pinned rev's declaration.
@@ -1692,11 +1704,12 @@ cmd_new() {
   substitute_placeholder "$dir/pins.toml" __SNALS_SOURCE__ "$core_source"
   substitute_placeholder "$dir/pins.toml" __APP_NAME__ "$name"
 
-  # The image build follows the same DB adapter as config/database.rb: the
-  # runtime package (the DB client — its CLI is also what the in-image
-  # migration runner shells out to) and the sqlite volume/env are chosen
-  # here, not guessed from the binary later. The compose example ships one
-  # template per adapter; the selected file becomes compose.yml.
+  # The image build follows the same database adapter as
+  # config/database.rb. The runtime package (the database client; its CLI is
+  # also what the in-image migration runner invokes) and the sqlite volume or
+  # environment are chosen here, not guessed from the binary later. The
+  # compose example ships one template per adapter; the selected file becomes
+  # compose.yml.
   case "$database_backend" in
     sqlite)
       substitute_placeholder "$dir/Dockerfile" __DB_PACKAGE__ "sqlite3"
@@ -1883,12 +1896,13 @@ cmd_verify_pins() {
   fi
 
   # The two halves of the pin contract: SNALS_REV must point at a
-  # restorable core rev, and SPINEL_REV must equal the rev that rev
-  # itself declares — validation is a property of the (core rev, spinel
-  # rev) pair, so the check reads the PINNED rev's record, never this
-  # tree's current value (an old pair stays valid under a newer CLI).
-  # A declared pin (full rev or vX.Y.Z version) resolves to its full
-  # rev first; errors keep naming the declared value the user wrote.
+  # restorable core revision, and SPINEL_REV must equal the revision that
+  # the pinned revision itself declares. Validation is a property of the
+  # (core revision, spinel revision) pair, so the check reads the pinned
+  # revision's record, never this tree's current value; an old pair stays
+  # valid under a newer CLI. A declared pin (full revision or vX.Y.Z
+  # version) resolves to its full revision first; errors keep naming the
+  # declared value the user wrote.
   local snals_rev spinel_rev snals_source snals_ok=0 declared="" rc=0 snals_resolved=""
   snals_rev="$(pins_rev "$pins")"
   spinel_rev="$(pins_get "$pins" SPINEL_REV)"
@@ -1937,7 +1951,7 @@ cmd_verify_pins() {
     if ((rc == 2)); then
       errors+=("SNALS_REV($snals_rev): the pinned rev's spinel declaration could not be read (not this dist's rev, not cached, fetch failed) — run verify-pins from a snails checkout, or verify with the dist of that rev")
     elif [[ -z $declared ]]; then
-      errors+=("SNALS_REV($snals_rev) carries no spinel pin declaration (SPINEL_REV) — bump it to a rev that declares one")
+      errors+=("SNALS_REV($snals_rev) carries no spinel pin declaration (SPINEL_REV) — bump it to a revision that declares one")
     elif [[ $spinel_rev != "$declared" ]]; then
       # The repair line embeds the sync target only when the caller named
       # one — a --pins-only call (consumer CI) has no spin root to guess.
@@ -1946,9 +1960,9 @@ cmd_verify_pins() {
         repair_arg="$(app_root_argument "$app_root")"
         sync_command="snails sync"
         [[ -n $repair_arg ]] && sync_command+=" $(shell_quote "$repair_arg")"
-        errors+=("SPINEL_REV($spinel_rev) is not the rev declared for SNALS_REV($snals_rev) ($declared) — set SPINEL_REV=\"$declared\" in $pins and run: $sync_command")
+        errors+=("SPINEL_REV($spinel_rev) is not the revision declared for SNALS_REV($snals_rev) ($declared) — set SPINEL_REV=\"$declared\" in $pins and run: $sync_command")
       else
-        errors+=("SPINEL_REV($spinel_rev) is not the rev declared for SNALS_REV($snals_rev) ($declared) — set SPINEL_REV=\"$declared\" in $pins, then sync the app tree that pins it")
+        errors+=("SPINEL_REV($spinel_rev) is not the revision declared for SNALS_REV($snals_rev) ($declared) — set SPINEL_REV=\"$declared\" in $pins, then sync the app tree that pins it")
       fi
     fi
   fi
@@ -1961,8 +1975,8 @@ cmd_verify_pins() {
     done
     exit 1
   fi
-  # The ok line names what the user declared — a version stays whole, a
-  # rev keeps the 7-char label.
+  # The ok line names what the user declared: a version stays whole, and a
+  # revision keeps the 7-character label.
   local snals_label="$snals_rev"
   if pins_rev_is_full "$snals_rev"; then
     snals_label="${snals_rev:0:7}"
@@ -2042,11 +2056,11 @@ cmd_migrate() {
 # the pins file upward from $PWD, materialize its SPINEL_REV toolchain,
 # pin that absolute path on PATH, and exec. Outside a pinned tree the
 # personal standalone install takes over (SNAILS_SPINEL_HOME, default
-# ~/.local/lib/spinel; an empty value disables the fallback) — the
-# "project pins, otherwise the personal default" shape, with the PATH
-# shims (spin/spinel -> `snails exec …`) making it automatic in a shell.
-# Every refusal (no pins and no standalone, a command outside the
-# toolchain) stays loud.
+# ~/.local/lib/spinel; an empty value disables the fallback). That is the
+# "project pins, otherwise the personal default" split, made automatic in a
+# shell by the PATH shims (spin/spinel -> `snails exec …`). Every refusal
+# (no pins file and no standalone install, or a command outside the
+# toolchain) fails with a clear error.
 cmd_exec() {
   local toolchain_pins toolchain_kit spinel_home
   [[ $# -ge 1 ]] || { echo "[snails] usage: snails exec <command> [args...]" >&2; exit 2; }
@@ -2076,10 +2090,10 @@ cmd_exec() {
 # half of the split `exec` implements (a pinned tree resolves its
 # SPINEL_REV toolchain; anything else falls back to the personal
 # standalone install). The shim body is the external file
-# scaffold/shim/tool, copied verbatim — never generated inline.
-# Content-gated writes; the classic personal-install symlink is replaced
-# with the binary left in the fallback home; any other existing file is
-# refused loudly.
+# scaffold/shim/tool, copied verbatim and never generated inline. Writes
+# happen only when content changes; the classic personal-install symlink is
+# replaced with the binary left in the fallback home, and any other existing
+# file is refused with an error.
 cmd_install_shim() {
   local bin_dir="${SNAILS_BIN_DIR:-$HOME/.local/bin}" spinel_home="${SNAILS_SPINEL_HOME-$HOME/.local/lib/spinel}" shim_source="$SNAILS_ROOT/scaffold/shim/tool"
   while (($#)); do
@@ -2153,15 +2167,15 @@ cmd_harness() {
     app_root="$(app_root_for "$app_root")"
   fi
   [[ -d "$app_root/harness" ]] || {
-    echo "[snails] no harness/ under $app_root — the app target is seeded by 'snails sync' on scaffold trees" >&2
+    echo "[snails] no harness/ under $app_root — 'snails sync' seeds the app target in a scaffold tree" >&2
     exit 1
   }
   local engine="$SNAILS_ROOT/cli/harness-${action}.sh"
   [[ -f $engine ]] || { echo "[snails] engine missing: $engine" >&2; exit 1; }
   # exec so the engine — and the server binary it execs into — replaces
-  # this process. Without it a caller that kills the wrapper PID reaps a
-  # shell while the engine's server keeps the port forever (an orphan
-  # listener later answers readiness probes meant for another app).
+  # this process. Without exec, a caller that kills the wrapper PID kills
+  # only the shell while the engine's server keeps the port; the orphaned
+  # listener later answers readiness probes meant for another app.
   SNAILS_CLI="$SNAILS_ROOT/bin/snails"
   export SNAILS_CLI
   exec bash "$engine" "$app_root" "$@"

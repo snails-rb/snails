@@ -25,7 +25,7 @@ pg_scratch_available() {
 }
 
 # Create <prefix>_<pid> on the server. Sets PG_DB and PG_TARGET; returns
-# psql's status so the caller can print its own purpose-first failure.
+# psql's status so the caller can print its own failure message.
 pg_scratch_create() {
   local prefix="$1"
   PG_DB="${prefix}_$$"

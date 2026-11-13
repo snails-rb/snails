@@ -29,7 +29,7 @@
 # resolution all key on the rev.
 #
 # Channel flags make "the recommended install" a property of the release
-# instead of of the newest one. A stable version takes Latest; a prerelease
+# instead of the newest one. A stable version takes Latest; a prerelease
 # is marked as one and never takes Latest; an unversioned release
 # (`--version` omitted) never takes Latest either — `install.sh` without
 # `--rev` then installs the last stable version (or, before the channel
@@ -120,9 +120,9 @@ rev_full="$(git -C "$ROOT" rev-parse --verify "${rev}^{commit}" 2>/dev/null)" ||
   exit 1
 }
 
-# The version must be a release name consumers can pin — the same shape
+# The version must be a release name consumers can pin — the same form
 # the CLI's pin gate accepts (a v before three numbers, optional
-# prerelease), rejected here so a typo never becomes an immutable tag.
+# prerelease). It is rejected here so a typo never becomes an immutable tag.
 if [[ -n $version && ! $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
   echo "[publish-dist] --version must look like v0.1.0 (SemVer with a v prefix), got: $version" >&2
   exit 1
@@ -255,8 +255,8 @@ if ((dry == 0)); then
   fi
 fi
 
-# Every dist path must exist in the rev: a partial dist would be vendored
-# as a broken tree, so the miss is loud here instead.
+# Every dist path must exist in the revision: a partial dist would be vendored
+# as a broken tree, so a missing path fails with a clear error here.
 for p in "${CORE_PATHS[@]}"; do
   if ! git -C "$ROOT" cat-file -e "$rev_full:$p" 2>/dev/null; then
     echo "[publish-dist] ${rev_full:0:12} does not carry $p — not a dist rev" >&2
@@ -291,7 +291,7 @@ awk -v version="$version_value" -v rev="$rev_full" '
 mv "$version_file.tmp" "$version_file"
 if ! grep -Fqx "  VERSION = \"$version_value\"" "$version_file" ||
    ! grep -Fqx "  REV = \"$rev_full\"" "$version_file"; then
-  echo "[publish-dist] could not stamp $version_file — the rev's metadata shape changed" >&2
+  echo "[publish-dist] could not stamp $version_file — the revision's metadata format changed" >&2
   exit 1
 fi
 tar -cf "$out/dist.tar" -C "$stage" "${CORE_PATHS[@]}" REV

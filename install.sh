@@ -68,7 +68,7 @@ if [[ -z $rev ]]; then
     body="$(curl -fsSL "$API/releases?per_page=1")" || body=""
   fi
   if [[ -z $body ]]; then
-    echo "[snails] could not resolve a release of $REPO — pass --rev <full-rev>" >&2
+    echo "[snails] could not find a release for $REPO — pass --rev <full-rev>" >&2
     exit 1
   fi
   tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p')"

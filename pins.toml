@@ -1,23 +1,25 @@
-# Toolchain pin declaration for the shared core. Consuming apps read it.
+# Toolchain pin declaration for the shared core. Consumer apps read it.
 #
 # Format: a flat TOML subset. Every value is a quoted string (so an all-digit
-# value does not become an int), and no tables, arrays, or spaces around `= `.
-# The shape is valid TOML and a KEY="value" declaration the reader (pins_get)
-# can parse.
+# value does not become an int), and no tables, arrays, or spaces around `=`.
+# The form is both valid TOML and a KEY="value" declaration that the reader
+# (pins_get) can parse.
 #
-# - SPINEL_REV: the spinel commit this core rev was verified against (passed
-#   the CI gate). Verification is a property of the (core rev, spinel rev)
-#   pair, so the commit that changes this value is the verification
-#   declaration for that rev — do not keep a list. Old pairs stay declared by
-#   the pins.toml of their own rev, and git keeps the history.
-#   A consuming app's SPINEL_REV must match this declaration in its own
-#   SNALS_REV rev — bin/snails verify-pins compares the pair (the retired
-#   list stays compatible through the last token).
+# - SPINEL_REV: the spinel commit this core revision was verified against
+#   (it passed the CI gate). Verification is a property of the (core revision,
+#   spinel revision) pair, so the commit that changes this value is the
+#   verification declaration for that revision — do not keep a list. Old
+#   pairs stay declared by the pins.toml of their own revision, and git
+#   keeps the history.
+#   A consumer app's SPINEL_REV must match the declaration in the core
+#   revision that its SNALS_REV names — bin/snails verify-pins compares the
+#   pair. (The retired SPINEL_VALIDATED_REVS list still verifies through its
+#   last token.)
 #   snails new stamps this value into a new app, CI builds with the same
 #   value, and sync materializes the toolchain for this value under
 #   .spinel/toolchain/ next to the pins file.
 #
-# A consuming app pins `SNALS_REV` (a commit in this repo) in the `pins.toml`
-# at its app root, and `bin/snails sync` finds it there (walk up from
-# app_root, inside the .git tree).
+# A consumer app pins `SNALS_REV` (a commit in this repo) in the `pins.toml`
+# at its app root, and `bin/snails sync` finds it there (walk up from the
+# app root, inside the .git tree).
 SPINEL_REV="858dde41b"

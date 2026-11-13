@@ -3,8 +3,8 @@
 # `snails new` stamps its call into a project's bin/test). The generator
 # reads config/routes.rb through the pinned spinel's AST and emits literal
 # helpers; a row it reads wrongly would emit a helper that looks fine and
-# answers with the wrong path, so the row grammar, the name derivation (the
-# runtime's rule) and the refusal paths are pinned here.
+# returns the wrong path, so the row grammar, the name derivation (the
+# runtime's rule), and the refusal paths are pinned here.
 #
 # Usage: bash scripts/test-gen-route-helpers.sh
 # Exit: 0=all cases pass, 1=failure.

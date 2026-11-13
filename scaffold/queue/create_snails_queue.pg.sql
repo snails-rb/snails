@@ -1,11 +1,11 @@
 -- The DB-backed queue (`ActiveJob::DatabaseQueue`), postgresql variant.
--- Same shape as the sqlite template: one row per job in
+-- Same form as the sqlite template: one row per job in
 -- snails_queue_jobs (a finished row is that run's history) plus the
 -- recurring-occurrence ledger snails_queue_occurrences keyed by
 -- (job name, interval start). Time columns are native TIMESTAMP — the
 -- adapter binds its stored time text and PostgreSQL interprets it —
 -- and BIGSERIAL keeps row ids increasing for the life of the table,
--- which the claim order ("oldest due row first") reads.
+-- which the claim order ("oldest due row first") relies on.
 --
 -- `snails generate job_queue` stamps this file into db/migrate/ (with a
 -- UTC timestamp version prefix and the `.pg` adapter suffix) and

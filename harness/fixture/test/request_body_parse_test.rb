@@ -2,10 +2,10 @@ require_relative "test_helper"
 require_relative "harness_runner"
 
 # Request body parsing over the wire: a payload the runtime can read reaches
-# the action as params, and one it cannot is a 400 — an action running against
-# empty params (JSON), against the part before the break (multipart), or a
-# missing required parameter escaping to the server as a 500 are all the
-# client's mistake answered as the client's mistake. The socket cases run the
+# the action as params, and one it cannot is a 400. An action running against
+# empty params (malformed JSON), against the part before the break (a cut-off
+# multipart body), or a missing required parameter must not surface as a 500;
+# each is the client's mistake, answered as such. The socket cases run the
 # threaded server's real handle_connection, so the parser, the body drain, and
 # the dispatcher's answer are exercised together.
 class RequestBodyParseTest < TestBase
