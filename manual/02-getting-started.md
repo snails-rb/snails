@@ -1,6 +1,6 @@
 # Getting Started
 
-This chapter takes you from nothing to a running Snails app: install the CLI, create a project, run it, and run its tests. A Snails project arrives ready to build, so there is no wiring to do first; the first `snails new` is the slowest part of the journey because it assembles the pinned compiler.
+This chapter takes you from nothing to a running Snails app: install the CLI, create a project, run it, and run its tests. A Snails project arrives ready to build, so there is no wiring to do first; the first `snails new` is the slowest step because it assembles the pinned compiler.
 
 ## Requirements
 
@@ -14,7 +14,7 @@ The first `snails new` builds the pinned compiler from source when the machine h
 sudo apt-get install -y clang libclang-dev sqlite3 libsqlite3-dev libssl-dev libffi-dev libjemalloc-dev pkg-config
 ```
 
-These are the Debian and Ubuntu package names; other distributions carry the same pieces under their own names. Add `libpq-dev` for the PostgreSQL adapter. `git`, `make`, `curl`, and `tar` are also required, and the host needs time zone files (`tzdata`) because app boot resolves `Snails.time_zone =` against them.
+These are the Debian and Ubuntu package names; other distributions use the same packages under different names. Add `libpq-dev` for the PostgreSQL adapter. `git`, `make`, `curl`, and `tar` are also required, and the host needs time zone files (`tzdata`) because app boot resolves `Snails.time_zone =` against them.
 
 ### macOS
 
@@ -23,7 +23,7 @@ xcode-select --install
 brew install openssl@3 jemalloc pkg-config
 ```
 
-Run this before the first `snails new`. A compiler built without OpenSSL drops the `openssl` package, and the result is cached at the pinned revision, so a later fix does not rebuild it. For the PostgreSQL adapter, add `brew install libpq` and put its path on `PKG_CONFIG_PATH`; the test harness runs its disposable database in Docker Desktop unless you pass `PG_URL`.
+Run these commands before the first `snails new`. If OpenSSL is missing at build time, the compiler is built without the `openssl` package; the result is cached at the pinned revision, so fixing OpenSSL later does not rebuild it. For the PostgreSQL adapter, add `brew install libpq` and put its path on `PKG_CONFIG_PATH`; the test harness runs its disposable database in Docker Desktop unless you pass `PG_URL`.
 
 ```sh
 export PATH="$(brew --prefix libpq)/bin:$PATH"
@@ -36,7 +36,7 @@ export PKG_CONFIG_PATH="$(brew --prefix libpq)/lib/pkgconfig:$PKG_CONFIG_PATH"
 curl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash
 ```
 
-The installer puts `snails` on your path and keeps the release under `~/.local/share/snails`. If you manage tools with [mise](https://mise.jdx.dev/), install the same release as a tool instead:
+The installer puts `snails` on your `PATH` and keeps the release under `~/.local/share/snails`. If you manage tools with [mise](https://mise.jdx.dev/), install the same release as a tool instead:
 
 ```sh
 mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_prefix=rev-]'
@@ -53,7 +53,7 @@ snails new myapp
 cd myapp
 ```
 
-`new` writes a small but complete app. It answers `GET /up`, carries a test harness, runs through `bin/dev` and `bin/test`, and records in `pins.toml` which runtime and compiler it builds with. You do not fetch or match versions by hand; the first command that needs the toolchain assembles the pinned one.
+`new` writes a small but complete app. It answers `GET /up`, carries a test harness, runs through `bin/dev` and `bin/test`, and records the runtime and compiler it builds with in `pins.toml`. You do not fetch or match versions by hand; the first command that needs the toolchain assembles the pinned one.
 
 ```text
 [snails] created myapp (GET /up)
@@ -87,7 +87,7 @@ myapp (spinel) listening on http://0.0.0.0:3000, pid 212514
   one green thread per connection; OS workers: one per core (SPINEL_WORKERS=N to cap); processes: 1
 ```
 
-Open http://localhost:3000/up and you get `{"status":"ok"}`. Every Snails app answers `/up`; a deployment platform watches it to know the app is healthy.
+Open http://localhost:3000/up and you get `{"status":"ok"}`. Every Snails app answers `/up`; deployment platforms use it to check that the app is healthy.
 
 A plain project has no migrations. A scaffolded project has a baseline migration; `snails migrate load` applies it and writes the schema dump, so provision the database before the first boot:
 
@@ -114,6 +114,6 @@ The count is case files, not individual cases. As your app grows you add files b
 
 ## Where to go from here
 
-That is the whole loop: edit, `bin/dev` to try it live, `bin/test` before you call it done. Your controllers live in `app/controllers` (a fresh app has none; `GET /up` comes from the runtime), routes in `config/routes.rb`, and data in the database `bin/dev` is running.
+That is the whole loop: edit, `bin/dev` to try it live, `bin/test` before you call it complete. Your controllers live in `app/controllers`, routes in `config/routes.rb`, and data in the database that `bin/dev` uses. A fresh app has no controllers; `GET /up` comes from the runtime.
 
-[Your App's Structure](05-your-app-structure.md) maps the folders, and [Routes and Controllers](06-routes-and-controllers.md) starts the request path.
+[Your App's Structure](05-your-app-structure.md) describes the folder layout, and [Routes and Controllers](06-routes-and-controllers.md) begins the request path.

@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with the symptom. Each section below is a real error shape and the fix that unblocks it.
+Start with the symptom. Each section below starts with a real error and gives the fix that unblocks it.
 
 ### A route row will not parse
 

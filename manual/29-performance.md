@@ -21,11 +21,11 @@ The three columns are three deployments of the same app:
 
 - **Snails** — one process, no GVL, request threads spread across the cores available to it.
 - **Rails** — `rails new` untouched: `WEB_CONCURRENCY=0`, a single process with 3 threads. One core does the Ruby work no matter how many the machine has.
-- **Rails Cluster Mode** — `WEB_CONCURRENCY=n`, one Puma worker per server hardware thread, 5 threads each. Five threads is Puma's default max; the generated puma.rb defaults to 3, so this column is a tuned shape, not a generated default. This is the configuration that actually uses the hardware Snails uses by default.
+- **Rails Cluster Mode** — `WEB_CONCURRENCY=n`, one Puma worker per server hardware thread, 5 threads each. Five threads is Puma's default max; the generated puma.rb defaults to 3, so this column is a tuned configuration, not a generated default. This is the configuration that actually uses the hardware Snails uses by default.
 
 Against Cluster Mode, Snails answers about 3× the requests at roughly a third of the p95. The default Rails column is 11.9×, which is the number a `rails new` deployment would see before anyone configured it for load.
 
-Memory is where the two architectures diverge most. Cluster Mode runs 12 worker processes to use 12 hardware threads, so its resident set scales with core count; under load the gap is 701 MiB against 30 MiB. Idle it is smaller and still the same shape: 163 MiB against 14 MiB.
+Memory is where the two architectures diverge most. Cluster Mode runs 12 worker processes to use 12 hardware threads, so its resident set scales with core count; under load the gap is 701 MiB against 30 MiB. At idle it is smaller but follows the same pattern: 163 MiB against 14 MiB.
 
 Launch time does not follow the memory story. Cluster Mode is not meaningfully slower to start than single-process Rails, because each worker pays for loading the framework rather than for the worker count. Both land around 1.0 s. A Snails binary is answering requests in 9 ms.
 

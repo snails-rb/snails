@@ -16,7 +16,7 @@ The runtime reopens a few core classes with the helpers app code reaches for mos
 "Hello World".parameterize         # "hello-world"
 ```
 
-`camelize` reads `/` as a namespace separator (`"a/b"` becomes `"A::B"`). `humanize` drops a trailing `" id"`, which is the label shape a form field name usually needs. `pluralize(1)` returns the word unchanged; the suffix rules are the regular English ones, not an irregular-word table. `parameterize` keeps only ASCII letters, digits, and `_`, so a non-Latin word parameterizes to an empty string.
+`camelize` reads `/` as a namespace separator (`"a/b"` becomes `"A::B"`). `humanize` drops a trailing `" id"`, which is the label form a form field name usually needs. `pluralize(1)` returns the word unchanged; the suffix rules are the regular English ones, not an irregular-word table. `parameterize` keeps only ASCII letters, digits, and `_`, so a non-Latin word parameterizes to an empty string.
 
 `String#to_time` and `String#to_date` parse the stored database forms, not arbitrary date input. `to_time` reads the fixed-width datetime text and returns the instant in the app zone; `to_date` reads the first ten characters and answers nil for shorter text.
 
@@ -34,7 +34,7 @@ nil.blank?          # true
 "other".presence_in(["member", "admin"])   # nil
 ```
 
-`blank?` treats `nil`, `false`, an empty Array or Hash, and a whitespace-only String as empty. `0` and `:sym` are values. `presence` is the `value.presence || fallback` shape. `presence_in` takes an Array and compares the receiver's text, so a Symbol matches its String spelling.
+`blank?` treats `nil`, `false`, an empty Array or Hash, and a whitespace-only String as empty. `0` and `:sym` are values. `presence` is the `value.presence || fallback` pattern. `presence_in` takes an Array and compares the receiver's text, so a Symbol matches its String spelling.
 
 ## Hashes and arrays
 

@@ -10,9 +10,9 @@ Status: 1.0 release candidate. The public API may still change before 1.0.
 
 ## The Snails Design
 
-Snails keeps the Rails conventions that make an API app predictable — routes in `config/routes.rb`, controllers with actions, form objects for validation, mailers, jobs, and a conventional folder layout — and compiles your app, the framework, and the HTTP server into one native binary. The framework has a small surface: no view layer or asset pipeline, no Active Record, and no gem compatibility. Models are plain classes over SQL, migrations are SQL files, the CLI and server run without Ruby, and `bin/test` crosses the real HTTP boundary.
+Snails keeps the Rails conventions that make an API app predictable — routes in `config/routes.rb`, controllers with actions, form objects for validation, mailers, jobs, and a conventional folder layout — and compiles your app code, the framework, and the HTTP server into one native binary. The framework has a small surface: no view layer or asset pipeline, no Active Record, and no gem compatibility. Models are plain classes over SQL, migrations are SQL files, the CLI and server run without Ruby, and `bin/test` runs against a real HTTP server.
 
-The design choices and the purpose behind each are in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.
+The design choices and the purpose behind each are in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). The [Coming from Rails](manual/04-coming-from-rails.md) chapter shows which Rails conventions carry over and what replaces the rest. The [FAQ](manual/28-faq.md) covers what Snails does and does not include.
 
 ## Install
 
@@ -35,13 +35,13 @@ The first command that needs the toolchain assembles the pinned compiler, so ins
 
 ## Benchmark
 
-The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. Snails does about 3× the throughput of Rails in cluster mode on that microbenchmark, with roughly 10× or more peak memory savings under load, and ~12× a default Rails app. A separate single-row DB read now measures about 3.1×, close to the microbenchmark ratio.
+The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode, with peak-memory savings of 10× or more under load, and about 12× the throughput of a default Rails app. A separate single-row DB read measures about 3.1×, close to the microbenchmark ratio.
 
 Reproduce from that repository with `bin/bench`, `bin/bench-scenario`, `bin/boottime`, and `bin/imagesize`. The result tables are under [`results/`](https://github.com/snails-rb/snails-benchmark/tree/main/results).
 
 ## Manual
 
-The manual is the product documentation. It lives in [`manual/`](manual/), is written for developers building an app, and is published at [snails-rb.org](https://snails-rb.org/).
+The manual is the product documentation for developers building an app. It lives in [`manual/`](manual/) and is published at [snails-rb.org](https://snails-rb.org/).
 
 **The Basics**
 

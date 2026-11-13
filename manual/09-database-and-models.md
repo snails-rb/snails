@@ -14,7 +14,7 @@ end
 
 Put model files under `app/models/` (subfolders are fine). The generator reads the schema and attaches column readers, `only_columns`, and the type lists; a model outside that folder is reported and skipped. When the schema changes, re-run the migration flow and the next build regenerates the readers — see [Columns and Types](11-columns-and-types.md).
 
-A model may add class methods and instance methods for its own domain. It does not declare columns, associations, callbacks, or validations. Validation belongs to [Forms and Validation](13-forms.md); the schema constraint is the model layer's last line.
+A model may add class methods and instance methods for its own domain. It does not declare columns, associations, callbacks, or validations. Validation belongs to [Forms and Validation](13-forms.md); the schema constraint is the model layer's final check.
 
 ## Read and write
 
@@ -40,7 +40,7 @@ An empty conditions hash is not a question you can ask: `find_by({})` refuses be
 
 ## Query across tables
 
-Two records that belong together use the same entries — the second query is scoped by the first one's id:
+Two records that belong together use the same query methods — the second query is scoped by the first one's id:
 
 ```ruby
 post = Post.find_by({ title: "hello" })

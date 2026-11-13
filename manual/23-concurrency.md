@@ -6,7 +6,7 @@ A Snails server runs one process with one green thread per connection and a smal
 
 Every connection gets a green thread. A thread parked on a slow client, a keep-alive wait, or a database round trip frees its OS worker for another connection, so one process can hold many connections without one process per connection.
 
-The banner states the shape:
+The banner shows the process model:
 
 ```text
 manual-demo (spinel) listening on http://0.0.0.0:3000, pid 74898
@@ -50,7 +50,7 @@ The process queue holds at most 1,000 pending jobs. A full queue drops the new h
 | `ActiveJob::Scheduler` recurring beats | No — each process runs its own beat; the DB queue's interval record deduplicates the enqueue |
 | Open database connections | No — one pool per process |
 
-If a value must be visible to another process, put it in the database. If work must survive a restart, use the DB queue. If a recurring job must fire once across processes, `ActiveJob.recurring` with the DB queue is the one that deduplicates by interval window.
+If a value must be visible to another process, put it in the database. If work must survive a restart, use the DB queue. If a recurring job must fire once across processes, `ActiveJob.recurring` with the DB queue is the one that deduplicates recurring runs by interval window.
 
 ## The request boundary
 
@@ -58,4 +58,4 @@ The dispatcher parks the current request and controller on the thread for the du
 
 A request's database reads are cached for the request's lifetime; a write clears the cache. The cache is per request, not per process, so a read after a write in the same request sees the write.
 
-[Local Development](22-local-development.md) shows the banner and the build loop; [Deploying](25-deploying.md) covers the container shape.
+[Local Development](22-local-development.md) shows the banner and the build loop; [Deploying](25-deploying.md) covers the container setup.

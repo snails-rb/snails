@@ -1,6 +1,6 @@
 # Error Handling
 
-A missing record is a 404, a malformed request is a 400, and an unhandled exception is a 500. The dispatcher owns those defaults so a controller does not repeat them; the app decides when a different shape — a JSON error document, a conflict status, a redirect — is the better answer.
+A missing record is a 404, a malformed request is a 400, and an unhandled exception is a 500. The dispatcher owns those defaults so a controller does not repeat them; the app decides when a different response — a JSON error document, a conflict status, a redirect — is the better answer.
 
 ## What the dispatcher answers
 

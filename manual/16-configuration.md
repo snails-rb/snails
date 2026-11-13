@@ -1,6 +1,6 @@
 # Configuration
 
-A Snails app has two settings files with different jobs. `config/application.rb` holds values and readers — the app's name and version, plus the readers for the signing key and zone — and `config/environment.rb` holds the settings that depend on the mode: the time zone, the logger, the job queue adapter, the mail delivery class, and the boot hooks. The split keeps a value from changing behavior just because it was declared in the wrong file.
+A Snails app has two settings files with different roles. `config/application.rb` holds values and readers — the app's name and version, plus the readers for the signing key and zone — and `config/environment.rb` holds the settings that depend on the mode: the time zone, the logger, the job queue adapter, the mail delivery class, and the boot hooks. The split keeps a value from changing behavior just because it was declared in the wrong file.
 
 ## Values live in config/application.rb
 
@@ -78,7 +78,7 @@ require_relative "../snails-core/database/sqlite"
 
 Switch adapters by changing that one line and generating the matching migration. `config/codegen.rb` is the app's load edges: it lists the `gen/*` require files, which the generator refreshes from the folders. Do not hand-maintain `gen/`; add the app file and let the next `bin/dev` or `bin/test` pick it up.
 
-`Snails.root` is the app root as a path value. The server runs with the app root as its working directory, so it reads as `"."` and joins cleanly:
+`Snails.root` is the app root as a path value. The server runs with the app root as its working directory, so it is `"."` and joins cleanly:
 
 ```ruby
 "#{Snails.root}/tmp"                     # "./tmp"
