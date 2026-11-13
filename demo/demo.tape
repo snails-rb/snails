@@ -1,17 +1,24 @@
 Output demo.gif
 Set Shell "bash"
 Set FontFamily "JetBrainsMono Nerd Font"
-Set FontSize 15
-Set Width 1100
-Set Height 420
-Set Padding 16
+Set FontSize 30
+Set Width 2200
+Set Height 840
+Set Padding 32
 Set Theme "Dracula"
 Set CursorBlink false
-Set TypingSpeed 40ms
+Set TypingSpeed 80ms
 
-# Keep the prompt free of host and path.
+# Keep the prompt free of host and path. The wrappers mute the tools' progress
+# lines off-camera; the visible commands stay plain and their results stay.
 Hide
 Type "PS1='$ '"
+Enter
+Type `snails() { command snails "$@" 2>/dev/null; }`
+Enter
+Type `bin/test() { command ./bin/test "$@" 2>/dev/null; }`
+Enter
+Type `bin/dev() { command ./bin/dev "$@" 2>/dev/null; }`
 Enter
 Type "clear"
 Enter
@@ -19,9 +26,9 @@ Show
 
 Sleep 1s
 
-Type "snails new demo 2>/dev/null"
+Type "snails new demo"
 Enter
-Sleep 6s
+Sleep 8s
 
 Type "cd demo"
 Enter
@@ -40,18 +47,14 @@ Type "clear"
 Enter
 Show
 
-Type "bin/test 2>/dev/null"
+Type "bin/test"
 Enter
-Sleep 6s
+Sleep 8s
 
-Type "bin/dev 2>/dev/null &"
+Type "bin/dev &"
 Enter
-Sleep 6s
+Sleep 8s
 
-Type "curl -s http://127.0.0.1:3000/up; echo"
+Type "curl -s localhost:3000/up; echo"
 Enter
 Sleep 4s
-
-Type "kill %1"
-Enter
-Sleep 3s
