@@ -6,7 +6,7 @@ Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conv
 
 The project is split into parts: the API-only, Rails-like runtime for [Spinel](https://github.com/matz/spinel) (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). A consuming app vendors the runtime as `snails-core/` and pins the revision in `pins.toml`.
 
-Status: alpha. The public API can change between 0.x releases.
+Status: 1.0 release candidate. The public API may still change before 1.0.
 
 ## Scope
 
@@ -29,7 +29,7 @@ snails new demo
 
 While the repository has only release candidates, add `prerelease=true` to that tool entry.
 
-The first command that needs the toolchain assembles the pinned compiler. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
+The first command that needs the toolchain assembles the pinned compiler, so install the system packages listed under [Requirements](manual/02-getting-started.md#requirements) first. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
 
 ## Benchmark
 

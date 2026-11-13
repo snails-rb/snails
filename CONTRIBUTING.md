@@ -6,7 +6,7 @@ Thanks for taking the time to improve Snails. Bug reports, focused pull requests
 
 - Search existing issues first.
 - For a bug, use the bug report template and include `snails --version`, the OS, the command you ran, the output, and a minimal reproduction.
-- For a feature, open an issue before writing the implementation. Snails is alpha, and scope is discussed before code.
+- For a feature, open an issue before writing the implementation. Snails is pre-1.0, and scope is discussed before code.
 - Redact tokens, keys, passwords, and private data from logs and pasted output.
 
 ## Development checks

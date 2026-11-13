@@ -87,7 +87,7 @@ Examples:
 
 ```text
 [snails] doctor: /tmp/manual-demo
-  ok    CLI v0.48.0 (rev c59adfa)
+  ok    CLI v1.0.0-rc.1 (rev c5fc693)
   ok    pins.toml (/tmp/manual-demo/pins.toml)
   ok    pin declaration
   ok    APP_NAME: manual-demo

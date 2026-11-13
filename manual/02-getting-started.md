@@ -1,6 +1,34 @@
 # Getting Started
 
-This chapter takes you from nothing to a running Snails app: install the CLI, create a project, run it, and run its tests. A Snails project arrives ready to build, so there is no wiring to do first; the first build is the slowest part of the journey.
+This chapter takes you from nothing to a running Snails app: install the CLI, create a project, run it, and run its tests. A Snails project arrives ready to build, so there is no wiring to do first; the first `snails new` is the slowest part of the journey because it assembles the pinned compiler.
+
+## Requirements
+
+Snails runs on Linux amd64 with glibc 2.36 or newer (Debian 12, Ubuntu 24.04, Fedora), on Linux arm64, and on macOS for development. Windows runs through WSL. Alpine (musl) and native Windows are not supported.
+
+The first `snails new` builds the pinned compiler from source when the machine has no install at that revision. The build runs on the host, so install the packages below before the first project.
+
+### Linux
+
+```sh
+sudo apt-get install -y clang libclang-dev sqlite3 libsqlite3-dev libssl-dev libffi-dev libjemalloc-dev pkg-config
+```
+
+These are the Debian and Ubuntu package names; other distributions carry the same pieces under their own names. Add `libpq-dev` for the PostgreSQL adapter. `git`, `make`, `curl`, and `tar` are also required, and the host needs time zone files (`tzdata`) because app boot resolves `Snails.time_zone =` against them.
+
+### macOS
+
+```sh
+xcode-select --install
+brew install openssl@3 jemalloc pkg-config
+```
+
+Run this before the first `snails new`. A compiler built without OpenSSL drops the `openssl` package, and the result is cached at the pinned revision, so a later fix does not rebuild it. For the PostgreSQL adapter, add `brew install libpq` and put its path on `PKG_CONFIG_PATH`; the test harness runs its disposable database in Docker Desktop unless you pass `PG_URL`.
+
+```sh
+export PATH="$(brew --prefix libpq)/bin:$PATH"
+export PKG_CONFIG_PATH="$(brew --prefix libpq)/lib/pkgconfig:$PKG_CONFIG_PATH"
+```
 
 ## Install the CLI
 
@@ -50,7 +78,7 @@ snails new demo --database=postgresql --scaffold
 bin/dev
 ```
 
-The first run compiles the app into a single native binary and assembles the pinned build tools. Later runs reuse both. The server stays in the foreground and writes to the terminal and to `tmp/development.log`:
+The first run compiles the app into a single native binary. Later runs reuse that build. The server stays in the foreground and writes to the terminal and to `tmp/development.log`:
 
 ```text
 [snails] serving myapp on http://127.0.0.1:3000
@@ -61,7 +89,7 @@ myapp (spinel) listening on http://0.0.0.0:3000, pid 212514
 
 Open http://localhost:3000/up and you get `{"status":"ok"}`. Every Snails app answers `/up`; a deployment platform watches it to know the app is healthy.
 
-A plain project has no migrations. A scaffolded project has a baseline migration and a schema dump, so provision it before the first boot:
+A plain project has no migrations. A scaffolded project has a baseline migration; `snails migrate load` applies it and writes the schema dump, so provision the database before the first boot:
 
 ```sh
 snails migrate load
