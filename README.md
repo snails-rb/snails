@@ -72,7 +72,6 @@ The manual is the product documentation. It lives in [`manual/`](manual/), is wr
 - [Ruby Helpers](manual/19-ruby-helpers.md)
 - [Error Handling](manual/20-error-handling.md)
 - [Logging](manual/21-logging.md)
-- [Performance](manual/29-performance.md)
 
 **Operating**
 
