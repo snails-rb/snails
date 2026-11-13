@@ -2,7 +2,7 @@ Output demo.gif
 Set Shell "bash"
 Set FontFamily "JetBrainsMono Nerd Font"
 Set FontSize 30
-Set Width 2200
+Set Width 2500
 Set Height 840
 Set Padding 32
 Set Theme "Dracula"
@@ -14,9 +14,9 @@ Set TypingSpeed 80ms
 Hide
 Type "PS1='$ '"
 Enter
-Type `snails() { command snails "$@" 2>/dev/null; }`
+Type `snails() { if [ "$1" = "new" ]; then command snails "$@" 2>/dev/null; else command snails "$@"; fi; }`
 Enter
-Type `bin/test() { command ./bin/test "$@" 2>/dev/null; }`
+Type `bin/test() { command ./bin/test "$@" 2>/dev/null | sed 's/ (cached)//'; }`
 Enter
 Type `bin/dev() { command ./bin/dev "$@" 2>/dev/null; }`
 Enter
@@ -26,7 +26,7 @@ Show
 
 Sleep 1s
 
-Type "snails new demo"
+Type "snails new demo --scaffold"
 Enter
 Sleep 8s
 
@@ -34,9 +34,16 @@ Type "cd demo"
 Enter
 Sleep 1s
 
-# The first build compiles the app. Build it once outside the recording so
-# the visible demo stays short; the README footnote says so. Development logs
-# are muted so the terminal shows the loop, not the request records.
+Type "snails migrate load"
+Enter
+Sleep 4s
+
+Type "cat config/routes.rb"
+Enter
+Sleep 6s
+
+# The first build and the test run are warmed outside the recording; the
+# README footnote says so. Development logs are muted as well.
 Hide
 Type "echo 'Snails.logger.level = :warn' >> config/environment.rb"
 Enter
@@ -57,4 +64,12 @@ Sleep 8s
 
 Type "curl -s localhost:3000/up; echo"
 Enter
-Sleep 4s
+Sleep 3s
+
+Type `curl -s -X POST localhost:3000/posts -H 'Content-Type: application/json' -d '{"title":"Hello","body":"World"}'; echo`
+Enter
+Sleep 5s
+
+Type "curl -s localhost:3000/posts/1; echo"
+Enter
+Sleep 5s

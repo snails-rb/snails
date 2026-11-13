@@ -14,9 +14,9 @@ This is not a Rails replacement. It is API-only: no views, no asset pipeline, no
 
 ## Demo
 
-![Terminal demo: snails new demo, bin/test, bin/dev, and GET /up](demo/demo.gif)
+![Terminal demo: snails new demo --scaffold, bin/test, bin/dev, and a posts API request](demo/demo.gif)
 
-`snails new demo` creates the project, `bin/test` runs the suite against a real server, and `bin/dev` serves it. `/up` is the framework's default health check — every Snails app answers it.
+`snails new demo --scaffold` creates a posts-and-comments API, `bin/test` runs the suite against a real server, and `bin/dev` serves it. A `POST /posts` stores a row and `GET /posts/1` reads it back. `/up` is the framework's default health check — every Snails app answers it.
 
 The recording starts with the pinned compiler cached and the first app build warmed; a cold first build takes about two minutes.
 
