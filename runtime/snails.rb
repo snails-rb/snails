@@ -33,3 +33,13 @@ require_relative "snails/form/rule_options"
 require_relative "snails/form/rule_engine"
 require_relative "snails/form/errors"
 require_relative "snails/form"
+
+# The queue layer, the routing surface, and the process entry load last:
+# they open `Sqlx::Base`, `ActiveJob::Base`, and `ActionController::API`,
+# which boot loads before this file.
+require_relative "snails/queue/job"
+require_relative "snails/queue/occurrence"
+require_relative "snails/queue/prune_job"
+require_relative "snails/health_controller"
+require_relative "snails/route_dsl"
+require_relative "snails/main"

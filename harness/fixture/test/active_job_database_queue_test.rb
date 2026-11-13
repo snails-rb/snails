@@ -195,7 +195,7 @@ class DatabaseQueueAdapterTest < TestBase
   def test_enqueue_once_records_the_occurrence
     slot = Time.now.utc
     ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, slot)
-    table = Snails::QueueOccurrence.table_name
+    table = Snails::Queue::Occurrence.table_name
     assert_equal 1, scalar("SELECT COUNT(*) FROM " + table)
     assert_equal "QueueSinkJob", scalar("SELECT job_name FROM " + table)
     assert_time_column(table)
@@ -360,14 +360,14 @@ class DatabaseQueueAdapterTest < TestBase
   # stamps into an app, the declarations are what hydrates its rows —
   # a column drifting out of either shows up here.
   def test_the_template_and_the_model_declare_the_same_columns
-    assert_equal Snails::QueueJob.only_columns.map { |c| c.to_s }.sort, table_columns("snails_queue_jobs").sort
-    assert_equal Snails::QueueOccurrence.only_columns.map { |c| c.to_s }.sort, table_columns("snails_queue_occurrences").sort
-    declared = Snails::QueueJob.only_columns.map { |c| c.to_s }
-    (Snails::QueueJob.datetime_columns + Snails::QueueJob.json_columns).each do |name|
+    assert_equal Snails::Queue::Job.only_columns.map { |c| c.to_s }.sort, table_columns("snails_queue_jobs").sort
+    assert_equal Snails::Queue::Occurrence.only_columns.map { |c| c.to_s }.sort, table_columns("snails_queue_occurrences").sort
+    declared = Snails::Queue::Job.only_columns.map { |c| c.to_s }
+    (Snails::Queue::Job.datetime_columns + Snails::Queue::Job.json_columns).each do |name|
       assert_equal true, declared.include?(name)
     end
-    occurrences_declared = Snails::QueueOccurrence.only_columns.map { |c| c.to_s }
-    Snails::QueueOccurrence.datetime_columns.each do |name|
+    occurrences_declared = Snails::Queue::Occurrence.only_columns.map { |c| c.to_s }
+    Snails::Queue::Occurrence.datetime_columns.each do |name|
       assert_equal true, occurrences_declared.include?(name)
     end
   end
@@ -378,7 +378,7 @@ class DatabaseQueueAdapterTest < TestBase
   def test_a_full_row_hydrates_through_the_declarations
     ActiveJob.register_executor
     ActiveJob.enqueue(QueueSinkJob, { "n" => 4 })
-    row = Snails::QueueJob.find_by_sql("SELECT * FROM snails_queue_jobs")[0]
+    row = Snails::Queue::Job.find_by_sql("SELECT * FROM snails_queue_jobs")[0]
     assert_equal true, row.scheduled_at.is_a?(Time)
     assert_equal({ "n" => 4 }, row.payload)
     assert_equal "pending", row.status

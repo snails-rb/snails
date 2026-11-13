@@ -65,7 +65,7 @@ chk "sqlite run exits 0" "$code" "0"
 chk_has "result names both writes" "$out" "job_queue added: db/migrate/"
 chk_has "result names the schema dump" "$out" "+ db/schema.sql"
 chk_has "wiring prints the adapter line" "$out" "ActiveJob.queue_adapter = ActiveJob::DatabaseQueue"
-chk_has "wiring prints retention commented out" "$out" "# ActiveJob.recurring(Snails::QueuePruneJob, 86400)"
+chk_has "wiring prints retention commented out" "$out" "# ActiveJob.recurring(Snails::Queue::PruneJob, 86400)"
 chk_has "wiring prints the apply step" "$out" "snails migrate apply --app"
 
 migration="$(printf '%s\n' "$APP"/db/migrate/*_create_snails_queue.sql)"
