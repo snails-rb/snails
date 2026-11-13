@@ -52,7 +52,7 @@ The path is under `harness/`. An unknown path fails loudly rather than widening 
 
 ### Why is `params[:id]` nil?
 
-`params` is String-keyed. Use `params["id"]`. The path capture is a String too; convert it for an integer column (see [Requests and Parameters](07-requests-and-parameters.md)).
+`params` is String-keyed. Use `params["id"]`. The path capture is a String too; the generated model casts it for integer columns, and a TEXT or UUID key stays a string (see [Requests and Parameters](07-requests-and-parameters.md)).
 
 ### How do I change the app name?
 

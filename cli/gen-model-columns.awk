@@ -340,6 +340,11 @@ function column_is_json(table, i,    type) {
   return type ~ /JSON/
 }
 
+function column_is_integer(table, i,    type) {
+  type = column_type[table, i]
+  return type ~ /BIGSERIAL|SERIAL|BIGINT|INTEGER|SMALLINT/
+}
+
 function rbs_type(table, i,    type, base) {
   type = column_type[table, i]
   if (type ~ /JSON/) return "untyped"
@@ -363,6 +368,7 @@ function list_literal(table, predicate,    out, i, first, value) {
     if (predicate == "date" && !column_is_date(table, i)) continue
     if (predicate == "boolean" && !column_is_boolean(table, i)) continue
     if (predicate == "json" && !column_is_json(table, i)) continue
+    if (predicate == "integer" && !column_is_integer(table, i)) continue
     value = column_name[table, i]
     if (first) { out = value; first = 0 }
     else out = out " " value
@@ -401,6 +407,7 @@ function emit_rb(class_name,    table, i, col, count, part, module_body, attach_
   print module_body "def date_columns = " list_word(table, "date") > out_rb
   print module_body "def boolean_columns = " list_word(table, "boolean") > out_rb
   print module_body "def json_columns = " list_word(table, "json") > out_rb
+  print module_body "def integer_columns = " list_word(table, "integer") > out_rb
   emit_wrapper_end(out_rb, class_name)
 
   emit_wrapper(out_rb, "GeneratedModelReaders", class_name)
@@ -435,6 +442,7 @@ function emit_rbs(class_name,    table, i, col, count, part, module_body, attach
   print module_body "def date_columns: () -> Array[String]" > out_rbs
   print module_body "def boolean_columns: () -> Array[String]" > out_rbs
   print module_body "def json_columns: () -> Array[String]" > out_rbs
+  print module_body "def integer_columns: () -> Array[String]" > out_rbs
   emit_wrapper_end(out_rbs, class_name)
 
   emit_wrapper(out_rbs, "GeneratedModelReaders", class_name)

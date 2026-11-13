@@ -50,15 +50,10 @@ module Api
     private
 
     # Resolve the post the `:id` actions address. Sets `@post`; an unknown
-    # id raises here so no action body runs.
+    # id raises here so no action body runs. The generated model declares
+    # `id` as an integer column, so `find` casts the path capture.
     def set_post
-      @post = Post.find(param_id)
-    end
-
-    # The path capture arrives as a String; the id column is an Integer
-    # and a string literal would not compare on the pg adapter.
-    def param_id
-      params["id"].to_i
+      @post = Post.find(params["id"])
     end
 
     # A failed form answers its ordered messages as 422 — the one shape

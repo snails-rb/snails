@@ -55,6 +55,15 @@ ok test_count_base_loud
 ok test_find_returns_record
 ok test_find_miss_raises
 ok test_find_base_loud
+ok test_find_casts_a_decimal_string
+ok test_find_rejects_a_non_decimal_string
+ok test_conditions_cast_integer_columns
+ok test_conditions_cast_integer_array_elements
+ok test_conditions_skip_boolean_columns
+ok test_where_clause_does_not_cast_integer_columns
+ok test_text_id_is_not_cast
+ok test_delete_rejects_a_non_decimal_string
+ok test_update_rejects_a_non_decimal_string
 ok test_exists_with_conditions
 ok test_exists_positional_id
 ok test_exists_any_row
@@ -181,4 +190,4 @@ ok test_undeclared_json_column_stays_raw_text
 ok test_update_encodes_json_column
 ok test_update_all_encodes_json_column
 ok test_upsert_all_encodes_json_column
-SqlxTest: 183 tests passed
+SqlxTest: 192 tests passed

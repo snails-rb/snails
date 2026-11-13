@@ -56,6 +56,17 @@ module Sqlx
     end
   end
 
+  # Raised when a condition value cannot be cast to the column's declared
+  # type. The model query layer raises it when a String is handed to an
+  # integer column and is not a decimal integer; the dispatcher maps it to a
+  # 400 (the request carried a malformed value, not a missing row). Apps that
+  # want a different response rescue it explicitly.
+  class CastError < StandardError
+    def initialize(message = "Sqlx::CastError")
+      super(message)
+    end
+  end
+
   # Raised when a connection-pool checkout could not get a connection inside
   # the adapter's wait budget. The statement did not run, so the caller may
   # retry the unit; a request that keeps hitting it needs a larger pool or a

@@ -44,25 +44,19 @@ module Api
     private
 
     # Resolve the post the nested routes hang off. Sets `@post` for the
-    # action; an unknown post raises here so no action body runs.
+    # action; an unknown post raises here so no action body runs. The
+    # generated model declares `id` as an integer column, so `find` casts
+    # the path capture.
     def set_post
-      @post = Post.find(param_post_id)
-    end
-
-    # The path captures arrive as Strings; the id columns are Integers
-    # and a string literal would not compare on the pg adapter.
-    def param_post_id
-      params["post_id"].to_i
-    end
-
-    def param_id
-      params["id"].to_i
+      @post = Post.find(params["post_id"])
     end
 
     # The comment scoped to its post — an id from another post is a miss,
-    # so the nested route cannot read or write across posts.
+    # so the nested route cannot read or write across posts. The generated
+    # model declares `id` and `post_id` as integer columns, so the condition
+    # values are cast without a controller conversion.
     def find_comment
-      Comment.find_by!({ id: param_id, post_id: param_post_id })
+      Comment.find_by!({ id: params["id"], post_id: params["post_id"] })
     end
 
     def comment_json(comment)

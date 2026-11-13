@@ -198,7 +198,9 @@ module Sqlx
     # The core read and write entries bind condition values through `?` so one
     # SQL shape serves every value; this method stays the literal renderer for
     # a caller that assembles its own SQL and needs the clause text. The two
-    # forms share the same validation and produce the same predicates.
+    # forms share the same validation and produce the same predicates. This
+    # literal form does not apply the integer column cast — it renders the
+    # value as written, for callers that own the SQL.
     #
     # @example
     #   where_clause({ email: "a@example.com", deleted_at: nil })
@@ -289,6 +291,8 @@ module Sqlx
     #   to ask; or an `order:` other than `:asc`/`:desc` (a typo
     #   must fail loud, not silently pick a row); or the conditions
     #   value contract — an empty Array value or an Array carrying nil
+    # @raise [Sqlx::CastError] a String value on a column declared in
+    #   `integer_columns` is not a decimal integer
     # @example call
     #   Model.find_by({ email: "a@example.com", deleted_at: nil })
     #   InvoiceItem.find_by({ invoice_id: 42 }, order: :desc)
@@ -629,6 +633,8 @@ module Sqlx
     #   conditions path like any other
     # @return [Object] the matching record — never nil
     # @raise [Sqlx::RecordNotFound] no row has that `id`
+    # @raise [Sqlx::CastError] the model declares `id` in `integer_columns`
+    #   and the String id is not a decimal integer
     # @raise [NotImplementedError] the model has not declared
     #   `table_name` / `only_columns` (through `find_by`)
     # @example
@@ -798,12 +804,15 @@ module Sqlx
     #   rewrite (stamp-only writes belong to a dedicated entry, not
     #   this one)
     # @raise [Sqlx::RecordNotFound] no row has that `id`
+    # @raise [Sqlx::CastError] the model declares `id` in `integer_columns`
+    #   and the String id is not a decimal integer
     # @raise [NotImplementedError] the model has not declared
     #   `table_name` / `only_columns` (the declaration stubs raise)
     # @example
     #   Post.update!(42, { title: "revised" })
     def update!(id, attrs)
       raise ArgumentError, "update!: attrs must not be empty" if attrs.empty?
+      id = cast_id(id)
       declared = only_columns.map { |column| column.to_s }
       sets = []
       values = []
@@ -994,6 +1003,8 @@ module Sqlx
     #   String — an Array is the shape `delete_all!({ id: ids })`
     #   owns, and anything else would bind as text and miss
     #   silently on one adapter while the driver errors on the other
+    # @raise [Sqlx::CastError] the model declares `id` in `integer_columns`
+    #   and the String id is not a decimal integer
     # @raise [NotImplementedError] the model has not declared
     #   `table_name`
     # @example
@@ -1003,6 +1014,7 @@ module Sqlx
       unless id.is_a?(Integer) || id.is_a?(String)
         raise ArgumentError, "delete!: id must be an Integer or String — pass many ids to delete_all!({ id: [...] })"
       end
+      id = cast_id(id)
       Sqlx::Database.exec_write('DELETE FROM "' + table_name + '" WHERE "id" = ?', [ id ])["count"]
     end
 
@@ -1130,6 +1142,7 @@ module Sqlx
       elsif value.is_a?(Array)
         raise ArgumentError, "where_clause: #{column} array must not be empty" if value.empty?
         elements = []
+        bound = []
         value.each do |element|
           if element.nil?
             raise ArgumentError, "where_clause: #{column} array must not carry nil"
@@ -1137,13 +1150,18 @@ module Sqlx
           if element.is_a?(Hash)
             raise ArgumentError, "where_clause: #{column} array must not carry an operator hash — a condition is a key of its own"
           end
-          elements << (bind ? "?" : Sqlx.quote(element))
+          if bind
+            elements << "?"
+            bound << cast_integer_value(column, element)
+          else
+            elements << Sqlx.quote(element)
+          end
         end
-        [column + " IN (" + elements.join(", ") + ")", bind ? value : []]
+        [column + " IN (" + elements.join(", ") + ")", bound]
       elsif value.is_a?(Hash)
         operator_predicates(column, value, bind)
       elsif bind
-        [column + " = ?", [ value ]]
+        [column + " = ?", [ cast_integer_value(column, value) ]]
       else
         [column + " = " + Sqlx.quote(value), []]
       end
@@ -1196,7 +1214,7 @@ module Sqlx
         end
         if bind
           predicates << (column + " " + operator_sql + " ?")
-          values << bound
+          values << cast_integer_value(column, bound)
         else
           predicates << (column + " " + operator_sql + " " + Sqlx.quote(bound))
         end
@@ -1219,6 +1237,72 @@ module Sqlx
       else
         value
       end
+    end
+
+    # One condition value cast for the columns declared in
+    # `integer_columns`: an Integer passes, a decimal String becomes an
+    # Integer, and anything else is a contract failure. The cast is strict on
+    # purpose — "1-welcome" and "1.0" must not silently become 1.
+    def cast_integer_value(column, value)
+      return value unless integer_column?(column)
+      if value.is_a?(Integer)
+        return value
+      end
+      if value.is_a?(String) && decimal_integer_string?(value)
+        return value.to_i
+      end
+      raise Sqlx::CastError, "cannot cast #{value.inspect} to Integer for #{table_name}.#{column}"
+    end
+
+    # Is `column` declared in the model's integer list? The list may carry
+    # Strings or Symbols; compare both sides as Strings without allocating a
+    # normalized copy per condition. A column declared as another logical
+    # type (boolean, datetime, date, json) keeps that type: a schema INTEGER
+    # can back a boolean or json scalar, and the model's exception list is
+    # the authority for the condition value.
+    def integer_column?(column)
+      return false if list_includes?(boolean_columns, column)
+      return false if list_includes?(datetime_columns, column)
+      return false if list_includes?(date_columns, column)
+      return false if list_includes?(json_columns, column)
+      list_includes?(integer_columns, column)
+    end
+
+    # A linear membership test over a declaration list; names may be Strings
+    # or Symbols, so both sides compare as Strings.
+    def list_includes?(names, column)
+      i = 0
+      while i < names.length
+        return true if names[i].to_s == column
+        i = i + 1
+      end
+      false
+    end
+
+    # A decimal integer string with an optional sign: digits only, no
+    # whitespace, underscores, or hex. "1-welcome" and "1.0" are not integers.
+    def decimal_integer_string?(text)
+      return false if text.empty?
+      start = 0
+      first = text[0, 1]
+      if first == "-" || first == "+"
+        start = 1
+      end
+      return false if start >= text.length
+      i = start
+      while i < text.length
+        c = text[i, 1]
+        return false if c < "0" || c > "9"
+        i = i + 1
+      end
+      true
+    end
+
+    # The id path used by `update!` and `delete!`: apply the same integer cast
+    # as a condition on `id`. A model without an integer id returns the value
+    # unchanged.
+    def cast_id(id)
+      cast_integer_value("id", id)
     end
 
     # the caller's value list as an Array, checked against the statement's `?`
@@ -1269,6 +1353,6 @@ module Sqlx
     # `one_by_sql`, `exists?` on `exists_by_sql`, and the supported entries
     # are the public methods above — including the `find_by_sql` escape
     # hatch for joins and other caller-written SQL.
-    private :one_by_sql, :exists_by_sql, :where_clause_values, :condition_predicate, :operator_predicates, :values_for_placeholders, :placeholder_count, :bound_value
+    private :one_by_sql, :exists_by_sql, :where_clause_values, :condition_predicate, :operator_predicates, :values_for_placeholders, :placeholder_count, :bound_value, :cast_integer_value, :integer_column?, :list_includes?, :decimal_integer_string?, :cast_id
   end
 end

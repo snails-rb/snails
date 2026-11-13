@@ -10,6 +10,7 @@ module Sqlx
     def self.date_columns: () -> Array[String]
     def self.boolean_columns: () -> Array[String]
     def self.json_columns: () -> Array[String]
+    def self.integer_columns: () -> Array[String]
     def self.from_row: (untyped row) -> untyped
     def self.all: () -> Array[untyped]
 

@@ -83,7 +83,7 @@ module Api
     private
 
     def set_post
-      @post = Post.find(params["id"].to_i)
+      @post = Post.find(params["id"])
     end
 
     def post_json(post)
@@ -97,7 +97,7 @@ The pieces to copy:
 
 - `params` is a hash keyed by strings — `params["title"]`, not `params[:title]`.
 - `status:` takes a symbol (`:created`) or an integer code; anything else raises.
-- A path capture arrives as a String, so convert it before it meets an integer column.
+- A path capture arrives as a String. The generated model declares its integer columns and casts the value; a TEXT/UUID key stays a string.
 - `before_action` runs before the listed actions. A filter that renders a response halts the chain and the action.
 - An action that renders nothing answers `204 No Content`; the default is not a bare 200 with no body.
 
