@@ -62,7 +62,7 @@ The built-in timestamp pair is special in one way: `create!` and `update!` fill 
 
 ## Readers and overrides
 
-The generated reader is a plain method over `read_attribute`. A model that defines the same method itself wins, and the generator leaves that reader out of both the generated Ruby and the `.rbs`. That is the seam for a derived value:
+The generated reader is a plain method over `read_attribute`. A model that defines the same method itself wins, and the generator leaves that reader out of both the generated Ruby and the `.rbs`. That is how a model adds a derived value:
 
 ```ruby
 class Post < Sqlx::Base
@@ -81,7 +81,7 @@ class Event < Sqlx::Base
 end
 ```
 
-`from_row` copies every `only_columns` entry and then applies the declared conversions. A conversion naming a column outside `only_columns` raises — only the built-in timestamp pair may be absent. If you hand-write a narrower SELECT, declare the narrowed columns or override `from_row`; leaving the generated lists in place while the SELECT omits a declared date, boolean, JSON, or extra datetime column is the common source of a `ArgumentError` at hydration.
+`from_row` copies every `only_columns` entry and then applies the declared conversions. A conversion naming a column outside `only_columns` raises — only the built-in timestamp pair may be absent. If you hand-write a narrower SELECT, declare the narrowed columns or override `from_row`; leaving the generated lists in place while the SELECT omits a declared date, boolean, JSON, or extra datetime column is the common source of an `ArgumentError` at hydration.
 
 A model that needs more than the five declarations overrides `from_row` outright. It receives one name-keyed row and answers one record:
 

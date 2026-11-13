@@ -38,7 +38,7 @@ resources("/devices", Api::DevicesController, :json, [:create, :show])
 
 An action outside `:index`, `:create`, `:show`, `:update`, and `:destroy` raises at boot, so a typo cannot silently drop a row. The format argument forces the request format for every row; the common `:json` value matches the API default.
 
-A route matches the GET row for a HEAD request too. The action sees `request.head?` and the server sends the status and headers without the body. A known extension on the last path segment — `/posts.json` — matches the `/posts` row and arrives as `params["format"]`.
+A route matches the GET row for a HEAD request too. The action sees `request.head?` and the server sends the status and headers without the body. A known extension on the last path segment — `/posts.json` — matches the `/posts` row and sets `params["format"]`.
 
 ## Path helpers
 
@@ -55,7 +55,7 @@ A path with a dynamic segment takes one argument per segment. The generator refu
 
 ## Write the controller
 
-A resource controller keeps the shape the scaffold uses — resolve the record once, then let each action answer:
+A resource controller follows the scaffold's pattern: resolve the record once, then let each action answer.
 
 ```ruby
 module Api
@@ -97,7 +97,7 @@ The pieces to copy:
 
 - `params` is a hash keyed by strings — `params["title"]`, not `params[:title]`.
 - `status:` takes a symbol (`:created`) or an integer code; anything else raises.
-- A path capture arrives as a String. The generated model declares its integer columns and casts the value; a TEXT/UUID key stays a string.
+- A path capture is a String. The generated model declares its integer columns and casts the value; a TEXT/UUID key stays a string.
 - `before_action` runs before the listed actions. A filter that renders a response halts the chain and the action.
 - An action that renders nothing answers `204 No Content`; the default is not a bare 200 with no body.
 

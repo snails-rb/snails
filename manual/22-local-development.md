@@ -37,7 +37,7 @@ With the PostgreSQL adapter, `bin/dev` starts a development container named from
 
 The compile is incremental. A change to a controller, model, form, job, or mailer is recompiled on the next run; a new file is added to `gen/` by the generator step before the build. There is no autoload and no file watcher, so a missing `require` is a build error, not a silent runtime miss.
 
-`bin/test` runs the same build and serves the harness against a separate, throwaway database. Use it as the check before you call a change done; `bin/dev` is for seeing the response yourself. [Testing](24-testing.md) covers the harness.
+`bin/test` runs the same build and serves the harness against a separate, throwaway database. Use it as the check before you call a change complete; `bin/dev` is for seeing the response yourself. [Testing](24-testing.md) covers the harness.
 
 ## Running from a checkout
 

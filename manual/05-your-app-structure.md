@@ -50,12 +50,12 @@ A fresh project is small. Most of the tree is setup you touch once; the day-to-d
 ## The folders you edit
 
 - `app/` holds your controllers, models, forms, mailers, jobs, services, helpers, and shared lib classes. A fresh project starts with an empty folder; `--scaffold` fills it with the posts-and-comments example. `app/services/` is for plain classes that wrap a domain operation; `app/helpers/` is for modules shared by controllers; `app/lib/` is for shared modules and plain classes. All three load automatically and have no framework base class.
-- `config/` shapes the app. `routes.rb` is the route table; `application.rb` holds values; `environment.rb` holds mode-dependent wiring; `database.rb` selects the adapter; `boot.rb` and `codegen.rb` decide what loads.
+- `config/` defines the app. `routes.rb` is the route table; `application.rb` holds values; `environment.rb` holds mode-dependent wiring; `database.rb` selects the adapter; `boot.rb` and `codegen.rb` decide what loads.
 - `harness/test/` holds one plain Ruby file per case file, with a `.expected` sibling. `bin/test` runs them against a real server.
 
 ## The files that pin the app together
 
-- `main.rb` is the compile root. It requires `config/boot.rb`, which starts the runtime and ends at the app's own files.
+- `main.rb` is the compile root. It requires `config/boot.rb`, which starts the runtime and loads the app's own files at the end of the chain.
 - `pins.toml` records the runtime release and the compiler revision. The first command that needs the toolchain assembles the one this file names.
 - `spin.toml` is the build manifest. It names the allocator and any build-level settings the compiler needs.
 - `compose.yml` is the single-host deployment file. `Dockerfile` builds the image; `deploy/Caddyfile` is the optional TLS proxy.
@@ -85,7 +85,7 @@ db
 
 ## Where the app sits
 
-Snails works out which app you mean from where you stand. It recognizes two layouts: the one `snails new` creates, where a single folder is the whole app, and the one where the app sits in `src/` inside a repository.
+Snails works out which app you mean from the directory you are in. It recognizes two layouts: the one `snails new` creates, where a single folder is the whole app, and the one where the app sits in `src/` inside a repository.
 
 ### One folder, one app
 
@@ -116,7 +116,7 @@ snails migrate status
 [snails] 0 applied, 0 pending
 ```
 
-The first line says where it landed. You don't get one when you are already standing in the app folder.
+The first line says where it landed. The line is omitted when you are already in the app folder.
 
 ### The app in src/
 
@@ -136,7 +136,7 @@ repo
 3 directories, 2 files
 ```
 
-The app itself is unchanged, just one folder deeper. Start inside it and Snails resolves it the same way.
+The app itself is unchanged; it is just one folder deeper. Start inside it and Snails resolves it the same way.
 
 From the repository root, Snails does not look down. Finding an app below would mean choosing one when there could be several:
 
@@ -144,7 +144,7 @@ From the repository root, Snails does not look down. Finding an app below would 
 [snails] no app root at or above /tmp/manual2/repo (looked for config/database.rb) — pass --app DIR
 ```
 
-Name the folder you are standing in and Snails finds the app inside it:
+Name the folder you are in and Snails finds the app inside it:
 
 ```sh
 snails migrate status --app .
@@ -166,7 +166,7 @@ apps
     └── pins.toml
 ```
 
-Stand inside either and it works as before. From the folder that holds both, name the one you want:
+Work from inside either app and the command behaves as before. From the folder that holds both, name the one you want:
 
 ```sh
 snails migrate status --app billing

@@ -4,7 +4,7 @@ Times are stored as UTC and read back in the app's zone. Durations are plain val
 
 ## Durations
 
-An integer answers the time units. Every unit returns a `Snails::Duration`, which carries the arithmetic:
+`Integer` provides the time-unit methods. Every unit returns a `Snails::Duration`, which carries the arithmetic:
 
 ```ruby
 3.minutes.to_i        # 180
@@ -86,7 +86,7 @@ Both a zone name from the runtime's vocabulary (`"Seoul"`, `"Eastern Time (US & 
 |---|---|
 | `Hash` | object; keys become strings |
 | `Array` | array, element by element |
-| `String`, `Integer`, `Float`, `true`, `false`, `nil` | the obvious primitive |
+| `String`, `Integer`, `Float`, `true`, `false`, `nil` | the corresponding JSON primitive |
 | `Symbol` | a string |
 | `Time` | ISO 8601 with milliseconds and the zone offset |
 | any other object | `to_s` |

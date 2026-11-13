@@ -66,7 +66,7 @@ request.body.read        # the whole body
 request.raw_post         # the same text without touching the cursor
 ```
 
-Do not read the body in a `before_action` unless the action is done with it. Parsing already consumed it into `params`, and a second read from a rewound cursor sees the same bytes.
+Do not read the body in a `before_action`; parsing has already consumed it into `params`, and a second read from a rewound cursor sees the same bytes.
 
 ## Shape input before it reaches a model
 
@@ -81,7 +81,7 @@ class SignupForm
 end
 ```
 
-`require_key` raises `ActionController::ParameterMissing` when the key is absent or its value is a blank string. The dispatcher turns that exception into a 400 with `{"error":"bad_request"}`, so a missing field never reaches the model as `nil`. `sub` and `str` are the forgiving half: an absent key answers `{}` or the fallback you passed.
+`require_key` raises `ActionController::ParameterMissing` when the key is absent or its value is a blank string. The dispatcher turns that exception into a 400 with `{"error":"bad_request"}`, so a missing field never reaches the model as `nil`. `sub` and `str` are the lenient alternatives: an absent key returns `{}` or the fallback you passed.
 
 `permit` keeps a declared subset and drops everything else:
 
@@ -109,7 +109,7 @@ file.size                                # bytes
 file.read                                # the bytes, in memory
 ```
 
-A file input nobody filled has an empty filename and is dropped, so `params["avatar"]` is `nil`. Uploaded bytes stay in memory until your storage code writes them; there is no disk-backed upload path. A body over 8 MiB is refused before it is read with a 413; a body that stops arriving within 30 seconds gets a 408, and a body that ends early or does not parse is a 400.
+An empty file input is dropped, so `params["avatar"]` is `nil`. Uploaded bytes stay in memory until your storage code writes them; there is no disk-backed upload path. A body over 8 MiB is refused before it is read with a 413; a body that stops arriving within 30 seconds gets a 408, and a body that ends early or does not parse is a 400.
 
 ## Limits
 

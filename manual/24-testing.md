@@ -2,7 +2,7 @@
 
 `bin/test` builds the app and runs your test harness against a real HTTP server — no mocks. The suite is a set of files under `harness/test/`, and one fresh server serves them.
 
-The harness runs against a real server on purpose. Stubs and mocks are easier to write, so a coding agent left to choose will often produce a suite that describes the system instead of exercising it. Booting the real server makes the integration path the default, so a passing suite crosses the HTTP boundary. See [The Snails Design](https://snails-rb.org/blog/the-snails-design/#integration-tests-against-a-real-server) for the design choice.
+The harness runs against a real server on purpose. Stubs and mocks are easier to write, so a coding agent left to choose will often produce a suite that describes the system instead of exercising it. Booting the real server makes the integration path the default, so a passing suite runs against the real HTTP server. See [The Snails Design](https://snails-rb.org/blog/the-snails-design/#integration-tests-against-a-real-server) for the design choice.
 
 ## Run everything
 
@@ -60,7 +60,7 @@ if Snails::Harness.file_selected?
 end
 ```
 
-The `file_selected?` guard keeps a bundle run from defining every file's class at once. `tables` declares which tables are emptied before each case, so every case starts from its own rows. `setup` runs after that reset and before the case body; use it for fixtures or a signed-in state.
+The `file_selected?` guard prevents a bundle run from defining every file's class at once. `tables` declares which tables are emptied before each case, so every case starts from its own rows. `setup` runs after that reset and before the case body; use it for fixtures or a signed-in state.
 
 `default_host` sets the Host header for every request when your routes depend on it. A per-request `headers:` hash is also available:
 

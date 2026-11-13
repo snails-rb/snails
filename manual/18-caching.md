@@ -31,7 +31,7 @@ count = Snails.cache.increment("signup/#{ip}", 1, expires_in: 1.hour)
 
 The cache holds at most 5,000 entries. When a write would add a new key at the limit, the store clears every entry before writing the new one. It is a finite store, not an LRU: the bound keeps growth finite and the flush is the cheap answer, but a burst of distinct keys can drop values other requests were using.
 
-Size the key space and expiry for that behavior. A cache keyed by a request field with no expiry is the shape that reaches the bound fastest.
+Size the key space and expiry for that behavior. A cache keyed by a request field with no expiry reaches the bound fastest.
 
 ## The process boundary
 

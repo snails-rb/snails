@@ -1,6 +1,6 @@
 # Snails CLI
 
-`snails` is the entry point for everything outside your app's own `bin/` scripts. It creates projects, generates files, checks the setup, migrates the database, syncs the pinned runtime, and builds images or a host binary. Each command prints one line of what happened until you ask for help or details.
+`snails` is the entry point for everything outside your app's own `bin/` scripts. It creates projects, generates files, checks the setup, migrates the database, syncs the pinned runtime, and builds images or a host binary. Each command prints a one-line summary unless you ask for help or more detail.
 
 ## What it can do
 

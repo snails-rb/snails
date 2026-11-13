@@ -78,7 +78,7 @@ def authenticate
 end
 ```
 
-The challenge header is `Basic realm="Admin"` and the default body is `HTTP Basic: Access denied.`. A password may contain colons; the username may not. Basic credentials travel in clear text inside the header, so use it over TLS or not at all.
+The challenge header is `Basic realm="Admin"` and the default body is `HTTP Basic: Access denied.`. A password may contain colons; the username may not. Basic credentials travel in clear text inside the header, so use Basic auth over TLS or not at all.
 
 ## Challenge without a helper
 
@@ -91,7 +91,7 @@ request_http_basic_authentication("Admin")
 
 Each writes the `WWW-Authenticate` header, a 401 status, and a plain-text body. Call one from an action or a filter after your own lookup fails.
 
-## Where the boundary sits
+## What the framework owns
 
 The runtime owns the header parsing and the 401 response shape. Your app owns the credential store and the comparison. A token lookup is a model query like any other:
 

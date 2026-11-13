@@ -15,7 +15,7 @@ Post.find_by({ created_at: { gte: from, lt: to } })  # a range is two keys
 Post.find_by({ deleted_at: { is_not: nil } })     # IS NOT NULL
 ```
 
-The comparison operators are `lt`, `lte`, `gt`, and `gte`. The only null operator is `is_not: nil`; there is no general negation and no `eq`. A comparison bound cannot be nil, an operator hash cannot be empty, and an `IN` list cannot be empty or carry nil. Those shapes raise `ArgumentError` instead of producing SQL that quietly matches nothing. Values are escaped; keys are code, so a typo in a column name fails at the database instead of reading as a miss.
+The comparison operators are `lt`, `lte`, `gt`, and `gte`. The only null operator is `is_not: nil`; there is no general negation and no `eq`. A comparison bound cannot be nil, an operator hash cannot be empty, and an `IN` list cannot be empty or carry nil. Those conditions raise `ArgumentError` instead of producing SQL that quietly matches nothing. Values are escaped; keys are code, so a typo in a column name fails at the database instead of reading as a miss.
 
 A String value on a column declared in `integer_columns` is cast to an Integer before it binds. A decimal value such as `"42"` becomes `42`; `"1-welcome"` and `"abc"` raise `Sqlx::CastError` instead of binding as text. A TEXT or UUID primary key is not in the list, so it stays an exact string lookup.
 
@@ -34,7 +34,7 @@ Post.exists?({ status: "draft" })    # conditions
 Post.exists?(42)                     # id shorthand
 ```
 
-`find_by` takes `order:` to decide which of several matches arrives: `:desc` picks the highest `id`, `:asc` the lowest. An empty condition hash is allowed with `order:` — `find_by({}, order: :desc)` is the table's last row.
+`find_by` takes `order:` to decide which of several matches it returns: `:desc` picks the highest `id`, `:asc` the lowest. An empty condition hash is allowed with `order:` — `find_by({}, order: :desc)` is the table's last row.
 
 `fetch_many` is the multi-row read. Pass `nil` for the whole table.
 
@@ -91,7 +91,7 @@ The block runs between `BEGIN` and `COMMIT`; any exception rolls back and re-rai
 
 ## Raw SQL
 
-The model methods cover the common shapes; a join, a view, or an aggregate writes its own statement. Values enter by binding, never by string interpolation:
+The model methods cover the common queries; a join, a view, or an aggregate writes its own statement. Values enter by binding, never by string interpolation:
 
 ```ruby
 Post.find_by_sql("SELECT " + Post.projection + " FROM posts WHERE author_id = ?", [ author_id ])
