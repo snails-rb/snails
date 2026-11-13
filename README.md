@@ -8,9 +8,22 @@ The project is split into parts: the API-only, Rails-like runtime for [Spinel](h
 
 Status: 1.0 release candidate. The public API may still change before 1.0.
 
-## Scope
+## Why Snails
 
-This is not a Rails replacement. It is API-only: no views, no asset pipeline, no ActiveRecord or gem compatibility. Models are plain classes over SQL, and migrations are SQL files. See the [FAQ](manual/28-faq.md) and [Coming from Rails](manual/04-coming-from-rails.md) for the full boundary.
+Snails is a deliberately minimal take on Rails, not a Rails replacement. It is built for API apps in agent-assisted development, where coding agents do much of the implementation. It keeps the Rails conventions that give an API app a predictable shape — routes in `config/routes.rb`, controllers with actions, form objects for validation, mailers, jobs, and a conventional folder layout — because they are easy for a person to read and for a coding agent to follow. It leaves out the layers that assume a monolithic stack, a Ruby runtime, or a full ORM. The scope below follows from that choice; it is not a list of unfinished features.
+
+These are design bets, not universal rules. They assume tests and review stay in the loop; the framework's job is to keep the common path small enough to check. Rails remains the better fit for a team that wants a server-rendered monolith or the Ruby gem ecosystem.
+
+### What it leaves out, and why
+
+- **Views and the asset pipeline.** Rails' default frontend stack, Hotwire (Turbo and Stimulus), is part of the monolith Rails generates, shaped by Basecamp's product needs. Snails keeps the backend API-only so the frontend is a separate choice: it can live in the same repository or its own, and the JSON boundary is the contract. That gives up the integrated server-rendered workflow; in exchange, the backend does not dictate the frontend stack.
+- **Active Record.** An ORM is a good fit when a team wants associations, callbacks, and one object model over the database. Snails keeps the model layer smaller: a standard query surface for the common reads and writes, with parameterized values and generated column readers, plus raw SQL for the queries that need it. The point is not that agents cannot write SQL — they can — but that a small surface cuts repeated boilerplate and gives the common path a shape that is easier to review.
+- **Gem compatibility.** This is the clearest cost. The Ruby gem ecosystem assumes a Ruby runtime and a Bundler load path; a native binary has neither. The trade is a smaller dependency surface: when an app needs a small, well-understood behavior, writing it in the app can be cheaper than carrying a dependency that no longer fits the runtime. That is a bet with real costs — the app owns the code, its tests, and its security updates — and not every gem is replaceable.
+- **Migrations.** A migration is a SQL file, not a Ruby DSL. The schema change stays visible as SQL, which a reviewer can read directly, and the model stays a thin class over the table. `db/schema.sql` is generated from the migration files.
+
+### What this means for scope
+
+The boundary that follows: API-only, with no HTML views or asset pipeline; no Active Record associations, callbacks, or validations; no gem compatibility; models as plain classes over SQL; migrations as SQL files. If you need server-rendered pages or the Ruby gem ecosystem, another framework is the better fit. [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.
 
 ## Install
 

@@ -39,8 +39,12 @@ The same benchmark also runs one application scenario: a single-row primary-key 
 
 Figures are medians over three 15-second runs at 32 concurrent connections; launch and idle memory use five rounds, and the under-load memory figure comes from the three throughput runs. Absolute numbers belong to this hardware — the ratios are what transfer. The harness, the raw result files and the method are in [snails-benchmark](https://github.com/snails-rb/snails-benchmark), which is where these figures come from and where corrections land.
 
-## What it doesn't do
+## What it leaves out
 
-Snails is API-only, and that's deliberate: there is no view layer, so nothing renders HTML. If you need server-rendered pages, other tools do that better. [Coming from Rails](04-coming-from-rails.md) lays out exactly which habits carry over, and the [FAQ](28-faq.md) is honest about the rest.
+The boundary is wider than the view layer, and the omissions are design choices rather than a backlog.
+
+Rails' default frontend stack is part of the monolith Rails generates, shaped by Basecamp's product needs. Snails keeps the backend API-only so the frontend is a separate choice — in the same repository or its own — and the JSON boundary is the contract. There is no Active Record layer; the model layer is a small standard query surface over the table, with raw SQL for the queries that need it. There is no gem compatibility, because a native binary has no Ruby runtime or Bundler load path; the trade is a smaller dependency surface, with the app owning any behavior it writes itself.
+
+The same reasoning runs through all of them: Snails keeps the Rails conventions that make an API app legible and leaves out the layers that assume a monolithic app, a Ruby runtime, or a full ORM. If you need server-rendered pages or the Ruby gem ecosystem, another framework is the better fit. [Coming from Rails](04-coming-from-rails.md) lays out exactly which habits carry over, and the [FAQ](28-faq.md) is honest about the rest.
 
 Let's get started with the basics.
