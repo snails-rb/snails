@@ -8,11 +8,11 @@ The project is split into parts: the API-only, Rails-like runtime for [Spinel](h
 
 Status: 1.0 release candidate. The public API may still change before 1.0.
 
-## Why Snails
+## The Snails Design
 
 Snails keeps the Rails conventions that make an API app predictable — routes in `config/routes.rb`, controllers with actions, form objects for validation, mailers, jobs, and a conventional folder layout — and compiles your app, the framework, and the HTTP server into one native binary. The framework has a small surface: no view layer or asset pipeline, no Active Record, and no gem compatibility. Models are plain classes over SQL, migrations are SQL files, the CLI and server run without Ruby, and `bin/test` crosses the real HTTP boundary.
 
-The design choices and the purpose behind each are in [Why Snails](https://snails-rb.org/blog/why-snails/). [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.
+The design choices and the purpose behind each are in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.
 
 ## Install
 
