@@ -21,6 +21,11 @@ These are design bets, not universal rules. They assume tests and review stay in
 - **Gem compatibility.** This is the clearest cost. The Ruby gem ecosystem assumes a Ruby runtime and a Bundler load path; a native binary has neither. The trade is a smaller dependency surface: when an app needs a small, well-understood behavior, writing it in the app can be cheaper than carrying a dependency that no longer fits the runtime. That is a bet with real costs — the app owns the code, its tests, and its security updates — and not every gem is replaceable.
 - **Migrations.** A migration is a SQL file, not a Ruby DSL. The schema change stays visible as SQL, which a reviewer can read directly, and the model stays a thin class over the table. `db/schema.sql` is generated from the migration files.
 
+### How it is built and tested
+
+- **One native binary, no Ruby runtime.** The CLI is bash, and the app binary is produced by Spinel's AOT compiler; neither the CLI nor the server needs a Ruby runtime. The point is not to abandon Ruby's syntax — app code stays Ruby — but to keep the language's readability while removing the runtime's two biggest costs: the GVL and the deployment footprint. One process uses the available cores without a worker per core, and the app ships as one executable instead of a Ruby process plus a gem bundle.
+- **Integration tests against a real server.** `bin/test` builds the app, boots it on a spare port, and sends real HTTP requests; nothing mocks the framework out of the way. The bet is that a coding agent left to choose will often reach for stubs and mocks because they are cheaper to write. A harness that boots the real server makes the integration path the default, so a passing suite exercises the app and its HTTP boundary, not a set of mocks that stand in for them.
+
 ### What this means for scope
 
 The boundary that follows: API-only, with no HTML views or asset pipeline; no Active Record associations, callbacks, or validations; no gem compatibility; models as plain classes over SQL; migrations as SQL files. If you need server-rendered pages or the Ruby gem ecosystem, another framework is the better fit. [Coming from Rails](manual/04-coming-from-rails.md) maps the habits that carry over, and the [FAQ](manual/28-faq.md) answers the boundary questions.

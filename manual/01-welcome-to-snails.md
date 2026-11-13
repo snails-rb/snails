@@ -8,6 +8,8 @@ Ruby holds a GVL, so a single Ruby process runs only one thread of application c
 
 Snails compiles to native code and carries no GVL. One process runs request handlers on as many cores as the OS gives it, so throughput scales with cores without the memory scaling alongside it.
 
+Snails keeps Ruby as the language but removes the Ruby runtime from the CLI and the server. The CLI is bash, the app binary is produced by Spinel's AOT compiler, and neither needs Ruby at run time. That is the trade: Ruby's syntax stays because it is readable for people and agents, while the GVL and the runtime's deployment footprint go.
+
 That shows up in three numbers: requests per second per host, resident memory, and time from process start to serving.
 
 ## How it compares

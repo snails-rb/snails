@@ -2,6 +2,8 @@
 
 `bin/test` builds the app and runs your test harness against a real HTTP server — no mocks. The suite is a set of files under `harness/test/`, and one fresh server serves them.
 
+The harness runs against a real server on purpose. Stubs and mocks are cheaper to write, so a coding agent left to choose will often produce a suite that describes the system instead of exercising it. Booting the real server makes the integration path the default, so a passing suite crosses the HTTP boundary.
+
 ## Run everything
 
 ```text
