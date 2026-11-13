@@ -32,7 +32,8 @@ assignees: ""
 - OS and architecture:
 - Database adapter (sqlite or PostgreSQL):
 - Install method (curl installer, mise, or checkout):
+- `snails doctor` output (paste the check lines; add `--verbose` for toolchain issues):
 
-## Additional context
+## Additional context (optional)
 
 <!-- Logs, links, or anything that narrows the cause. Redact tokens, keys, and private data. -->
