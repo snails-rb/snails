@@ -1,15 +1,8 @@
-# Tep::BroadcastSubscription — one entry in the Tep::Broadcast registry: a
-# topic name plus its output, either the connection's
-# Tep::WebSocket::Driver for framed delivery or a bare fd for raw bytes.
+# Tep::BroadcastSubscription — one entry in the Tep::Broadcast registry: a topic,
+# an output fd, a delivery mode, and the driver for framed delivery.
 #
-# Writes go through the driver, not its fd number: a publish runs on whichever
-# thread committed the record, and between copying the entry and writing, the
-# connection can close and the kernel can hand its fd to the next accept. The
-# driver's write lock refuses once the owner has retired it. `fd` stays for the
-# raw-bytes mode and for `unsubscribe_fd`, called while the number is still
-# unique to the connection.
-#
-# Subscriptions are fd-local, so nothing here fans out across processes.
+# Writes go through the driver, never the fd number, because the connection may
+# close first and the kernel may reuse its fd for a new accept.
 module Tep
   class BroadcastSubscription
     attr_reader :topic   # String

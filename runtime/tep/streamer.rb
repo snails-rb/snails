@@ -1,10 +1,8 @@
-# Tep::Streamer — subclass and override #pump(out). The framework emits
-# chunked-encoding headers, calls pump with a Stream writer, then emits the
-# end-of-stream marker. Cooperative: pump runs to completion before the
-# connection moves on.
+# Tep::Streamer — chunked-response writer: subclass and override `pump(out)`,
+# where each `out.write` sends one chunk. `pump` runs to completion, so a stream
+# holds the connection until it finishes.
 #
-# spinel cannot pass blocks into the framework, so this is the
-# subclass-equivalent of a block-based streaming API.
+# This subclass API replaces blocks, which spinel cannot pass into the framework.
 module Tep
   class Streamer
     def pump(out)

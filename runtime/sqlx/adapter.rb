@@ -1,14 +1,7 @@
-# The adapter's own surface on `Sqlx`: literal building, the dialect name,
-# and the flat transaction.
-#
-# There is no connection object here — the adapter (`Sqlx::Database`,
-# chosen by the app's `config/database.rb`) owns the handle, so these
-# members answer directly off `Sqlx`. Statements are entry points
-# elsewhere: a SELECT goes through `Query#rows_by_sql`, a parameterized
-# write through `Query#write`.
-#
-# Kept apart from `base.rb`: the transaction uses begin/ensure, so it rides
-# on its own file.
+# Adapter surface on `Sqlx`: literal building, the dialect name, and the flat
+# transaction. The adapter (`Sqlx::Database`, chosen by the app's config/database.rb)
+# owns the connection handle, so these members answer from it directly. `Sqlx.quote`
+# builds an inline literal, not a bound value; pass request input to `Query#write`.
 module Sqlx
   # a full SQL literal, quotes included for strings. Callers assembling a
   # statement by hand splice this in. A value written this way is INLINE, not

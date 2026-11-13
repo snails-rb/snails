@@ -1,7 +1,7 @@
 # String — the text helpers.
 class String
-  # whitespace runs collapse to one space and the ends strip: the shape
-  # `<<~SQL.squish` produces. The scan is spelled out because a regex is not a
+  # whitespace runs collapse to one space and the ends strip, matching the
+  # output of `<<~SQL.squish`. The scan is written out because a regex is not a
   # form the compiler lowers.
   #
   # @return [String] this text with whitespace runs folded to one space and
@@ -52,10 +52,11 @@ class String
 
   # `"host_info"` → `"HostInfo"`, or `"hostInfo"` with `mode: :lower`:
   # underscore-separated words capitalized, a `/` read as a namespace separator
-  # (`"a/b"` → `"A::B"`). The shape JSON keys need when a payload is camelCase.
+  # (`"a/b"` → `"A::B"`). This is the form JSON keys need when a payload is
+  # camelCase.
   #
-  # @param mode [Symbol] `:upper` capitalizes the leading word, `:lower`
-  #   decamels it
+  # @param mode [Symbol] `:upper` capitalizes the leading word; `:lower` keeps
+  #   the leading word lowercase
   # @return [String] the camelCase form of this text
   # @raise [ArgumentError] mode is neither `:upper` nor `:lower`
   # @example

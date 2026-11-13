@@ -158,10 +158,10 @@ module Sqlx
     # it because the translation never varies by model (the table lives in the
     # caller's SELECT) — a hand-rolled private copy is where a nil condition
     # silently becomes `= ''` and stops matching `IS NULL` rows. An Array value
-    # is membership on the column (`IN (...)`), so a status-set filter rides the
+    # is membership on the column (`IN (...)`), so a status-set filter uses the
     # same conditions contract instead of escaping to raw SQL. An operator hash
     # value is a predicate bag on the column: a range comparison (`{ lt: cutoff
-    # }`) so a cutoff filter rides the same contract without a Range object
+    # }`) so a cutoff filter uses the same contract without a Range object
     # (which this runtime cannot build over a Time), and the null test (`{
     # is_not: nil }`) so "this column has a value" reads as the SQL it renders —
     # `col IS NOT NULL`, the has-value side of nil's `IS NULL`.
@@ -177,20 +177,20 @@ module Sqlx
     #   means equality on it, rendered through `Sqlx.quote` — values
     #   are data (they arrive from request params) and are never
     #   interpolated raw. Keys are code, not input, and are not
-    #   validated: an unknown column surfaces as a loud SQL error from
+    #   validated: an unknown column surfaces as a SQL error from
     #   the driver.
     # @return [String] the clause body — no `WHERE` keyword, ready
     #   to splice into the caller's SELECT
     # @raise [ArgumentError] on an empty hash — there is no clause
     #   to build, so no WHERE-less SELECT either; on an empty Array
     #   value — `IN ()` is not SQL, and an empty set deserves the
-    #   same loud treatment as an empty hash; on an Array carrying
+    #   same strict treatment as an empty hash; on an Array carrying
     #   nil — `IN (NULL, ...)` answers UNKNOWN for every row, so the
     #   null test must be a key of its own; on an Array carrying a
     #   Hash — `IN (...)` takes values, not predicates; on an
     #   operator hash that is empty (no predicate to build — the
     #   condition would vanish silently), names an operator outside
-    #   the whitelist (a typo must fail loud, not render a predicate
+    #   the whitelist (a typo must raise, not render a predicate
     #   nobody meant), carries a nil or structured comparison bound
     #   (`< NULL` never matches, a nested Hash would stringify into
     #   the comparison), or gives `is_not` a bound other than nil
@@ -252,7 +252,7 @@ module Sqlx
     # it builds them, so reserved words are safe; the condition keys stay
     # unquoted (code, not input — the `where_clause` rule). A model whose lookup
     # needs more (a default scope, a join) overrides this method; a forgotten
-    # declaration fails loud through the declaration stubs instead of quietly
+    # declaration raises through the declaration stubs instead of quietly
     # reading as a miss.
     #
     # The `order:` option decides which matching row arrives instead
@@ -275,7 +275,7 @@ module Sqlx
     #   means equality on it, bound through `?` — values are data (they
     #   arrive from request params) and never interpolated raw. Keys are
     #   code, not input, and core does not validate them: an unknown column
-    #   surfaces as a loud SQL error, never as nil — a typo'd key must not
+    #   surfaces as a SQL error, never as nil — a typo'd key must not
     #   read as a miss. An empty hash is allowed only together with
     #   `order:` (the table's first/last row as above).
     # @param order [Symbol, nil] `:desc` or `:asc` — the `id`
@@ -289,7 +289,7 @@ module Sqlx
     # @raise [ArgumentError] an empty conditions hash with no
     #   `order:` — there is no clause to build and no row question
     #   to ask; or an `order:` other than `:asc`/`:desc` (a typo
-    #   must fail loud, not silently pick a row); or the conditions
+    #   must raise, not silently pick a row); or the conditions
     #   value contract — an empty Array value or an Array carrying nil
     # @raise [Sqlx::CastError] a String value on a column declared in
     #   `integer_columns` is not a decimal integer
@@ -349,7 +349,7 @@ module Sqlx
     # method carries only its own conditions instead of hand-writing the same
     # `SELECT <projection> FROM <table> WHERE <clause>` the consumer models
     # repeated per reader — the assembly never varies by model, and the walk
-    # rides `find_by_sql`, so the cross-class typed `Array[<Model>]` contract
+    # uses `find_by_sql`, so the cross-class typed `Array[<Model>]` contract
     # holds at the call site.
     #
     # Unlike `find_by`'s `order:` (which picks one row among the
@@ -358,7 +358,7 @@ module Sqlx
     # whole table: "every row" is an explicit nil the caller writes,
     # never an empty hash — an empty hash is the shape a broken
     # condition builder leaves behind, so it raises instead of quietly
-    # widening the read to every row (the same rule `update_all!`·
+    # widening the read to every row (the same rule `update_all!` and
     # `delete_all!` keep).
     #
     # `limit:` and `offset:` bound the returned window at SQL. They are
@@ -374,8 +374,8 @@ module Sqlx
     #   means `IS NULL`, an operator hash carries comparisons and the
     #   null test (`{ is_not: nil }` → `IS NOT NULL`), an Array means
     #   `IN (...)` membership, anything else bound equality — keys
-    #   are code, not input, and an unknown column surfaces as a loud
-    #   SQL error from the driver). nil CONDITIONS (the argument
+    #   are code, not input, and an unknown column surfaces as an SQL
+    #   error from the driver). nil CONDITIONS (the argument
     #   itself) mean the whole table: no WHERE clause at all.
     # @param order [Symbol, nil] `:desc` or `:asc` — the `id` sort
     #   direction of the returned rows; nil leaves the order
@@ -392,7 +392,7 @@ module Sqlx
     # @raise [ArgumentError] an empty conditions hash — the whole
     #   table is spelled nil, so an empty hash means the condition
     #   builder broke; an `order:` other than `:asc`/`:desc` (a
-    #   typo must fail loud, not silently return unordered rows); a
+    #   typo must raise, not silently return unordered rows); a
     #   `limit:` that is not a positive Integer; an `offset:` that is
     #   not a non-negative Integer, or that arrives without `limit:` or
     #   `order:`; or the conditions value contract — an empty Array
@@ -548,8 +548,8 @@ module Sqlx
     # contracts are the same as `find_each`. Empty batches are never
     # yielded; the final shorter batch is. `in_batches` is not provided:
     # that name promises a Relation, and this runtime has none; the
-    # portable bulk form is this array plus `update_all!`·
-    # `delete_all!`·`upsert_all!`.
+    # portable bulk form is this array plus `update_all!`, `delete_all!`, and
+    # `upsert_all!`.
     #
     # @param conditions [Hash{Symbol => Object}, nil] the `fetch_many`
     #   conditions contract, unchanged; nil means the whole table and
@@ -624,7 +624,7 @@ module Sqlx
     # by declaration: every table this entry point serves has an `id` primary
     # key (a table without one does not use `find`), and a different key would
     # be its own declaration decision if a model ever needs it. Built on
-    # `find_by`, so the conditions contract (escaping, loud unknown columns) and
+    # `find_by`, so the conditions contract (escaping, unknown columns raise) and
     # the declaration pair come along — and the message names the table and the
     # id that missed, which is the diagnostic a 404 log needs.
     #
@@ -652,9 +652,9 @@ module Sqlx
     # with the same `SELECT COUNT(*) FROM <quoted table>` instead of a
     # hand-rolled prepare/step/finalize cursor. With no conditions it is the
     # whole table; with a conditions hash it is the matching rows — the same
-    # conditions contract `find_by`·`fetch_many`· `delete_all!` use (nil →
+    # conditions contract `find_by`, `fetch_many`, and `delete_all!` use (nil →
     # `IS NULL`, `{ is_not: nil }` → `IS NOT NULL`, an Array → `IN (...)`,
-    # anything else → equality, keys unvalidated and unknown columns fail loud
+    # anything else → equality, keys unvalidated and unknown columns raise
     # from the driver).
     #
     # An empty table answers 0: a count is a number, so there is no
@@ -727,7 +727,7 @@ module Sqlx
     # caller. This is a partial INSERT: exactly the columns the caller passed
     # plus the declared timestamps it left out, so a table without timestamp
     # columns needs no opt-out. Keys are code, not input, and are not validated:
-    # an unknown column surfaces as a loud SQL error from the driver. There are
+    # an unknown column surfaces as a SQL error from the driver. There are
     # no model validations to run — a schema constraint is the validation this
     # layer has, and it reaches the caller as an exception: a UNIQUE violation
     # raises `Sqlx::RecordNotUnique`, other constraint failures surface as the
@@ -787,11 +787,11 @@ module Sqlx
     # record. The class-level shape is a decision: this runtime's models write
     # through class-level SQL (there is no instance `save`), so the entry reads
     # next to `create!` rather than as an instance method. The re-read is also
-    # the loud half — an unknown id writes nothing (a 0-row UPDATE is silent)
+    # the strict side — an unknown id writes nothing (a 0-row UPDATE is silent)
     # and then `find` raises `RecordNotFound` instead of returning a record that
     # was never written. The declared `updated_at` fills itself when the caller
     # left it out; `created_at` is never touched. Same key rule as `create!`:
-    # code, not input, an unknown column surfaces as a loud SQL error.
+    # code, not input, an unknown column surfaces as a SQL error.
     #
     # @param id [Integer, String] the `id` of the row to rewrite —
     #   the same `id` column `find` looks up
@@ -858,12 +858,12 @@ module Sqlx
     #   null test (`{ is_not: nil }` → `IS NOT NULL`), an Array means
     #   `IN (...)` membership, a Hash means a comparison like
     #   `{ lt: cutoff }`, anything else bound equality — keys are
-    #   code, not input, and an unknown column surfaces as a loud
-    #   SQL error from the driver). nil CONDITIONS (the argument
+    #   code, not input, and an unknown column surfaces as an SQL
+    #   error from the driver). nil CONDITIONS (the argument
     #   itself) mean the whole table: no WHERE clause at all.
     # @param attrs [Hash{Symbol => Object}] column => value, the
     #   `update!` binding contract for the SET half: keys are code
-    #   (an unknown column is a loud SQL error), values bind through
+    #   (an unknown column is a SQL error), values bind through
     #   `?` (nil binds NULL, a Time binds in the runtime's stored
     #   form)
     # @return [Integer] the number of rows changed — 0 when no row
@@ -914,7 +914,7 @@ module Sqlx
     # and the table this entry exists for has no primary key to fall
     # back to — the caller names the columns that define the same
     # row. A conflict on any OTHER unique index is not this
-    # statement's business and stays a loud constraint, so a typo in
+    # statement's business and stays a strict constraint, so a typo in
     # the target cannot quietly swallow the wrong rows.
     #
     # The updated columns are the row keys minus `unique_by` — the
@@ -1033,8 +1033,8 @@ module Sqlx
     #   means `IS NULL`, an operator hash carries comparisons and the
     #   null test (`{ is_not: nil }` → `IS NOT NULL`), an Array means
     #   `IN (...)` membership, anything else bound equality — keys are
-    #   code, not input, and an unknown column surfaces as a loud SQL
-    #   error from the driver). nil CONDITIONS (the argument itself)
+    #   code, not input, and an unknown column surfaces as an SQL error
+    #   from the driver). nil CONDITIONS (the argument itself)
     #   mean the whole table: no WHERE clause at all.
     # @return [Integer] the number of rows deleted — 0 when no row
     #   matched

@@ -1,9 +1,7 @@
 # Path router: matches (method, path) against a typed route table and resolves
-# to (controller, action, path params).
-#
-# Route rows are typed `Route` instances rather than `Hash[Symbol, untyped]`,
-# so each per-field type is statically known. Path captures land as
-# `Hash[String, String]`: URL segments are always strings.
+# to (controller, action, path params). Route rows are typed `Route` instances
+# rather than Hash rows so each field's type is statically known, and path
+# captures are `Hash[String, String]` because URL segments are always strings.
 
 module ActionDispatch
   module Router

@@ -1,35 +1,10 @@
 # frozen_string_literal: true
 
-# the one write path: every call writes a local line and, when a transport is
-# configured, hands the same event over as a structured
-# `Snails::Logger::Record`. The line is for a human reading a terminal; the
-# record is the contract a remote destination or a JSON sink consumes.
+# The one write path: every call writes a local line and, when a transport is
+# configured, hands the same event over as a structured `Logger::Record`.
 #
-# Every setting an app may want to change is a slot it sets once in
-# `config/environment.rb`:
-#
-#   Snails.logger.level           = :info
-#   Snails.logger.output          = $stdout
-#   Snails.logger.formatter       = MyFormatter.new
-#   Snails.logger.record_formatter = MyRecordFormatter.new
-#   Snails.logger.transport       = MyTransport.new
-#   Snails.logger.host_name       = "api-1"
-#   Snails.logger.progname        = "api"
-#
-# The five level methods take an optional `event:` name with `fields:` and
-# `exception:`. A call with only a message is a plain line rendered by
-# `formatter` plus an `app.log` record; a call with `event:` is a named
-# record rendered by `record_formatter`. Both reach the transport, so the
-# formatter choice never decides whether something is delivered. The
-# external hand-off lives in `Snails::Logger::Delivery`; this class owns the
-# local line and the one-line transport-failure report. A server process
-# calls `after_fork` after any prefork and `register_flush` before the loops
-# start; the scheduler then calls `flush` once per second.
-#
-# The defaults keep a development server verbose and a deployed one
-# quiet: `debug` is written only in development, every other level in
-# every mode. There is no level environment variable — the mode comes
-# from SNAILS_ENV and the rest is the app's environment file.
+# A server process calls `after_fork` after any prefork and `register_flush` before
+# its loops start; the level defaults to `:debug` in development, `:info` elsewhere.
 module Snails
   # the process-wide logger. Memoized so the slots set in config/environment.rb
   # land on the same object every call writes through.
@@ -518,11 +493,11 @@ module Snails
       fields
     end
 
-    # The request id rides in the message rather than in the formatter: a
-    # replacement formatter (a JSON line, say) receives the same tag
-    # without implementing the request context itself. It is spelled as a
-    # key=value field so a request line underneath it stays parseable as
-    # one `request_id=… key=value …` record.
+    # The request id is included in the message rather than in the formatter:
+    # a replacement formatter (a JSON line, say) receives the same tag without
+    # implementing the request context itself. It is written as a key=value
+    # field so a request line underneath it stays parseable as one
+    # `request_id=… key=value …` record.
     def tagged_message(message)
       id = Context.request_id
       return message.to_s if id.nil? || id.empty?

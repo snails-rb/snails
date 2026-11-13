@@ -1,17 +1,10 @@
 # frozen_string_literal: true
 
-# The runtime encoder behind inline `render json: <expr>`: boot rewrites that to
-# `render(ActionController::JsonRender.encode(v), content_type: "application/json")`.
-#
-# `as_json` runs first (a model's serialization hook), then a structural walk
-# that reduces values to JSON primitives; the encoder writes its own JSON text
-# rather than calling `JSON.generate`. Time renders through `to_fs(:iso8601)`
-# — millisecond precision plus the zone offset, the JSON spelling this runtime
-# fixes as its format contract.
-#
-# A value the compiler can type precisely is emitted as already-encoded text and
-# never reaches this walk; a Hash literal, an untyped value, or an `as_json`
-# outside those shapes is served here.
+# The runtime encoder behind inline `render json: <expr>`, which boot rewrites
+# to `JsonRender.encode(v)` with the JSON content type. It runs `as_json`
+# first, then walks the value and writes JSON text itself rather than calling
+# `JSON.generate`. Time renders through `to_fs(:iso8601)` — millisecond
+# precision plus the zone offset — which is this runtime's format contract.
 module ActionController
   module JsonRender
     # the JSON text behind `render json:`: `as_json` first, then a structural

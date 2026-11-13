@@ -3,7 +3,7 @@ module Sqlx
   # The validated declaration behind `Sqlx::Base.enum` — a plain value
   # object: no method generation (spinel has no metaprogramming for it), so
   # predicates stay literal model source and writers arrive as a bound
-  # object. It owns the mapping's single source, the loud edges around it,
+  # object. It owns the mapping's single source, the strict edges around it,
   # and the factory for its column-bound writer.
   class Enum
     # validates the whole mapping at construction so a sound declaration is the
@@ -33,9 +33,9 @@ module Sqlx
       end
     end
 
-    # the stored value → label reader, the read half of the declaration. Answers
-    # nil for a value no label names: an unrecognized raw is a data-shape
-    # question and does not raise.
+    # Reads a stored value back to its label. Returns nil for a value that no
+    # label names: an unrecognized raw value is a data question and does not
+    # raise.
     #
     # @param value [Integer] the slot read from the column
     # @return [String?] the label, or nil when no entry claims the
@@ -52,12 +52,12 @@ module Sqlx
       nil
     end
 
-    # the predicate half: answers whether a stored slot holds the given label's
-    # value, for hand-written enum predicates. The label half is strict like
-    # `value`: a name the declaration does not carry raises, so a renamed or
-    # removed entry surfaces at the first predicate call instead of the
-    # predicate answering false forever. An unknown raw answers false — `label`
-    # stays the reader for data-shape questions.
+    # Tests whether a stored value matches the given label's value, for
+    # hand-written enum predicates. The label lookup is as strict as `value`:
+    # a name the declaration does not carry raises, so a renamed or removed
+    # entry surfaces at the first predicate call instead of the predicate
+    # returning false forever. An unknown raw value returns false; `label`
+    # stays the reader for data questions.
     #
     # @param raw [Integer] the slot read from the column
     # @param label [Symbol, String] the declaration label to compare —
@@ -72,11 +72,11 @@ module Sqlx
       value(label) == raw
     end
 
-    # the label → stored value write half: the Integer an INSERT or UPDATE
-    # stores. An unknown name raises — the enum type's contract, not a `to_i`
-    # fallback that would silently store 0 — and the standard bang writer reads
-    # its slot through this, so a redeclared or renumbered enum cannot leave a
-    # writer pinned to a stale literal.
+    # Converts a label to the Integer an INSERT or UPDATE stores. An unknown
+    # name raises — the enum type's contract, not a `to_i` fallback that would
+    # silently store 0. The standard bang writer reads its slot through this,
+    # so a redeclared or renumbered enum cannot leave a writer pinned to a stale
+    # literal.
     #
     # @param text [Symbol, String] the label, or its stored-value
     #   spelling — both read the same slot
@@ -104,7 +104,7 @@ module Sqlx
     # invents its own helper name.
     #
     # @param table [String] the table name — code, not input, and not
-    #   validated: an unknown table surfaces as a loud SQL error from
+    #   validated: an unknown table surfaces as a SQL error from
     #   the driver, the rule `where_clause` applies to its keys
     # @param column [String] the column name — the same code-not-input
     #   rule as `table`
@@ -141,7 +141,7 @@ module Sqlx
     # writer pinned to a stale slot. A row the id does not match is a silent
     # no-op, the way the per-model helpers this replaces behaved — the bang
     # promises the write attempt, not that a row existed. The target table
-    # carries `updated_at`; one without it fails loud from the driver. The write
+    # carries `updated_at`; one without it raises from the driver. The write
     # entry answers the rows it returned; this writer answers nil — the bang
     # promises the attempt, and a non-RETURNING UPDATE returns no row.
     #

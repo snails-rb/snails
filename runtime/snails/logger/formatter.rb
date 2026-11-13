@@ -1,19 +1,10 @@
 # frozen_string_literal: true
 
-# the default log line: severity letter, fixed-width timestamp, process id,
-# right-aligned level, progname, and the message.
+# The default log line: severity letter, fixed-width timestamp, pid, level,
+# progname, and message.
 #
-# The timestamp is fixed width in one zone, so a reader that sorts the
-# lines sorts them chronologically. The pid separates prefork workers
-# that share one log stream. The request id is not rendered here — the
-# logger puts it in the message, so a replacement formatter receives the
-# tag without reading the request context.
-#
-# A formatter answers `call(severity, time, progname, message)` and
-# returns the full line including its newline; apps may subclass this one
-# and extend `super`. The logger calls a formatter outside its write lock,
-# so a subclass may be called from several request threads at once — the
-# same rule Ruby's standard Logger follows.
+# The fixed width keeps lines sortable by time; the pid separates prefork
+# workers. `call` returns the full line plus newline and may be called concurrently.
 module Snails
   class Logger
     class Formatter

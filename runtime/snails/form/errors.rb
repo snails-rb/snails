@@ -42,7 +42,7 @@ module Snails
       # @return [void]
       # @raise [ArgumentError] a non-Symbol attribute, a name that is
       #   not a declared field, or a Symbol key nothing can resolve —
-      #   an error that would render empty must fail loud here
+      #   an error that would render empty must raise here
       # @example
       #   errors.add(:email, :taken)
       #   errors.add(:password, :too_short, count: 8)
@@ -99,7 +99,7 @@ module Snails
 
       # the raw (unprefixed) messages recorded for one attribute. A non-Symbol
       # name is a caller bug: it would answer an empty list for a field that
-      # does have messages, so the entry guard is loud here as well.
+      # does have messages, so the entry guard raises here as well.
       #
       # @param attribute [Symbol] the attribute
       # @return [Array[String]]

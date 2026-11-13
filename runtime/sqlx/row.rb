@@ -30,11 +30,11 @@ module Sqlx
       @attrs = attrs
     end
 
-    # the read seam of the hash-backed accessor adapter: the model's literal
-    # accessor loop routes every column read through this one method, so the
-    # storage behind the readers is core-owned and free to change without
-    # touching models. A missing key answers nil — an unselected column and a
-    # NULL value read the same way.
+    # the single read method behind the hash-backed accessors: the model's
+    # accessor loop sends every column read through it, so the storage behind
+    # the readers is core-owned and can change without touching models. A
+    # missing key returns nil; an unselected column and a NULL value read the
+    # same way.
     #
     # @param name [Symbol, String] the column name (String accepted —
     #   the accessor loop iterates member names as written)

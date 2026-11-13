@@ -1,14 +1,8 @@
-# The FFI bindings live under Tep (Tep::Sock, Tep::Crypto) — the nested
-# module form the pinned spinel toolchain compiles.
+# FFI bindings for Tep (Tep::Sock, Tep::Crypto) in the nested module form the
+# pinned spinel toolchain compiles. Socket and process calls delegate to spinel's
+# auto-linked `sp_net`; there is no vendored C shim.
 #
-# Transport: the socket/process/IO layer rides spinel's maintained,
-# auto-linked `sp_net` — there is no vendored C shim. The socket + process
-# ops are `sp_net_*`, called through thin `sphttp_*` delegators so call
-# sites stay unchanged; everything that is not a raw socket op — the
-# monotonic clock, body drain, sendfile, filesize, and chunked write — is
-# implemented in Ruby below. The HTTP request read (server_threaded.rb /
-# server_scheduled.rb) and the WS frame recv (websocket/connection.rb) read
-# via `sp_net_recv_some(:binstr)` directly. No `ffi_cflags` is needed.
+# The recv bindings use `:binstr`, so a NUL byte does not truncate the result.
 module Tep
   module Sock
     # ── Socket + process layer: sp_net (auto-linked) ──

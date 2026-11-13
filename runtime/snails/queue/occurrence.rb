@@ -1,15 +1,8 @@
-# The recurring-occurrence ledger (`snails_queue_occurrences`) — one
-# row per (job_name, interval start). `ActiveJob::DatabaseQueue`'s
-# `enqueue_once` writes the ledger and the queue row in one
-# transaction: the ledger's unique key is what makes a recurring beat
-# queue once when several processes fire it, and a collision is the
-# answer "another process already queued this occurrence". A one-off
-# `enqueue_at` never touches this table — one-off schedules carry no
-# deduplication.
+# The recurring-occurrence ledger (`snails_queue_occurrences`) has one row per
+# (job_name, interval start); its unique key ensures a recurring beat is
+# enqueued once when several processes fire it.
 #
-# Columns are declared here (core code — the app generator scans the
-# app tree only); the DDL under `scaffold/queue/` is the other half,
-# pinned by the harness contract test.
+# `enqueue_once` writes both rows in one transaction; `enqueue_at` writes no ledger.
 module Snails
   module Queue
     class Occurrence < Sqlx::Base

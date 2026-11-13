@@ -1,23 +1,15 @@
-# The storage boundary for a schema-less json/jsonb column: the column
-# holds serialized TEXT, and this codec is the only place that knows the
-# text <-> value rule. One invariant ties the two directions — `decode`
-# reads back what `encode` wrote, so a value passing through the codec is
-# never silently reshaped.
-#
-# Strictness is deliberate: the json gem falls back to `to_s` for an object
-# it does not know, which would store a Time in a json column as text with
-# no signal, and the gem's `strict: true` guard is accepted and ignored by
-# the bundled native json package — so `encodable?` walks the value itself.
-# Both directions raise `ArgumentError`, the portable class this runtime
-# already uses for a bad argument.
+# Codec for a schema-less json/jsonb column that stores serialized TEXT. `decode`
+# reads back what `encode` wrote, so a value passing through is never reshaped.
+# `encodable?` rejects values JSON cannot represent — Time, non-finite Float, or any
+# object the json gem would stringify — because the gem's `strict: true` is accepted
+# and ignored by the bundled native package.
 module Sqlx
   module Json
     # whether JSON can represent this value on its own terms: nil, true/false, a
     # String, a finite number, or a nested Array/Hash of those (Hash keys may be
     # Symbols; they read back as Strings). This is the predicate `encode`
-    # enforces, exposed because it is the precondition a caller holding
-    # untrusted input asks BEFORE putting the value in a column — the
-    # `label?`-beside-`label` shape.
+    # enforces, exposed so a caller holding untrusted input can check it before
+    # storing the value — the same pairing as `label?` beside `label`.
     #
     # @param value [Object] the value headed for the column
     # @return [Boolean] true when `encode` accepts it; false for a Time,

@@ -1,18 +1,8 @@
-# Tep::Broadcast — in-process fan-out.
+# Tep::Broadcast — process-local fan-out: `publish` writes to every subscriber
+# on a topic, raw bytes for mode 0 or text frames for WebSocket.
 #
-# A registry of (topic, fd, mode) subscriptions on the Tep::APP singleton, and
-# `publish`, which writes a payload to every fd subscribed to a topic. WebSocket
-# subscribers get a framed message; mode 0 gets raw bytes for SSE or log fan-out.
-#
-# Connections are green threads, so subscribe, unsubscribe, and publish race on
-# the registry: every read and write takes `Tep::APP.broadcast_lock`, and
-# `publish` copies the matches out under the lock and writes after dropping it,
-# because a write to a full buffer parks the thread.
-#
-# A WebSocket subscriber is written through its Driver, never by fd number: the
-# connection can close between the copy and the write, and its number can
-# already belong to the next accept. Delivery is process-local; there is no
-# cross-worker backend.
+# Every registry read and write takes `broadcast_lock`, and `publish` releases
+# it before writing, because a write to a full buffer parks the thread.
 module Tep
   module Broadcast
     # register `fd` for raw-bytes delivery on `topic`.

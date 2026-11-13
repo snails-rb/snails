@@ -68,7 +68,7 @@ class Hash
   # `outer[inner]`, and a scalar Array repeats `key[]`. Pairs sort at each
   # level.
   #
-  # Not modeled, and loud when reached: an Array carrying a Hash or an
+  # Not modeled, and raises when reached: an Array carrying a Hash or an
   # Array element, and a top-level Array (`Array#to_query`). A non-ASCII
   # value passes through unencoded — see `QUERY_ESCAPES`.
   #

@@ -1,15 +1,8 @@
-# The queue row model (`snails_queue_jobs`) — one row per job, and a
-# finished row (`succeeded`/`failed`) is that run's history. Row
-# transitions (claim, finish writes, orphan release, retention
-# delete) live here; the adapter (`ActiveJob::DatabaseQueue`) composes
-# its protocol over them and owns no table knowledge.
+# The queue row model (`snails_queue_jobs`): one row per job, and a finished
+# row is that run's history. Row transitions live here, not in the adapter.
 #
-# The column declarations are written out, not generated: this is core
-# code, and the generator that feeds app models (`gen-model-columns`)
-# scans the app tree only. The queue DDL under `scaffold/queue/` is the
-# other half of the declaration — the harness contract test pins the
-# template and these declarations together, so a schema change cannot
-# drift from the model.
+# Column declarations are written out, and the DDL under `scaffold/queue/` is
+# pinned to them by the harness contract test.
 module Snails
   module Queue
     class Job < Sqlx::Base

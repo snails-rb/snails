@@ -1,19 +1,8 @@
-# The DB-backed queue adapter — the store-backed half of the adapter
-# seam (`ActiveJob.queue_adapter = ActiveJob::DatabaseQueue`). A job
-# travels as a row in `snails_queue_jobs` (one row per job; a finished
-# row is that run's history), so queued work survives a restart and is
-# readable from any process holding the same database. Row transitions
-# belong to the table models — `Snails::Queue::Job` (queue rows) and
-# `Snails::Queue::Occurrence` (the recurring-occurrence ledger); this
-# class composes the adapter protocol (drain interval, batch size, orphan age)
-# over them.
+# The DB-backed queue adapter: jobs and occurrences travel as rows in the
+# queue tables, so queued work survives a restart and every process sees it.
 #
-# A drain resolves the stored name back to a class (`Object.const_get`)
-# and runs its class-side `perform`, so a stored name must be a
-# constant path. Terminal-row retention is deliberately outside the
-# adapter: `Snails::Queue::PruneJob` owns it and the app puts it on the
-# clock — the `generate job_queue` output prints the registration line
-# commented out, so retention is opt-in per app.
+# Row transitions belong to `Snails::Queue::Job`; retention is an opt-in
+# `Snails::Queue::PruneJob`.
 
 module ActiveJob
   class DatabaseQueue

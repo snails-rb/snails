@@ -1,11 +1,8 @@
 # Object — the blank-value predicates, over every receiver.
-#
 # One generic method answers for every receiver, so `x.blank?` cannot drift
-# from `y.blank?` by the receiver's class.
-#
-# Reopening Object relies on the pinned toolchain keeping dynamic
-# `Object.const_get` intact (a store-backed job adapter resolves stored names
-# that way; upstream 463242126 carries the fix).
+# from `y.blank?` by receiver class. Reopening Object relies on the pinned
+# toolchain keeping dynamic `Object.const_get` intact; a store-backed job
+# adapter resolves stored names that way.
 class Object
   # the generic emptiness predicate: nil, false, an empty Array/Hash, and a
   # whitespace-only String are blank. Every other value is present: `0` and

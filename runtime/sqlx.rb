@@ -1,10 +1,7 @@
-# The raw-SQL standard — not an ORM: no callbacks, no validations, no
-# relation or condition builders. The caller writes the SQL; the model
-# maps rows. This module owns the whole surface: the base apps subclass,
-# the query and row layers, the error interface, and the adapter helpers
-# (literals, dialect name, transaction).
+# The raw-SQL layer — not an ORM: no callbacks, validations, relations, or
+# condition builders. The caller writes the SQL; the model maps rows.
 #
-# Load order: everything `Base` extends or includes must be defined first;
+# Load order: everything `Base` extends or includes loads first, and
 # `adapter.rb` reopens `Base` with `.transaction`, so it loads last.
 require_relative "sqlx/query"
 require_relative "sqlx/model"

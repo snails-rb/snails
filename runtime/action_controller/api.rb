@@ -13,10 +13,10 @@ module ActionController
   JSON_CONTENT_TYPE = "application/json; charset=utf-8"
 
   # What `json:` holds when the caller passed no `json:` keyword. Ruby cannot
-  # express "keyword omitted", so absence rides a dedicated object rather
-  # than nil: `render json: nil` must still encode to `null`, while a bare
-  # `render()` must fail loudly. Nothing a caller can pass equals it, so no
-  # payload's `==` hijacks the test.
+  # express "keyword omitted", so an omitted keyword is represented by a
+  # dedicated object rather than nil: `render json: nil` must still encode to
+  # `null`, while a bare `render()` must raise. Nothing a caller can pass
+  # equals it, so no payload's `==` hijacks the test.
   JSON_NOT_GIVEN = Object.new
 
   # The controller base class: per-request state (params) and response state
@@ -30,7 +30,8 @@ module ActionController
     # `@_params`, outside the app-subclass namespace: an app-side `@params` is a
     # mistake, not a second handle on request state. The scaffold contract
     # (`verify-scaffold`) rejects `@params` in app code, and reading through the
-    # accessor lets the value change shape later without touching call sites.
+    # accessor lets the value change representation later without touching call
+    # sites.
     #
     # The values are the request's scalars, arrays, hashes, and uploaded
     # files; a key carried without a value is nil. The tree is a mutable
@@ -71,9 +72,9 @@ module ActionController
     attr_reader   :status, :body, :location, :content_type
     # Cache-Control as two typed readers rather than one mixed Hash: an
     # Integer and a boolean in one container leaves every subscript with a
-    # union type for the compiler to infer. The test harness re-assembles
-    # the Hash shape (`ActionResponse#cache_control`), the only reader that
-    # wants the subscript spelling.
+    # union type for the compiler to infer. The test harness reassembles the
+    # Hash (`ActionResponse#cache_control`), the only reader that wants
+    # subscript access.
     attr_reader   :cache_control_max_age, :cache_control_public
 
     def initialize
@@ -198,7 +199,7 @@ module ActionController
     # empty 200 says "success with a body" while carrying neither — a failure
     # class that slips past any `:success` assertion. 204 is the definite answer
     # for "done, nothing to return" (DELETE acknowledgements and other
-    # fire-and-forget writes are the common shape).
+    # fire-and-forget writes are the common case).
     #
     # `performed?` is the gate on purpose: a response already produced —
     # by the action body, or by a before-filter that halted the chain —
@@ -222,7 +223,7 @@ module ActionController
     # alongside the rendered body — the
     # `render :show, status: :created, location: @article` idiom for POST 201
     # responses. Distinct from redirect_to (which uses a 3xx status); main.rb
-    # dispatches on status, not on @location nil-ness.
+    # dispatches on status, not on whether @location is set.
     #
     # The `json:` keyword is the payload form: `render json: value`
     # encodes the value with ActionController::JsonRender and answers
@@ -243,7 +244,7 @@ module ActionController
     # @param location [String, nil] sets @location for the Location header
     # @param json [Object, nil] the payload to encode as the JSON response body
     # @return [void]
-    # @raise [ArgumentError] when neither or both of body/json: is given
+    # @raise [ArgumentError] when neither or both of `body` and `json:` are given
     # @example
     #   render("denied", status: :unauthorized)
     # @example
@@ -298,9 +299,10 @@ module ActionController
       @content_type = content_type unless content_type.nil?
     end
 
-    # the surface app actions write headers through
+    # the hash where an action adds a response header
     # (`response.headers["Expires"] = ...`). The controller is its own buffered
-    # response, so `response` returns self and `headers` the extra-header hash.
+    # response, so `response` returns self and `headers` returns the
+    # extra-header hash.
     # Those headers are buffered but not sent yet; they tune caching, not
     # content.
     #
@@ -311,7 +313,7 @@ module ActionController
 
     # ---- conditional GET: always stale ------------------------------
     #
-    # `fresh_when` / `stale?` answer "stale, render it". Neither half of the
+    # `fresh_when` / `stale?` answer "stale, render it". Neither side of the
     # 304 comparison exists here: this controller has no request object (only
     # `@request_format`), so there is nothing to read `If-None-Match` /
     # `If-Modified-Since` from, and the extra-header hash above is buffered
@@ -319,7 +321,7 @@ module ActionController
     # rendering is semantically correct for every request — it just never
     # earns the 304, so the cost is bandwidth, not behavior.
     #
-    # One shape per method (`fresh_when(subject)`, `stale?(etag:)`), each
+    # One form per method (`fresh_when(subject)`, `stale?(etag:)`), each
     # added when a call site asks, rather than one method with a union
     # parameter the compiler cannot narrow.
 
@@ -382,7 +384,7 @@ module ActionController
       @performed = true
     end
 
-    # a status to its HTTP integer code. Both forms are accepted: a Symbol
+    # Maps a status to its HTTP integer code. Both forms are accepted: a Symbol
     # resolves through Snails::Utils::SYMBOL_TO_STATUS_CODE, and an Integer is
     # used as given within 100..599. Anything else raises — a value the caller
     # mistyped (`status: 2000`, `status: :okay`) must not fall through to the
@@ -418,7 +420,7 @@ module ActionController
     # only/except gate — true when the current action matches. `only:`
     # limits the filter to the listed actions; `except:` excludes
     # them. Without an action context, a conditional filter raises (the
-    # loud contract — a silent skip would hide a mis-configured guard).
+    # strict contract — a silent skip would hide a misconfigured guard).
     # Internal to run_before_filters — not part of the public surface.
     def filter_applies?(only_list, except_list)
       if @action_name.nil?

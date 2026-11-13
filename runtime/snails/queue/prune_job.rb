@@ -1,12 +1,8 @@
-# The queue retention job — deletes finished queue rows and ledger
-# occurrences once they pass the retention window, in bounded batches
-# so a large backlog never becomes one long write. Retention is a
-# policy call, so this job ships OFF the clock: core never registers
-# it, and an app opts in with its own `ActiveJob.recurring` line in
-# `config/environment.rb` (the `generate job_queue` output prints that
-# line commented out). An app that keeps history longer reopens this
-# class and replaces `RETENTION`. Without it finished rows accumulate —
-# each one is still the run's history.
+# The queue retention job: delete finished queue rows and ledger occurrences
+# past the retention window, in bounded batches so a backlog stays short.
+#
+# Retention is a policy call, so core never schedules this job; an app opts in
+# with its own `ActiveJob.recurring` line and may replace `RETENTION`.
 module Snails
   module Queue
     class PruneJob < ActiveJob::Base

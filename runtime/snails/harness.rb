@@ -1,12 +1,8 @@
-# Consumer harness library — the app-agnostic test framework a snails
-# app's harness target uses: a real-HTTP client (Response/Harness),
-# assertions (Snails::Harness::IntegrationTest), per-case DB isolation,
-# and an explicit case runner (HarnessRunner).
+# The app-agnostic test harness: a real-HTTP client, assertions, per-case DB
+# isolation, and an explicit case runner.
 #
-# Core-owned, so every app shares one copy. Off the app boot chain: the
-# harness target requires it explicitly, so the server binary never
-# compiles it. DB fixtures, record accessors, seeds, and contract replay
-# belong to the app.
+# It stays off the app boot chain, so the server binary never compiles it;
+# fixtures, record accessors, and seeds belong to the app.
 require "net/http"
 require "uri"
 require "json"
@@ -310,8 +306,8 @@ module Snails
         raise "assert_includes: #{object.inspect} not included in #{collection.inspect}"
       end
 
-      # pass when the value is truthy; the optional message rides on the failure
-      # line.
+      # pass when the value is truthy; the optional message is added to the
+      # failure line.
       #
       # @param value [Object] the truthy value under test
       # @param message [String, nil] extra context printed on failure

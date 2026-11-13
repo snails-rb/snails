@@ -1,17 +1,8 @@
-# Request-parameter builder: a query string or an urlencoded body into the
-# nested params a controller reads.
-#
-# A port of actionpack's `QueryParser.each_pair` (split and decode) and
-# `ParamBuilder#store_nested_param` (nest). The nesting rules are the contract:
-# arrays (`a[]`), hashes to any depth (`a[b][c]`), hashes in arrays (`a[][b]`),
-# several resources in one request, and a key with no `=` as nil.
-#
-# The builder is exercised against 2,755 query strings (nil where a value
-# would otherwise raise).
-#
-# Errors are a nil return, not a raise: a malformed %-escape, invalid UTF-8, a
-# nesting deeper than 100, or a name used as both an Array and a Hash. The
-# dispatcher answers 400.
+# Request-parameter builder: a query string or urlencoded body into the nested
+# params a controller reads. The nesting rules are the contract: arrays
+# (`a[]`), hashes to any depth (`a[b][c]`), hashes in arrays (`a[][b]`), a key
+# with no `=` as nil. Errors return nil rather than raising; the dispatcher
+# answers 400 for a nil.
 module ActionDispatch
   module ParamBuilder
     DEPTH_LIMIT = 100

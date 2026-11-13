@@ -1,9 +1,8 @@
-# Tep::App — the per-process singleton holding the fan-out registries the
-# connection threads share. Requests reach it through `dispatch`, which
-# leases one pooled DB connection and delegates to `Snails::Main.dispatch`.
+# Tep::App — the per-process singleton holding the fan-out registries and
+# scheduler state shared by connection threads. `dispatch` leases a pooled DB
+# connection and calls `Snails::Main.dispatch`.
 #
-# Connections are green threads (Tep::Server::Threaded), so each registry
-# here has a lock and every reader and writer takes it (tep/broadcast.rb).
+# Broadcast registry reads and writes all take `broadcast_lock`.
 module Tep
   class App
     # the Tep::Broadcast registry: each entry pairs a topic with an output fd
