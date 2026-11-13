@@ -36,11 +36,19 @@ Set `SNALS_REV` in `pins.toml` back to the version you came from, restore the ma
 
 ### Can I use Rails gems?
 
-No. Your app and the framework compile into one native binary; a gem that expects a Ruby runtime, a Bundler load path, or a native extension has no place in that graph. `spin.toml` declares the build needs, and the runtime's helpers are listed in [Ruby Helpers](19-ruby-helpers.md).
+No. Your app and the framework compile into one native binary; a gem that expects a Ruby runtime, a Bundler load path, or a native extension has no place in that graph. `spin.toml` declares the build needs, and the runtime's helpers are listed in [Ruby Helpers](19-ruby-helpers.md). The framework provides the helpers an API app needs; a behavior outside that set belongs in the app.
+
+### Why is there no Active Record?
+
+Active Record is a good fit when a team wants associations, callbacks, and one object model over the database. Snails keeps the model layer small: a standard query surface for the common reads and writes, plus raw SQL for the queries that need it. That keeps the common path consistent and the SQL visible. The surface keeps values parameterized, and [Database and Models](09-database-and-models.md) covers the API. See [The Snails Design](https://snails-rb.org/blog/the-snails-design/) for the design.
+
+### Why are migrations SQL files?
+
+A schema change is a SQL statement. Keeping it as a SQL file makes the change readable and reviewable, and a coding agent can write it directly; `snails migrate dump` generates `db/schema.sql` from the files, and `snails migrate verify` checks the dump against a replay (see [Migrations](12-migrations.md)).
 
 ### Does Snails render HTML?
 
-No. There is no view layer; every controller answers JSON, a redirect, or a status. If you need server-rendered pages, another framework is a better fit.
+No. There is no view layer or asset pipeline; every controller answers JSON, a redirect, or a status. The frontend is a separate app, in the same repository or its own, not a layer inside this binary.
 
 ### How do I run one test file?
 
