@@ -334,7 +334,7 @@ if ((${#gen_files[@]})); then
     stem="${path##*/}"
     stem="${stem%.rb}"
     if list_has "$REQUIRED" "$stem" && [[ " $CORE " == *" $stem "* ]] && ((has_begin == 0)); then
-      die 2 "$rel: no marker — a $BEGIN_MARK region must own the require list"
+      die 2 "$rel: missing the generator markers \"$BEGIN_MARK\" and \"$END_MARK\" — restore the pair, or delete the file and rerun snails sync"
     fi
     if ((has_begin == 0)); then
       continue
@@ -360,7 +360,7 @@ if ((${#gen_files[@]})); then
     done <"$path"
 
     if ((begin_count != 1 || end_count != 1 || end_idx <= begin_idx)); then
-      die 2 "$rel: marker pair error (begin=$begin_count end=$end_count)"
+      die 2 "$rel: the generator markers must appear exactly once in order (\"$BEGIN_MARK\" before \"$END_MARK\") — restore the pair, or delete the file and rerun snails sync"
     fi
 
     scans=()
@@ -375,7 +375,7 @@ if ((${#gen_files[@]})); then
           # next run (a mismatch shows up as regenerated/stale). Anything
           # else is a hand edit inside a generator-owned region, which is
           # an error.
-          die 2 "$rel: the region is generator-owned — no hand edits: $body"
+          die 2 "$rel: the generator owns the lines between its markers — move the hand edit outside the markers: $body"
         fi
       fi
       i=$((i + 1))

@@ -623,8 +623,7 @@ cmd_help() {
       ;;
     *)
       if ! help_for "$topic" "${2:-}"; then
-        echo "[snails] unknown command: $topic" >&2
-        echo "[snails] run 'snails help' to see commands" >&2
+        echo "[snails] unknown help topic: $topic — run 'snails help' to see commands" >&2
         exit 2
       fi
       ;;
