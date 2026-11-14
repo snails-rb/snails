@@ -112,7 +112,7 @@ export LIBRARY_PATH="$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/li
 export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
 ```
 
-If OpenSSL is missing when the macOS source build runs, the compiler is built without the `openssl` package; the result is cached at the pinned revision. Install `openssl@3` first, or delete `.spinel/toolchain` and `~/.cache/snails/spinel/<rev>` and sync again.
+The source build runs the same package smoke as the published asset. If openssl, ffi, json, or sqlite3 is missing, it stops before caching and names the development packages; install the headers (`openssl@3`, `libffi`, SQLite) and retry.
 
 ## Run it
 

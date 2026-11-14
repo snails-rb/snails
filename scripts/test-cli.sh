@@ -1194,6 +1194,42 @@ chk "macOS is detected as darwin" "$out" "darwin"
 out="$(PATH="$FAKEUNAME:$PATH" bash -c 'source "$1/cli/toolchain.sh"; spinel_host_arch' _ "$ROOT")"
 chk "Apple Silicon is detected as arm64" "$out" "arm64"
 
+# 10c. The source build runs the package smoke before caching. A source
+#      toolchain built without openssl, ffi, or sqlite3 is worse than a
+#      failed sync: it would be cached at the pin and reused silently.
+SMOKE_PASS="$WORK/smoke-pass"
+mkdir -p "$SMOKE_PASS"
+cat > "$SMOKE_PASS/spinel" <<'SH'
+#!/bin/bash
+out=""
+while (($#)); do
+  if [[ $1 == "-o" ]]; then
+    out="$2"
+    shift 2
+    continue
+  fi
+  shift
+done
+[[ -n $out ]] || exit 1
+printf '#!/bin/bash\nprintf "smoke ok\\n"\n' > "$out"
+chmod +x "$out"
+SH
+chmod +x "$SMOKE_PASS/spinel"
+out="$(spinel_source_smoke "$SMOKE_PASS" 2>&1)"; rc=$?
+chk "the source-build smoke accepts a complete toolchain" "$rc" 0
+chk "the source-build smoke is silent on success" "$out" ""
+SMOKE_FAIL="$WORK/smoke-fail"
+mkdir -p "$SMOKE_FAIL"
+cat > "$SMOKE_FAIL/spinel" <<'SH'
+#!/bin/bash
+exit 1
+SH
+chmod +x "$SMOKE_FAIL/spinel"
+out="$(spinel_source_smoke "$SMOKE_FAIL" 2>&1)"; rc=$?
+chk "the source-build smoke fails a missing package" "$rc" 1
+grep -q 'missing openssl, ffi, json, or sqlite3' <<<"$out"
+chk "the source-build smoke names the missing packages" $? 0
+
 # The core checkout itself is refused as a sync target (self-vendor would
 # delete the core's runtime/).
 bash "$CLI" sync "$ROOT" > guard.out 2>&1
