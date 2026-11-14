@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/mark-white.svg">
+    <img src="assets/brand/mark.svg" alt="Snails" width="96">
+  </picture>
+</p>
+
 # Snails
 
 [![ci](https://github.com/snails-rb/snails/actions/workflows/ci.yml/badge.svg)](https://github.com/snails-rb/snails/actions/workflows/ci.yml)
