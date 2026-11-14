@@ -78,7 +78,7 @@ if [[ $adapter == pg ]]; then
   template="$GEN_SCRIPTS/../scaffold/queue/$QUEUE_TEMPLATE_PG"
   migration_name="$QUEUE_TEMPLATE_PG"
 fi
-[[ -f $template ]] || die 1 "missing queue template: scaffold/queue/$migration_name"
+[[ -f $template ]] || die 1 "the installed CLI is missing its queue migration template (scaffold/queue/$migration_name) — reinstall or upgrade snails"
 
 # An already-generated migration ends the run; the app owns whatever
 # history follows from it.

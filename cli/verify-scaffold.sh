@@ -94,7 +94,7 @@ done
 sync_arg="$(app_root_argument "$app_root")"
 sync_command="snails sync"
 [[ -n $sync_arg ]] && sync_command+=" $(shell_quote "$sync_arg")"
-[[ -f $MAIN_CANONICAL ]] || struct_fail "scaffold canonical missing: $MAIN_CANONICAL"
+[[ -f $MAIN_CANONICAL ]] || struct_fail "the installed CLI is missing its scaffold entry template (scaffold/main.rb) — reinstall or upgrade snails"
 
 errors=()
 
@@ -105,10 +105,10 @@ main_rb="$app_root/main.rb"
 if [[ ! -f $main_rb ]]; then
   errors+=("main.rb: missing (the scaffold-owned server entry)")
 elif grep -q '^require_relative "boot"$' "$main_rb"; then
-  errors+=("main.rb: requires the retired app boot — replace it with scaffold/main.rb (require_relative \"$SNAILS_VENDOR_DIR/boot\" + Snails::Main.start)")
+  errors+=("main.rb: requires the retired app boot — replace it with the current scaffold entry (require_relative \"$SNAILS_VENDOR_DIR/boot\" + Snails::Main.start)")
   diff -u --label "scaffold/main.rb" --label "app/main.rb" "$MAIN_CANONICAL" "$main_rb" || true
 elif ! cmp -s "$main_rb" "$MAIN_CANONICAL"; then
-  errors+=("main.rb: differs from scaffold/main.rb — app Snails::Main overrides belong in config/environment.rb (the boot chain's last require), not the entry")
+  errors+=("main.rb: differs from the scaffold entry — app Snails::Main overrides belong in config/environment.rb (the boot chain's last require), not the entry")
   diff -u --label "scaffold/main.rb" --label "app/main.rb" "$MAIN_CANONICAL" "$main_rb" || true
 fi
 
@@ -191,10 +191,10 @@ if [[ -f $routes ]]; then
   # through a verb helper: bare `get "/up"` or `get("/up", ...)`.
   if ! grep -Eq 'Route\.new\("GET",[[:space:]]*"/up"' "$routes" \
     && ! grep -Eq '(^|[^A-Za-z0-9_])get([[:space:]]+|\()"?/up"?' "$routes"; then
-    errors+=("config/routes.rb declares no GET /up route")
+    errors+=("config/routes.rb declares no GET /up route — add: get \"/up\", Snails::HealthController, :show")
   fi
 else
-  errors+=("config/routes.rb missing")
+  errors+=("config/routes.rb missing — restore the route table (a scaffolded app declares GET /up)")
 fi
 
 # 4. one definition, core side: snails-core/snails/health_controller.rb

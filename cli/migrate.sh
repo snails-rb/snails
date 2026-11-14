@@ -166,10 +166,10 @@ sql_exec() {
 # executor means the check cannot run — it must fail, never read as "nothing
 # pending".
 require_executor() {
-  local tool=sqlite3
-  [[ $DB_ADAPTER == sqlite ]] || tool=psql
+  local tool=sqlite3 install="SQLite client"
+  [[ $DB_ADAPTER == sqlite ]] || { tool=psql; install="PostgreSQL client"; }
   command -v "$tool" >/dev/null 2>&1 && return 0
-  die 2 "the $DB_ADAPTER executor '$tool' is not on PATH — install it; the ledger cannot be read without it"
+  die 2 "$tool is not on PATH — install the $install; migrations cannot read the ledger without it"
 }
 
 # Scalar query rows (one value per line) — the ledger, and the catalog
@@ -463,7 +463,7 @@ cmd_check() {
 ensure_ledger() {
   ledger_exists && return 0
   sql_exec "CREATE TABLE $LEDGER (version TEXT PRIMARY KEY NOT NULL, applied_at TEXT NOT NULL);" ||
-    die 1 "could not create $LEDGER"
+    die 1 "could not create the $LEDGER table — see the database error above"
 }
 
 # The runner owns the transaction; a file carrying its own control flow is
@@ -582,7 +582,7 @@ cmd_load() {
 replay_into() { # <db>
   local db="$1" i=0
   while ((i < ${#VERSIONS[@]})); do
-    sqlite3 -bail "$db" <"${PATHS[$i]}" || die 1 "replay failed: ${LABELS[$i]}"
+    sqlite3 -bail "$db" <"${PATHS[$i]}" || die 1 "apply failed: ${LABELS[$i]}"
     i=$((i + 1))
   done
 }
@@ -642,12 +642,12 @@ replay_into_pg() {
   PG_SCRATCH="snails_dump_$$_$RANDOM"
   psql "$TARGET" -q -c "DROP SCHEMA IF EXISTS $PG_SCRATCH CASCADE" >/dev/null 2>&1 || true
   psql "$TARGET" -v ON_ERROR_STOP=1 -q -c "CREATE SCHEMA $PG_SCRATCH" ||
-    die 1 "could not create the throwaway schema $PG_SCRATCH"
+    die 1 "could not create a scratch schema on the target for the schema dump — see the database error above"
   local i=0
   while ((i < ${#VERSIONS[@]})); do
     { printf 'SET search_path TO %s;\nSET client_min_messages TO warning;\n' "$PG_SCRATCH"; cat "${PATHS[$i]}"; } |
       psql "$TARGET" -v ON_ERROR_STOP=1 -X -q -f - ||
-      die 1 "replay failed: ${LABELS[$i]}"
+      die 1 "apply failed: ${LABELS[$i]}"
     i=$((i + 1))
   done
   SCHEMA_DUMP_STATEMENTS="$(psql "$TARGET" -tA -c \
@@ -663,7 +663,7 @@ replay_into_pg() {
 # start at their default.
 pg_schema_dump() { # <out_file>
   command -v pg_dump >/dev/null 2>&1 ||
-    die 2 "the pg executor 'pg_dump' is not on PATH — install it"
+    die 2 "pg_dump is not on PATH — install the PostgreSQL client (it ships with psql)"
   {
     schema_dump_header
     printf '\n'
@@ -702,10 +702,10 @@ build_schema_dump() {
   mkdir -p "$out"
   if [[ $DB_ADAPTER == pg ]]; then
     [[ $OWNER == external ]] &&
-      die 2 "DB_OWNER=\"external\": $PINS declares this database is owned by another app — dump would write a throwaway schema there"
+      die 2 "DB_OWNER=\"external\": $PINS declares this database is owned by another app — dump would write a temporary schema there"
     replay_into_pg
     ((SCHEMA_DUMP_STATEMENTS > 0)) ||
-      die 2 "the migrations create no objects — refusing to write an empty schema dump"
+      die 2 "the migrations create no objects — refusing to write an empty schema dump; add tables, indexes, or views to the migration files"
     pg_schema_dump "$out/schema.sql"
     return 0
   fi
@@ -714,7 +714,7 @@ build_schema_dump() {
   local tables
   tables="$(sqlite3 "$replay" "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")"
   ((tables > 0)) ||
-    die 2 "the migrations create no tables — refusing to write an empty schema dump"
+    die 2 "the migrations create no tables — refusing to write an empty schema dump; add tables to the migration files"
   generate_schema_dump "$replay" "$out"
   rm -f "$replay"
 }
@@ -774,7 +774,7 @@ generate_schema_dump() { # <replay_db> <out_dir>
 cmd_dump() {
   require_executor
   ((${#VERSIONS[@]})) ||
-    die 2 "no migration files in db/migrate — refusing to write an empty schema dump"
+    die 2 "no migration files in db/migrate — refusing to write an empty schema dump; create a migration first (snails new --scaffold stamps a baseline)"
 
   local tmp
   tmp="$(mktemp -d)"
@@ -827,7 +827,7 @@ cmd_verify() {
   fi
 
   if ((${#problems[@]} == 0)); then
-    printf 'schema dump matches the migrate replay (%s statements)\n' "$SCHEMA_DUMP_STATEMENTS"
+    printf 'schema dump matches the migration files (%s statements)\n' "$SCHEMA_DUMP_STATEMENTS"
     return 0
   fi
 
@@ -837,7 +837,7 @@ cmd_verify() {
   app_arg="$(app_root_argument "$APP")"
   repair="snails migrate dump"
   if [[ -n $app_arg ]]; then repair+=" --app $(shell_quote "$app_arg")"; fi
-  echo "[snails] schema dump differs from the migrate replay — run: $repair" >&2
+  echo "[snails] schema dump differs from the schema rebuilt from the migration files — run: $repair" >&2
   for p in "${problems[@]}"; do
     printf '  %s\n' "$p" >&2
   done

@@ -313,7 +313,7 @@ bash "$CLI" sync app --check > stale.out 2> stale.err
 chk "stale check still exits 1" $? 1
 chk "the stale frame keeps stdout clean" "$(wc -c < stale.out | tr -d ' ')" 0
 chk "the stale frame is one stderr line" "$(wc -l < stale.err | tr -d ' ')" 1
-grep -q "$SNAILS_VENDOR_DIR is stale — run: snails sync app" stale.err
+grep -q "core is stale — run: snails sync app" stale.err
 chk "the stale frame names the repair" $? 0
 
 # --verbose swaps the category summary and the per-file list in. The three
@@ -323,7 +323,7 @@ echo 'local extra' > app/$SNAILS_VENDOR_DIR/local_extra.rb
 rm app/$SNAILS_VENDOR_DIR/tep/app.rb
 bash "$CLI" sync app --check --verbose > verbose.out 2> verbose.err
 chk "verbose stale check exits 1" $? 1
-chk "verbose keeps the action line first" "$(head -n1 verbose.err | grep -c "$SNAILS_VENDOR_DIR is stale")" 1
+chk "verbose keeps the action line first" "$(head -n1 verbose.err | grep -c "core is stale")" 1
 grep -q 'changed 1 · pin-only 1 · tree-only 1' verbose.err
 chk "verbose summarizes the drift categories" $? 0
 grep -q "changed   $SNAILS_VENDOR_DIR/database/sqlite.rb" verbose.err
@@ -532,8 +532,10 @@ grep -q '\[snails\] created newapp (GET /up)' new.out
 chk "the onboarding result stays on stdout" $? 0
 if grep -q 'synced (core' new.out; then nested_sync=1; else nested_sync=0; fi
 chk "the nested sync result is not echoed" "$nested_sync" 0
-grep -q "\[snails\] core -> newapp/$SNAILS_VENDOR_DIR" new.err
+grep -q "\[snails\] core synced" new.err
 chk "the nested sync progress stays on stderr" $? 0
+if grep -q "$SNAILS_VENDOR_DIR" new.err; then internal_path=1; else internal_path=0; fi
+chk "the default progress hides internal paths" "$internal_path" 0
 [[ -f newapp/main.rb && ! -e newapp/boot.rb && -f newapp/$SNAILS_VENDOR_DIR/boot.rb && -f newapp/$SNAILS_VENDOR_DIR/boot/all.rb && -f newapp/config/boot.rb && -f newapp/pins.toml && -f newapp/bin/newapp.rb && -f newapp/bin/test && -f newapp/bin/dev && ! -e newapp/cli/gen-require-all.sh && -f newapp/.gitignore && -f newapp/.env.sample && -f newapp/harness/test.env && ! -e newapp/harness/run && ! -e newapp/harness/dev && ! -e newapp/harness/spin-test.rb && ! -e newapp/harness/spin-test.sh && ! -e newapp/harness/toolchain.sh ]]
 chk "new writes expected files (no app boot, no runner copies)" $? 0
 grep -q '^# SNAILS_ENV=' newapp/.env.sample && grep -q '^# SECRET_KEY_BASE=' newapp/.env.sample
@@ -923,7 +925,7 @@ grep -q "\[snails\] tcapp synced (core ${PIN_REV:0:7}, spinel 1d26ef6)" tc.out
 chk "the result line names the vendored revs" $? 0
 [[ $(wc -l < tc.out) -eq 1 ]]
 chk "progress stays off stdout" $? 0
-grep -q 'spinel 1d26ef6 -> .*toolchain (cache)' tc.err
+grep -q 'spinel 1d26ef6 ready (cache)' tc.err
 chk "the materialization source is reported on stderr" $? 0
 [[ -x tcdir/.spinel/toolchain/spin && -x tcdir/.spinel/toolchain/spinel ]]
 chk "toolchain lands next to the pins file" $? 0

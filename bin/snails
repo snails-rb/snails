@@ -1118,24 +1118,24 @@ fetch_dist() {
   echo "[snails] fetching dist $rev" >&2
   if ! dist_download "rev-$rev" "snails-dist-$rev.tar.gz" "$tmp/snails-dist-$rev.tar.gz"; then
     rm -rf "$tmp"
-    echo "[snails] dist download failed for $rev" >&2
+    echo "[snails] could not download the dist for $rev — check the release tag and your network, then retry" >&2
     return 1
   fi
   if ! dist_download "rev-$rev" "snails-dist-$rev.tar.gz.sha256" "$tmp/snails-dist-$rev.tar.gz.sha256"; then
     rm -rf "$tmp"
-    echo "[snails] dist checksum download failed for $rev" >&2
+    echo "[snails] could not download the checksum for $rev — check the release assets, then retry" >&2
     return 1
   fi
   if ! sha256_check "$tmp" "snails-dist-$rev.tar.gz.sha256" >/dev/null; then
     rm -rf "$tmp"
-    echo "[snails] dist checksum mismatch for $rev — refusing the download" >&2
+    echo "[snails] checksum mismatch for $rev — delete the cached dist and retry; if it repeats, the release is corrupt" >&2
     return 1
   fi
   tar -xzf "$tmp/snails-dist-$rev.tar.gz" -C "$tmp"
   rm -f "$tmp/snails-dist-$rev.tar.gz" "$tmp/snails-dist-$rev.tar.gz.sha256"
   if [[ ! -f $tmp/REV || $(<"$tmp/REV") != "$rev" ]]; then
     rm -rf "$tmp"
-    echo "[snails] the downloaded dist does not carry REV=$rev" >&2
+    echo "[snails] the downloaded dist is for another revision — delete the cached dist and retry" >&2
     return 1
   fi
   rm -rf "$dest"
@@ -1182,7 +1182,7 @@ verify_pin_dist() {
     return 0
   fi
   if [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then
-    echo "[snails] SNALS_REV=$rev is not a full 40-hex rev — dist mode cannot resolve an abbreviated pin" >&2
+    echo "[snails] SNALS_REV=$rev is not a full 40-hex rev — dist mode cannot resolve an abbreviated pin (bump it or use a checkout)" >&2
     return 1
   fi
   if dist_download "rev-$rev" "snails-dist-$rev.tar.gz.sha256" /dev/null; then
@@ -1332,11 +1332,11 @@ cmd_sync() {
   # identity and on the scaffold/ marker; a consumer app never carries
   # scaffold/.
   if [[ "$(cd "$app_root" && pwd -P)" == "$(cd "$SNAILS_ROOT" && pwd -P)" ]]; then
-    echo "[snails] $app_root is the core checkout itself — sync targets an app tree" >&2
+    echo "[snails] sync needs an app root, but $app_root is the core checkout itself — pass the app root" >&2
     exit 1
   fi
   if [[ -f "$app_root/scaffold/main.rb" ]]; then
-    echo "[snails] $app_root looks like a core checkout (scaffold/ present) — sync targets an app tree" >&2
+    echo "[snails] sync needs an app root, but $app_root carries scaffold/ (the snails checkout) — pass the app root" >&2
     exit 1
   fi
 
@@ -1480,9 +1480,9 @@ cmd_sync() {
       # shellcheck source=toolchain.sh
       source "$toolchain"
       if ((check)); then
-        spinel_toolchain_check "$pins" "$app_root"
+        spinel_toolchain_check "$pins" "$app_root" "$verbose"
       else
-        spinel_toolchain_ensure "$pins"
+        spinel_toolchain_ensure "$pins" "$verbose"
       fi
     else
       echo "[snails] $pins pin predates the spinel toolchain contract — toolchain materialization skipped"
@@ -1508,7 +1508,11 @@ cmd_sync() {
       exit 1
     fi
     if LC_ALL=C diff -rq "$tmp/$SNAILS_VENDOR_DIR" "$app_root/$SNAILS_VENDOR_DIR" >/dev/null 2>&1; then
-      echo "[snails] $app_root $SNAILS_VENDOR_DIR in sync"
+      if ((verbose)); then
+        echo "[snails] $app_root $SNAILS_VENDOR_DIR in sync"
+      else
+        echo "[snails] core in sync"
+      fi
     else
       # The message exists to say "sync": the action line is the output,
       # and the drift list (diagnostics) prints only with --verbose.
@@ -1516,7 +1520,7 @@ cmd_sync() {
       sync_arg="$(app_root_argument "$app_root")"
       sync_command="snails sync"
       [[ -n $sync_arg ]] && sync_command+=" $(shell_quote "$sync_arg")"
-      echo "[snails] $app_root $SNAILS_VENDOR_DIR is stale — run: $sync_command" >&2
+      echo "[snails] core is stale — run: $sync_command" >&2
       if ((verbose)); then
         report_core_drift "$tmp/$SNAILS_VENDOR_DIR" "$app_root/$SNAILS_VENDOR_DIR" >&2
       fi

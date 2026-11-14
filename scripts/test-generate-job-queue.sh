@@ -78,7 +78,7 @@ chk "schema dump carries the queue tables" "$(grep -c 'CREATE TABLE.*snails_queu
 # schema contract's own gate over the generator's two writes.
 out="$(cd "$WORK" && "$CLI" migrate verify --app "$APP" 2>&1)"; code=$?
 chk "migrate verify agrees with the schema dump" "$code" "0"
-chk_has "verify reports the agreement" "$out" "schema dump matches the migrate replay"
+chk_has "verify reports the agreement" "$out" "schema dump matches the migration files"
 
 # --- rerun: one line, no second history.
 before="$(ls "$APP/db/migrate" | wc -l | tr -d ' ')"

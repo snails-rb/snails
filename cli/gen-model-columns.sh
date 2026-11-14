@@ -128,7 +128,12 @@ if [[ ! -f $schema_file ]]; then
 fi
 
 gen_dir="$app_root/gen"
-[[ -d $gen_dir ]] || die 2 "no gen/ directory: $gen_dir"
+if [[ ! -d $gen_dir ]]; then
+  sync_command="snails sync"
+  repair_arg="$(app_root_argument "$app_root")"
+  [[ -n $repair_arg ]] && sync_command+=" $(shell_quote "$repair_arg")"
+  die 2 "no gen/ directory: $gen_dir — run: $sync_command to seed it"
+fi
 
 out_rb="$gen_dir/model_columns.rb"
 out_rbs="$gen_dir/model_columns.rbs"
@@ -146,7 +151,7 @@ ensure_toolchain() {
     die 2 "no pins file above $app_root — the model parser runs the pinned spinel; add a pins.toml (snails new stamps one)"
   fi
   spinel_toolchain_ensure "$pins" ||
-    die 2 "the pinned spinel toolchain is unavailable — see the message above"
+    die 2 "the pinned spinel toolchain is unavailable — fix the toolchain error above, then rerun"
   spinel_bin="$(spinel_toolchain_dir "$pins")/spinel"
 }
 

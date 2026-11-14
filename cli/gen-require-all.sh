@@ -289,10 +289,15 @@ while [[ $app_root == */ && $app_root != / ]]; do
 done
 
 app_dir="$app_root/app"
-[[ -d $app_dir ]] || die 2 "no app/ directory: $app_dir"
+[[ -d $app_dir ]] || die 2 "no app/ directory: $app_dir — pass the app root (the directory that holds app/)"
 
 gen_dir="$app_root/gen"
-[[ -d $gen_dir ]] || die 2 "no gen/ directory: $gen_dir"
+if [[ ! -d $gen_dir ]]; then
+  repair_arg="$(app_root_argument "$app_root")"
+  sync_command="snails sync"
+  [[ -n $repair_arg ]] && sync_command+=" $(shell_quote "$repair_arg")"
+  die 2 "no gen/ directory: $gen_dir — run: $sync_command to seed it"
+fi
 
 REQUIRED="$(required_groups "$app_root")"
 for name in $REQUIRED; do
