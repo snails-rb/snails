@@ -10,13 +10,13 @@ Status: 1.0 release candidate. The public API may still change before 1.0.
 
 ## Scope and design
 
-Snails 1.0 is deliberately narrow. It keeps the Rails conventions that make an API app predictable — routes, controllers, forms, mailers, jobs, and a conventional layout — and removes the abstractions Rails chose for human writing that added runtime overhead. It is not a Rails replacement; the scope is the design, not a backlog.
+Snails 1.0 is for API-only Ruby apps. It keeps the Rails conventions that make an API app predictable — routes, controllers, forms, mailers, jobs, and a conventional project layout — and removes the abstractions that add runtime overhead.
 
-Coding agents change the calculation. They write SQL, maintain a backend and a frontend as two stacks, and implement a small missing behavior instead of adding a dependency. Snails keeps those conventions and the developer-friendly API style. Migrations are SQL. The heavy layers are gone: no view layer or asset pipeline, no Active Record, and no gem compatibility. The app compiles to one native binary that runs without Ruby.
+Coding agents change the work those abstractions were designed for. They write SQL, maintain a backend and a frontend as two stacks, and implement missing behavior in the app instead of adding a gem. Snails keeps the Rails conventions and uses SQL migrations. It removes the layers that add runtime overhead without reducing the agent's work: no view layer or asset pipeline, no Active Record, and no gem compatibility. The app compiles to one native binary that runs without Ruby.
 
-Abstraction is still necessary. What remains is light and shared: conventions, a standard model API, SQL migrations, and real-server tests. Review is the constraint, not the reason for the design; the agent writes the code, and humans review the route, the SQL, the migration, and the test evidence, and decide what ships.
+Abstraction is still necessary. The framework provides a standard model API and a real-server test harness; those are the rules the agent follows and the reviewer checks. The agent writes the code; humans review the route, the SQL, the migration, and the test evidence, and decide what ships. Review is the constraint, not the reason for the design.
 
-The full reasoning is in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). The [Coming from Rails](manual/04-coming-from-rails.md) chapter is the translation table for Rails habits, and the [FAQ](manual/28-faq.md) covers what is not included.
+The full reasoning is in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). The [Coming from Rails](manual/04-coming-from-rails.md) chapter covers the Rails features that carry over and what replaces the rest, and the [FAQ](manual/28-faq.md) lists what is not included.
 
 If you need server-rendered pages, the full Ruby gem ecosystem, or Active Record's object model, Rails is the better fit.
 
