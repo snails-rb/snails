@@ -267,6 +267,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
+          pattern: 'toolchain-*'
           merge-multiple: true
       - name: Publish the toolchain release
         env:
