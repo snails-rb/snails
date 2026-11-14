@@ -179,6 +179,28 @@ spinel_ncpu() {
   fi
 }
 
+# spinel_source_smoke <unit> — the source build's package smoke. The published
+# assets are smoke-tested at publish time; a source build can silently lose
+# openssl, ffi, or sqlite3 when their headers are missing, so the fallback
+# proves the same packages before it is cached. A missing package is a loud
+# failure with the repair packages, not a silent fallback.
+spinel_source_smoke() {
+  local unit="$1" work out
+  work="$(mktemp -d)"
+  if ! ( cd "$work" && "$unit/spinel" -e 'require "openssl"; require "ffi"; require "json"; require "sqlite3"; puts "smoke ok"' -o smoke --strict-require >/dev/null 2>&1 ); then
+    rm -rf "$work"
+    echo "[snails] the source-built toolchain is missing openssl, ffi, json, or sqlite3 — install the development headers (libssl-dev, libffi-dev, libsqlite3-dev), then retry" >&2
+    return 1
+  fi
+  out="$( "$work/smoke" 2>/dev/null )"
+  if [[ $out != "smoke ok" ]]; then
+    rm -rf "$work"
+    echo "[snails] the source-built toolchain smoke produced '${out}' — install the development headers and retry" >&2
+    return 1
+  fi
+  rm -rf "$work"
+}
+
 # spinel_toolchain_build <pin> <cache> — last resort: clone spinel at the
 # pin, build it, and store the installed toolchain in the cache. A compiler
 # toolchain is a real dependency, so every failure is reported — a silent
@@ -217,6 +239,10 @@ spinel_toolchain_build() {
   if ! spinel_toolchain_fresh "$unit" "$pin"; then
     rm -rf "$work"
     echo "[snails] the build at ${pin} reports a different revision than the pinned one — check the SPINEL_REV pin" >&2
+    return 1
+  fi
+  if ! spinel_source_smoke "$unit"; then
+    rm -rf "$work"
     return 1
   fi
   if ! spinel_toolchain_store "$unit" "$cache"; then

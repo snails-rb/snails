@@ -84,7 +84,7 @@ The database is under contention. `Sqlx::Busy` is a SQLite lock wait past `DATAB
 
 `snails new` downloads the pinned compiler. When no asset exists for your platform or revision, or the download fails, it falls back to a source build; a missing compiler, header, or `pkg-config` stops that build inside `make`. Install the packages under [Getting Started](02-getting-started.md#requirements) §If the prebuilt compiler is unavailable and run the command again.
 
-On macOS, if OpenSSL was missing during that source build, delete `.spinel/toolchain` and `~/.cache/snails/spinel/<rev>` first: the compiler built without the `openssl` package is cached at the pinned revision and is not rebuilt otherwise.
+The source build runs a package smoke before caching. If OpenSSL or another package is missing, it stops and names the development packages; install them and retry.
 
 ### The first `bin/dev` stops while compiling the app
 
