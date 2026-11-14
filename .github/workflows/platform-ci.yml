@@ -252,8 +252,6 @@ jobs:
             echo "$(brew --prefix coreutils)/libexec/gnubin"
           } >> "$GITHUB_PATH"
       - name: Full repo suite
-        env:
-          PG_URL: postgres://postgres@127.0.0.1:5432/snails_test
         run: |
           /bin/bash scripts/test-runtime.sh
           /bin/bash scripts/test-pins-format.sh
@@ -266,6 +264,14 @@ jobs:
           /bin/bash scripts/test-migrate.sh
           /bin/bash scripts/test-dist.sh
           /bin/bash scripts/test-new.sh --only=demo
+      - name: Core pg regressions
+        env:
+          SNAILS_DIR: ${{ github.workspace }}
+          PG_URL: postgres://postgres@127.0.0.1:5432/snails_test
+        run: |
+          /bin/bash scripts/test-generate-job-queue.sh
+          /bin/bash scripts/test-migrate.sh
+          /bin/bash scripts/test-runtime.sh --pg
       - name: Harness test against PG_URL
         env:
           SNAILS_DIR: ${{ github.workspace }}
