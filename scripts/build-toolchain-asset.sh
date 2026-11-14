@@ -90,6 +90,18 @@ fi
 src="$work/spinel"
 asset="$(spinel_toolchain_asset_name "$full" "$os" "$arch")"
 
+# On macOS the smoke runs a linked pq; Homebrew's libpq is keg-only and
+# dyld does not search its lib directory, so the runtime needs the fallback
+# path too. The caller may set it; the standard formulas fill the gaps.
+if [[ "$(uname -s)" == Darwin ]] && command -v brew >/dev/null 2>&1; then
+  dyld_path=""
+  for formula in openssl@3 jemalloc libpq libffi; do
+    dir="$(brew --prefix "$formula" 2>/dev/null)/lib"
+    [[ -d $dir ]] && dyld_path+="${dir}:"
+  done
+  export DYLD_FALLBACK_LIBRARY_PATH="${dyld_path}${DYLD_FALLBACK_LIBRARY_PATH:-}"
+fi
+
 mkdir -p "$out"
 rm -f "$out/$asset" "$out/$asset.sha256"
 

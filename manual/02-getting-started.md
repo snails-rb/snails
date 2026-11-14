@@ -77,12 +77,13 @@ The prebuilt macOS compiler is built against the standard Homebrew prefix — `/
 
 Xcode Command Line Tools provide the C compiler and linker for the app build. `openssl@3` is the OpenSSL the runtime links, `jemalloc` is the scaffold's allocator, and `pkg-config` lets spinel find Homebrew libraries outside the default search path.
 
-For the PostgreSQL adapter, install the client and put its path on `PATH` and `PKG_CONFIG_PATH`. The test harness runs its disposable database in Docker Desktop unless you pass `PG_URL`.
+For the PostgreSQL adapter, install the client and put its path on `PATH`, `PKG_CONFIG_PATH`, and `DYLD_FALLBACK_LIBRARY_PATH`. The test harness runs its disposable database in Docker Desktop unless you pass `PG_URL`.
 
 ```sh
 brew install libpq
 export PATH="$(brew --prefix libpq)/bin:$PATH"
 export PKG_CONFIG_PATH="$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix libpq)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
 ```
 
 ### If the prebuilt compiler is unavailable
@@ -108,6 +109,7 @@ brew install libpq   # PostgreSQL adapter
 export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export CPATH="$(brew --prefix openssl@3)/include:$(brew --prefix jemalloc)/include:${CPATH:-}"
 export LIBRARY_PATH="$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
+export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
 ```
 
 If OpenSSL is missing when the macOS source build runs, the compiler is built without the `openssl` package; the result is cached at the pinned revision. Install `openssl@3` first, or delete `.spinel/toolchain` and `~/.cache/snails/spinel/<rev>` and sync again.

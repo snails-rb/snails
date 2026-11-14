@@ -229,6 +229,7 @@ jobs:
             echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
             echo "CPATH=$(brew --prefix openssl@3)/include:$(brew --prefix jemalloc)/include:$(brew --prefix libpq)/include:$(brew --prefix libffi)/include:${CPATH:-}"
             echo "LIBRARY_PATH=$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:$(brew --prefix libffi)/lib:${LIBRARY_PATH:-}"
+            echo "DYLD_FALLBACK_LIBRARY_PATH=$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:$(brew --prefix libffi)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
           } >> "$GITHUB_ENV"
       - name: Build and smoke the toolchain asset
         env:
