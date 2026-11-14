@@ -1034,7 +1034,9 @@ chk "a complete toolchain on PATH is still accepted" "$real_out" "$real_expected
 #      revision contract as the dist. The release server is local; no case
 #      touches github.com.
 DLREV="$(printf 'a%.0s' {1..40})"
-DLASSET="$(spinel_toolchain_asset_name "$DLREV" linux amd64)"
+DLOS="$(spinel_host_os)"
+DLARCH="$(spinel_host_arch)"
+DLASSET="$(spinel_toolchain_asset_name "$DLREV" "$DLOS" "$DLARCH")"
 DLUNIT="$WORK/dl-unit"
 mkdir -p "$DLUNIT/builtins" "$DLUNIT/lib" "$DLUNIT/packages"
 for b in spin spinel; do
@@ -1111,7 +1113,7 @@ chk "the PATH fallback source is reported" $? 0
 # A corrupt sidecar is an integrity failure, not a cache miss: the sync
 # stops, leaves no cache entry, and does not rebuild from source.
 DLREV_BAD="$(printf 'e%.0s' {1..40})"
-DLASSET_BAD="$(spinel_toolchain_asset_name "$DLREV_BAD" linux amd64)"
+DLASSET_BAD="$(spinel_toolchain_asset_name "$DLREV_BAD" "$DLOS" "$DLARCH")"
 mkdir -p "dlserve/spinel-rev-$DLREV_BAD"
 cp "dlserve/spinel-rev-$DLREV/$DLASSET" "dlserve/spinel-rev-$DLREV_BAD/$DLASSET_BAD"
 printf '%064d  %s\n' 0 "$DLASSET_BAD" > "dlserve/spinel-rev-$DLREV_BAD/$DLASSET_BAD.sha256"
@@ -1131,7 +1133,7 @@ chk "a corrupt download leaves no cache or project copy" $? 0
 # name is built; the mapping is cached.
 DLREV_SHORT="bbbbbbb"
 DLREV_SHORT_FULL="${DLREV_SHORT}$(printf 'c%.0s' {1..33})"
-DLASSET_SHORT="$(spinel_toolchain_asset_name "$DLREV_SHORT_FULL" linux amd64)"
+DLASSET_SHORT="$(spinel_toolchain_asset_name "$DLREV_SHORT_FULL" "$DLOS" "$DLARCH")"
 mkdir -p "dlserve/spinel-rev-$DLREV_SHORT_FULL" "dlserve/api/commits"
 printf '{"sha":"%s"}\n' "$DLREV_SHORT_FULL" > "dlserve/api/commits/$DLREV_SHORT"
 sed "s/$DLREV/$DLREV_SHORT_FULL/g" "$DLUNIT/spin" > "$WORK/dl-short-spin"
