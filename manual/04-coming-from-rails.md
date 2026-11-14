@@ -36,7 +36,7 @@ Some Rails features you may reach for do not exist here, by design:
 - No `before_action` inheritance. Registration belongs to the controller class that writes it, not to its subclasses. Declare the filter on each controller that needs it, or share the method through a parent.
 - No class-instance-variable inheritance. A value set on a parent class is not copied to a subclass; use a module constant or an explicit method.
 
-The list is not a backlog. See [The Snails Design](https://snails-rb.org/blog/the-snails-design/) for the reasoning behind them.
+The list follows from the design decisions in [The Snails Design](https://snails-rb.org/blog/the-snails-design/).
 
 Snails supports fewer ActiveSupport helpers than Rails. The helpers that do exist are listed in [Ruby Helpers](19-ruby-helpers.md); a call to something outside that list fails at build time instead of silently doing nothing.
 
