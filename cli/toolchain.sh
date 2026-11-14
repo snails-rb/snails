@@ -184,18 +184,18 @@ spinel_ncpu() {
 spinel_toolchain_build() {
   local pin="$1" cache="$2" work unit
   command -v git >/dev/null 2>&1 || {
-    echo "[snails] git is required to build spinel ${pin} from source" >&2
+    echo "[snails] git is required to build spinel ${pin} from source — install git, then retry" >&2
     return 1
   }
   work="$(mktemp -d)"
   if ! git clone -q https://github.com/matz/spinel "$work/src"; then
     rm -rf "$work"
-    echo "[snails] could not clone https://github.com/matz/spinel" >&2
+    echo "[snails] could not clone https://github.com/matz/spinel — check network access to github.com, then retry" >&2
     return 1
   fi
   if ! git -C "$work/src" checkout -q "$pin"; then
     rm -rf "$work"
-    echo "[snails] spinel has no commit ${pin} upstream" >&2
+    echo "[snails] spinel has no commit ${pin} upstream — check the SPINEL_REV pin" >&2
     return 1
   fi
   if ! (cd "$work/src" && make deps && make -j"$(spinel_ncpu)" &&
@@ -209,12 +209,12 @@ spinel_toolchain_build() {
   unit="$work/prefix/lib/spinel"
   if [[ ! -x $unit/spin || ! -x $unit/spinel || ! -d $unit/builtins ]]; then
     rm -rf "$work"
-    echo "[snails] unexpected spinel install layout: ${unit} (want spin, spinel, builtins/)" >&2
+    echo "[snails] unexpected spinel install layout: ${unit} (want spin, spinel, builtins/) — reinstall the pinned toolchain: snails sync" >&2
     return 1
   fi
   if ! spinel_toolchain_fresh "$unit" "$pin"; then
     rm -rf "$work"
-    echo "[snails] the build at ${pin} reports a different revision than the pinned one" >&2
+    echo "[snails] the build at ${pin} reports a different revision than the pinned one — check the SPINEL_REV pin" >&2
     return 1
   fi
   if ! spinel_toolchain_store "$unit" "$cache"; then
@@ -224,16 +224,18 @@ spinel_toolchain_build() {
   rm -rf "$work"
 }
 
-# spinel_toolchain_ensure <pins> — materialize the pinned toolchain into
-# the project copy: an existing cache entry first (a differently spelled
-# pin of the same revision reuses one copy), then a PATH install already at
-# the pin, then a source build. Each source is version-checked before it is
-# copied.
+# spinel_toolchain_ensure <pins> [<verbose>] — materialize the pinned
+# toolchain into the project copy: an existing cache entry first (a
+# differently spelled pin of the same revision reuses one copy), then a PATH
+# install already at the pin, then a source build. Each source is
+# version-checked before it is copied. The destination path is internal, so
+# only --verbose prints it.
 spinel_toolchain_ensure() {
-  local pins="$1" pin dest cache src reused
+  local pins="$1" verbose="${2:-0}" pin dest cache src reused detail=""
   pin="$(spinel_pins_rev "$pins")" || return 1
   dest="$(spinel_toolchain_dir "$pins")"
   spinel_toolchain_fresh "$dest" "$pin" && return 0
+  ((verbose)) && detail=" -> ${dest}"
 
   cache="$(spinel_toolchain_cache "$pin")"
   if ! spinel_toolchain_fresh "$cache" "$pin"; then
@@ -242,7 +244,7 @@ spinel_toolchain_ensure() {
   fi
   if spinel_toolchain_fresh "$cache" "$pin"; then
     spinel_toolchain_store "$cache" "$dest"
-    echo "[snails] spinel ${pin} -> ${dest} (cache)" >&2
+    echo "[snails] spinel ${pin} ready (cache)${detail}" >&2
     return 0
   fi
 
@@ -250,27 +252,31 @@ spinel_toolchain_ensure() {
   if [[ -n $src ]]; then
     spinel_toolchain_store "$src" "$cache" 2>/dev/null || true
     spinel_toolchain_store "$src" "$dest"
-    echo "[snails] spinel ${pin} -> ${dest} (PATH install)" >&2
+    echo "[snails] spinel ${pin} ready (PATH install)${detail}" >&2
     return 0
   fi
 
   echo "[snails] no cached or PATH toolchain for spinel ${pin} — building from source (once per rev)" >&2
   spinel_toolchain_build "$pin" "$cache" || return 1
   spinel_toolchain_store "$cache" "$dest"
-  echo "[snails] spinel ${pin} -> ${dest} (source build)" >&2
+  echo "[snails] spinel ${pin} ready (source build)${detail}" >&2
 }
 
-# spinel_toolchain_check <pins> [<app_root>] — the `--check` view: report
-# only, never write. A missing copy and a stale copy fail the same way: the
-# gate must not pass while builds would run an unpinned toolchain. The repair
-# line names the app root (the pins file may live outside it).
+# spinel_toolchain_check <pins> [<app_root>] [<verbose>] — the `--check` view:
+# report only, never write. A missing copy and a stale copy fail the same way:
+# the gate must not pass while builds would run an unpinned toolchain. The
+# repair line names the app root (the pins file may live outside it).
 spinel_toolchain_check() {
-  local pins="$1" app_root="${2:-}" pin dest sync_arg sync_command
+  local pins="$1" app_root="${2:-}" verbose="${3:-0}" pin dest sync_arg sync_command
   [[ -n $app_root ]] || app_root="$(dirname "$pins")"
   pin="$(spinel_pins_rev "$pins")" || return 1
   dest="$(spinel_toolchain_dir "$pins")"
   if spinel_toolchain_fresh "$dest" "$pin"; then
-    echo "[snails] ${dest} in sync (spinel ${pin})"
+    if ((verbose)); then
+      echo "[snails] ${dest} in sync (spinel ${pin})"
+    else
+      echo "[snails] spinel toolchain in sync (${pin})"
+    fi
     return 0
   fi
   sync_arg="$(app_root_argument "$app_root")"
@@ -299,7 +305,7 @@ spinel_toolchain_env() {
     cli="$(spinel_snails_cli)"
     if [[ -n $cli && -x $cli ]]; then
       if ! "$cli" sync "$root"; then
-        echo "[snails] syncing the spinel toolchain via ${cli} failed" >&2
+        echo "[snails] snails sync failed while materializing the toolchain — fix the error above, then retry" >&2
         return 1
       fi
     elif ! spinel_path_matches "$pin"; then
@@ -312,7 +318,7 @@ spinel_toolchain_env() {
         echo "[snails] no project toolchain yet — using the PATH install (it reports spinel ${pin})" >&2
         return 0
       fi
-      echo "[snails] toolchain for spinel ${pin} is still missing after sync: ${dest}" >&2
+      echo "[snails] the spinel ${pin} toolchain is still missing after sync — fix the sync error above" >&2
       return 1
     fi
   fi

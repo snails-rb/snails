@@ -300,10 +300,15 @@ while [[ $app_root == */ && $app_root != / ]]; do
 done
 
 routes_file="$app_root/config/routes.rb"
-[[ -f $routes_file ]] || die 2 "no route table: $routes_file"
+[[ -f $routes_file ]] || die 2 "no route table: $routes_file — restore config/routes.rb (a scaffolded app declares GET /up)"
 
 gen_dir="$app_root/gen"
-[[ -d $gen_dir ]] || die 2 "no gen/ directory: $gen_dir"
+if [[ ! -d $gen_dir ]]; then
+  repair_arg="$(app_root_argument "$app_root")"
+  sync_command="snails sync"
+  [[ -n $repair_arg ]] && sync_command+=" $(shell_quote "$repair_arg")"
+  die 2 "no gen/ directory: $gen_dir — run: $sync_command to seed it"
+fi
 
 out="$gen_dir/route_helpers.rb"
 
@@ -322,7 +327,7 @@ pins="$(pins_discover "$app_root")"
 [[ -n $pins ]] ||
   die 2 "no pins file above $app_root — the route parser runs the pinned spinel; add a pins.toml (snails new stamps one)"
 spinel_toolchain_ensure "$pins" ||
-  die 2 "the pinned spinel toolchain is unavailable — see the message above"
+  die 2 "the pinned spinel toolchain is unavailable — fix the toolchain error above, then rerun"
 spinel_bin="$(spinel_toolchain_dir "$pins")/spinel"
 "$spinel_bin" --dump-ast "$routes_file" >"$tmp/dump" 2>"$tmp/dump.err" || {
   die 2 "config/routes.rb: spinel could not parse it — $(head -n 1 "$tmp/dump.err")"
@@ -332,7 +337,7 @@ awk -f "$GEN_SCRIPTS/gen-route-helpers-ast.awk" "$tmp/dump" >"$ITEMS" || exit 2
 load_markers
 read_items
 
-[[ -s $ROWS ]] || die 2 "no route rows read from $routes_file"
+[[ -s $ROWS ]] || die 2 "no route rows read from $routes_file — declare the route table rows (a scaffolded app starts with GET /up)"
 
 # Dedupe identical rows and refuse colliding names (same name, different
 # pattern). One of them would have to win, and a helper that returns the other

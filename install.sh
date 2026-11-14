@@ -41,8 +41,8 @@ while (($#)); do
   esac
 done
 
-command -v curl >/dev/null 2>&1 || { echo "[snails] curl is required" >&2; exit 1; }
-command -v tar >/dev/null 2>&1 || { echo "[snails] tar is required" >&2; exit 1; }
+command -v curl >/dev/null 2>&1 || { echo "[snails] curl is required — install it and rerun" >&2; exit 1; }
+command -v tar >/dev/null 2>&1 || { echo "[snails] tar is required — install it and rerun" >&2; exit 1; }
 
 # download_asset <tag> <asset> <out> — fetch one release asset from the
 # source repository.
@@ -68,14 +68,14 @@ if [[ -z $rev ]]; then
     body="$(curl -fsSL "$API/releases?per_page=1")" || body=""
   fi
   if [[ -z $body ]]; then
-    echo "[snails] could not find a release for $REPO — pass --rev <full-rev>" >&2
+    echo "[snails] could not find a release for $REPO — check your network, or pass --rev <full-rev>" >&2
     exit 1
   fi
   tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p')"
   rev="${tag#rev-}"
 fi
 if [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then
-  echo "[snails] '$rev' is not a full 40-hex rev" >&2
+  echo "[snails] '$rev' is not a full 40-hex rev — pass the value of 'git rev-parse HEAD' in the snails checkout" >&2
   exit 1
 fi
 
@@ -89,18 +89,18 @@ else
   rm -rf "$tmp"
   mkdir -p "$tmp"
   echo "[snails] downloading dist $rev" >&2
-  download_asset "rev-$rev" "$asset" "$tmp/$asset" || { rm -rf "$tmp"; echo "[snails] dist download failed for $rev" >&2; exit 1; }
-  download_asset "rev-$rev" "$asset.sha256" "$tmp/$asset.sha256" || { rm -rf "$tmp"; echo "[snails] checksum download failed for $rev" >&2; exit 1; }
+  download_asset "rev-$rev" "$asset" "$tmp/$asset" || { rm -rf "$tmp"; echo "[snails] could not download the dist for $rev — check the release tag and your network, then retry" >&2; exit 1; }
+  download_asset "rev-$rev" "$asset.sha256" "$tmp/$asset.sha256" || { rm -rf "$tmp"; echo "[snails] could not download the checksum for $rev — check the release assets, then retry" >&2; exit 1; }
   if ! sha256_check "$tmp" "$asset.sha256" >/dev/null; then
     rm -rf "$tmp"
-    echo "[snails] checksum mismatch — refusing the download" >&2
+    echo "[snails] checksum mismatch — delete the cached dist and retry; if it repeats, the release is corrupt" >&2
     exit 1
   fi
   tar -xzf "$tmp/$asset" -C "$tmp"
   rm -f "$tmp/$asset" "$tmp/$asset.sha256"
   if [[ ! -f $tmp/REV || $(<"$tmp/REV") != "$rev" ]]; then
     rm -rf "$tmp"
-    echo "[snails] the downloaded dist does not carry REV=$rev" >&2
+    echo "[snails] the downloaded dist is for another revision — delete the cached dist and retry" >&2
     exit 1
   fi
   mkdir -p "$(dirname "$dest")"

@@ -9,8 +9,8 @@
 # first.
 #
 # Progress is printed on stderr; a plain run writes no stdout report (the
-# CLI's `synced` line is the result). --verbose is accepted for the CLI's one
-# detail flag; this engine has no additional detail of its own.
+# CLI's `synced` line is the result). --verbose adds internal paths and
+# absolute app paths; the default progress stays app-relative.
 #
 # Usage: cli/sync-runtime.sh <app_root> [--verbose]
 #   <app_root>    the app tree that owns snails-core/ (e.g. src,
@@ -36,14 +36,26 @@ done
 
 [[ -n $APP_ROOT ]] || { echo "usage: snails sync <app_root> [--verbose]" >&2; exit 1; }
 [[ -d $APP_ROOT ]] || { echo "[snails] no such app root: $APP_ROOT — pass the directory that holds config/database.rb" >&2; exit 1; }
-[[ -d $CORE ]] || { echo "[snails] core missing: $CORE" >&2; exit 1; }
+[[ -d $CORE ]] || { echo "[snails] the installed CLI is missing its runtime core — reinstall or upgrade snails" >&2; exit 1; }
+
+# Progress lines name app-relative paths by default; absolute paths and the
+# vendor directory name are internal, so only --verbose prints them.
+created_from_scaffold() { # <path>
+  local path="$1" rel="${1#"$APP_ROOT"/}"
+  [[ -d $path ]] && rel+="/"
+  if ((verbose)); then
+    echo "[snails] created $path from the scaffold" >&2
+  else
+    echo "[snails] created $rel from the scaffold" >&2
+  fi
+}
 
 # The app-level boot.rb is retired: the entry is <vendored core>/boot.rb and
 # the selected profile lives in the app-owned config/boot.rb, which the copy
 # below carries. Refuse before writing, so an existing app is not left
 # half-migrated (main.rb would still require a file that no longer exists).
 if [[ -f "$APP_ROOT/boot.rb" ]]; then
-  echo "[snails] boot.rb is retired — replace main.rb with scaffold/main.rb, delete boot.rb, and point harness/boot.rb at ../$SNAILS_VENDOR_DIR/boot; then rerun sync" >&2
+  echo "[snails] boot.rb is retired — replace main.rb with the current scaffold entry (a fresh 'snails new' app shows it), delete boot.rb, then rerun sync" >&2
   exit 1
 fi
 
@@ -71,7 +83,7 @@ stamp_version() {
   mv "$file.stamp" "$file"
   if ! grep -Fqx "  VERSION = \"$version\"" "$file" ||
      ! grep -Fqx "  REV = \"$rev\"" "$file"; then
-    echo "[snails] could not stamp $file — the core's metadata format changed" >&2
+    echo "[snails] could not write version metadata to $file — the vendored core has an unexpected layout; reinstall or upgrade the CLI, then rerun sync" >&2
     exit 1
   fi
 }
@@ -81,6 +93,7 @@ stamp_version() {
 # first: the version metadata is stamped separately, so a stamp-only
 # difference is not a core change.
 core_changed=0
+core_files=0
 stamp_needed=0
 if [[ ! -d $DST ]]; then
   core_changed=1
@@ -100,7 +113,12 @@ if ((core_changed)); then
   rm -rf "$DST"
   cp -R "$CORE" "$DST"
   stamp_version
-  echo "[snails] core -> $DST ($(find "$DST" -type f | wc -l) files)" >&2
+  core_files="$(find "$DST" -type f | wc -l)"
+  if ((verbose)); then
+    echo "[snails] core -> $DST ($core_files files)" >&2
+  else
+    echo "[snails] core synced ($core_files files)" >&2
+  fi
 elif ((stamp_needed)); then
   stamp_version
 fi
@@ -125,7 +143,7 @@ if [[ -d $APP_ROOT/config || -d $APP_ROOT/app ]]; then
     if [[ ! -f $dst ]]; then
       mkdir -p "$APP_ROOT/gen"
       cp "$SNAILS_ROOT/scaffold/seed/gen/$name.rb" "$dst"
-      echo "[snails] scaffold seed created: $dst" >&2
+      created_from_scaffold "$dst"
     fi
   done
 
@@ -135,7 +153,7 @@ if [[ -d $APP_ROOT/config || -d $APP_ROOT/app ]]; then
   if [[ ! -f $dst ]]; then
     mkdir -p "$APP_ROOT/config"
     cp "$SNAILS_ROOT/scaffold/seed/config/codegen.rb" "$dst"
-    echo "[snails] scaffold seed created: $dst" >&2
+    created_from_scaffold "$dst"
   fi
 
   # The app config reopen the core boot chain requires — seeded once
@@ -144,7 +162,7 @@ if [[ -d $APP_ROOT/config || -d $APP_ROOT/app ]]; then
   if [[ ! -f $dst ]]; then
     mkdir -p "$APP_ROOT/config"
     cp "$SNAILS_ROOT/scaffold/seed/config/application.rb" "$dst"
-    echo "[snails] scaffold seed created: $dst" >&2
+    created_from_scaffold "$dst"
   fi
 
   # The app-owned boot profile the vendored boot entry requires — seeded
@@ -154,7 +172,7 @@ if [[ -d $APP_ROOT/config || -d $APP_ROOT/app ]]; then
   if [[ ! -f $dst ]]; then
     mkdir -p "$APP_ROOT/config"
     cp "$SNAILS_ROOT/scaffold/seed/config/boot.rb" "$dst"
-    echo "[snails] scaffold seed created: $dst" >&2
+    created_from_scaffold "$dst"
   fi
 
   # The app environment the boot chain's last require names — seeded once
@@ -164,7 +182,7 @@ if [[ -d $APP_ROOT/config || -d $APP_ROOT/app ]]; then
   if [[ ! -f $dst ]]; then
     mkdir -p "$APP_ROOT/config"
     cp "$SNAILS_ROOT/scaffold/new/config/environment.rb" "$dst"
-    echo "[snails] scaffold seed created: $dst" >&2
+    created_from_scaffold "$dst"
   fi
 
   # The database configuration the core boot chain requires. The retired name
@@ -234,16 +252,24 @@ if [[ -d $APP_ROOT/config || -d $APP_ROOT/app ]]; then
   # only.
   if [[ ! -d "$APP_ROOT/harness" ]]; then
     cp -R "$SNAILS_ROOT/scaffold/harness" "$APP_ROOT/harness"
-    echo "[snails] scaffold harness created: $APP_ROOT/harness" >&2
+    created_from_scaffold "$APP_ROOT/harness"
   fi
   # The contract check's success line is its own result (verify-scaffold is
   # also a standalone command). Inside a sync it is one step, and the CLI's
   # result line reports the run; failures still abort through stderr.
   bash "$ENGINE_DIR/verify-scaffold.sh" "$APP_ROOT" >/dev/null
 else
-  echo "[snails] scaffold contract skipped (runtime-only tree): $APP_ROOT" >&2
+  if ((verbose)); then
+    echo "[snails] scaffold contract skipped (no app files): $APP_ROOT" >&2
+  else
+    echo "[snails] scaffold contract skipped (no app files)" >&2
+  fi
 fi
 
 if ((core_changed)); then
-  echo "[snails] done: $(find "$DST" -type f | wc -l) files in $DST" >&2
+  if ((verbose)); then
+    echo "[snails] done: $core_files files in $DST" >&2
+  else
+    echo "[snails] done: $core_files files" >&2
+  fi
 fi
