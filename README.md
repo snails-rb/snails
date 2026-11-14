@@ -10,13 +10,11 @@ Status: 1.0 release candidate. The public API may still change before 1.0.
 
 ## Scope and design
 
-Snails 1.0 is deliberately narrow. It keeps the Rails conventions that make an API app predictable, and it treats the rest of the Rails stack as a set of design choices rather than defaults. It is not a Rails replacement. This is the design, not a backlog.
+Snails 1.0 is deliberately narrow. It keeps the Rails conventions that make an API app predictable — routes, controllers, forms, mailers, jobs, and a conventional layout — and removes the abstractions Rails chose for human writing that added runtime overhead. It is not a Rails replacement; the scope is the design, not a backlog.
 
-The design assumes coding agents write the implementation; humans review the code and decide what ships. That workflow changes the reasons behind the choices. A single server-rendered stack, an ORM, and the Ruby gem ecosystem made sense when a human team wrote every line. With coding agents, a separate frontend, direct SQL, and a small set of dependencies are practical choices. Snails is built for that change.
+Coding agents change the calculation. They write SQL, maintain a backend and a frontend as two stacks, and implement a small missing behavior instead of adding a dependency. Snails keeps those conventions and the developer-friendly API style. Migrations are SQL. The heavy layers are gone: no view layer or asset pipeline, no Active Record, and no gem compatibility. The app compiles to one native binary that runs without Ruby.
 
-The framework keeps the Rails conventions because they are predictable for both an agent and a reviewer: routes, controllers, forms, mailers, jobs, and a conventional layout give an agent one obvious place to add code and a reviewer one place to find it. There is no view layer or asset pipeline because the frontend is a separate choice; the JSON API is the interface between them. There is no Active Record because coding agents write SQL, and `Sqlx` gives the common reads and writes one standard API instead of letting every model grow its own boilerplate. Migrations are SQL because the agent writes the same statement the reviewer reads, with no Ruby DSL to translate.
-
-The native binary is a performance choice: it removes the Ruby runtime and the GVL. The app boots in milliseconds and uses the available cores from one process without a worker per core. It also leaves one artifact to deploy. There is no gem compatibility because the app and framework compile together. The agent implements the small missing behavior in the app, in the same language and test suite. `bin/test` runs the suite against a real HTTP server; the default tests exercise the app instead of a set of doubles.
+Abstraction is still necessary. What remains is light and shared: conventions, a standard model API, SQL migrations, and real-server tests. Review is the constraint, not the reason for the design; the agent writes the code, and humans review the route, the SQL, the migration, and the test evidence, and decide what ships.
 
 The full reasoning is in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). The [Coming from Rails](manual/04-coming-from-rails.md) chapter is the translation table for Rails habits, and the [FAQ](manual/28-faq.md) covers what is not included.
 
