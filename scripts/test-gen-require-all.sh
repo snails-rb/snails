@@ -269,25 +269,33 @@ chk "empty literal dir warns" $? 0
 mk_app damage
 region damage/gen/jobs.rb
 printf '# <<< snails generate\n' >> damage/gen/jobs.rb
-bash "$G" damage >/dev/null 2>&1
+out="$(bash "$G" damage 2>&1)"
 chk "double end marker fails" $? 2
+[[ $out == *"restore the pair"* ]]
+chk "the marker error names the repair" $? 0
 
 mk_app damage
 region damage/gen/jobs.rb
 sed -i '$d' damage/gen/jobs.rb
-bash "$G" damage >/dev/null 2>&1
+out="$(bash "$G" damage 2>&1)"
 chk "unclosed marker fails" $? 2
+[[ $out == *"restore the pair"* ]]
+chk "the unclosed marker names the repair" $? 0
 
 mk_app damage
 echo '# jobs — out of the generator' > damage/gen/jobs.rb
-bash "$G" damage >/dev/null 2>&1
+out="$(bash "$G" damage 2>&1)"
 chk "a core file without a region fails" $? 2
+[[ $out == *"restore the pair"* ]]
+chk "the missing marker names the repair" $? 0
 
 mk_app damage
 region damage/gen/jobs.rb 'jobs/**'
 sed -i '3i # a hand edit inside the region' damage/gen/jobs.rb
-bash "$G" damage >/dev/null 2>&1
+out="$(bash "$G" damage 2>&1)"
 chk "a hand edit in the region fails" $? 2
+[[ $out == *"move the hand edit outside the markers"* ]]
+chk "the hand-edit error names the repair" $? 0
 
 mk_app damage
 cat > damage/gen/extra.rb <<'RB'

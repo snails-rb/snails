@@ -176,6 +176,15 @@ chk "unknown command" $? 2
 chk "unknown command stays short" $? 0
 ! grep -q '^usage: snails' bogus.out
 chk "unknown command does not dump the overview" $? 0
+bash "$CLI" help migratee > help-topic.out 2>&1
+chk "an unknown help topic exits 2" $? 2
+grep -q 'unknown help topic: migratee' help-topic.out
+chk "the help refusal names the topic" $? 0
+grep -q "run 'snails help'" help-topic.out
+chk "the help refusal points at help" $? 0
+[[ $(wc -l < help-topic.out) -eq 1 ]]
+chk "the help refusal stays one line" $? 0
+
 bash "$CLI" test > project-test.out 2>&1
 chk "project test hint" $? 2
 grep -q 'bin/test' project-test.out
