@@ -282,7 +282,17 @@ CREATE TABLE IF NOT EXISTS beta (id INTEGER PRIMARY KEY);
 SQL
 out=$(bash "$ENGINE" status --app "$APP2" --database "$APP2/storage/test.sqlite3" 2>&1); code=$?
 chk "ambiguous version exits 1" "$code" "1"
-chk_has "ambiguity names both files" "$out" "more than one name"
+chk_has "the ambiguity names alpha" "$out" "alpha"
+chk_has "the ambiguity names beta" "$out" "beta"
+chk_has "the ambiguity names the repair" "$out" "rename one file to a new timestamp"
+
+# --- a migration name reused under another version.
+rm -f "$APP2/db/migrate/0005_alpha.sql" "$APP2/db/migrate/0005_beta.sql"
+cp "$APP2/db/migrate/0001_baseline.sql" "$APP2/db/migrate/0099_baseline.sql"
+out=$(bash "$ENGINE" status --app "$APP2" --database "$APP2/storage/test.sqlite3" 2>&1); code=$?
+chk "a reused migration name exits 1" "$code" "1"
+chk_has "the reuse names the migration name" "$out" "baseline"
+chk_has "the reuse names the repair" "$out" "rename one of the files"
 
 # --- ledger gap: a row whose file is gone.
 sqlite3 "$DB" "INSERT INTO schema_migrations (version, applied_at) VALUES ('0099', '2026-01-01T00:00:00Z');"

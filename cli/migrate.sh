@@ -294,10 +294,10 @@ add_migration() { # <file> <version> <name> <adapter-or-empty>
     CUR_ADAPTER=""
   fi
   if [[ -n $CUR_NAME && $name != "$CUR_NAME" ]]; then
-    die 1 "version $version has more than one name: $CUR_NAME and $name"
+    die 1 "two migrations share version $version: $CUR_NAME and $name — rename one file to a new timestamp, or delete the duplicate"
   fi
   if [[ " $PREV_NAMES " == *" $name "* ]]; then
-    die 1 "the name $name appears under more than one version"
+    die 1 "the migration name $name appears under more than one version — rename one of the files"
   fi
   CUR_NAME="$name"
 
