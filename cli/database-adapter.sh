@@ -31,7 +31,7 @@ database_adapter_for() {
     pattern='^require_relative "\.\./runtime/db_(sqlite|postgresql)"'
   fi
   if [[ ! -f $file ]]; then
-    echo "[snails] no config/database.rb (or the retired config/db.rb) under $app_root — the app's database configuration must require exactly one adapter" >&2
+    echo "[snails] no config/database.rb (or the retired config/db.rb) under $app_root — the app's database configuration must require exactly one adapter; run: snails sync <app> to seed it (DB=pg for PostgreSQL, otherwise sqlite)" >&2
     return 2
   fi
   matches="$(grep -E "$pattern" "$file" || true)"

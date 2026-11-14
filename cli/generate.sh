@@ -68,7 +68,7 @@ else
   # the argument is omitted, resolve_app_root applies the same rule.
   app_root="$(app_root_for "$app_root")"
 fi
-[[ -d $app_root ]] || die 2 "no such app_root: $app_root"
+[[ -d $app_root ]] || die 2 "no such app root: $app_root — pass the directory that holds config/database.rb"
 
 adapter="$(database_adapter_for "$app_root")" || exit 2
 

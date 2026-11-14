@@ -150,6 +150,10 @@ out="$(cd "$NO_ROOT" && "$CLI" generate job_queue 2>&1)"; code=$?
 chk "unresolvable app root exits 2" "$code" "2"
 chk_has "unresolvable app root points at the fix" "$out" "no app root at or above"
 
+out="$("$CLI" generate job_queue "$WORK/no-such-app" 2>&1)"; code=$?
+chk "a missing app root path exits 2" "$code" "2"
+chk_has "the missing app root points at the fix" "$out" "pass the directory that holds config/database.rb"
+
 AMBIGUOUS="$WORK/ambiguous"
 mkdir -p "$AMBIGUOUS/config"
 printf 'require_relative "../snails-core/database/sqlite"\nrequire_relative "../snails-core/database/postgresql"\n' > "$AMBIGUOUS/config/database.rb"

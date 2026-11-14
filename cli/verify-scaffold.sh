@@ -90,7 +90,7 @@ app_root="$1"
 while [[ $app_root == */ && $app_root != / ]]; do
   app_root="${app_root%/}"
 done
-[[ -d $app_root ]] || struct_fail "no such app_root: $app_root"
+[[ -d $app_root ]] || struct_fail "no such app root: $app_root — pass the directory that holds config/database.rb"
 sync_arg="$(app_root_argument "$app_root")"
 sync_command="snails sync"
 [[ -n $sync_arg ]] && sync_command+=" $(shell_quote "$sync_arg")"
