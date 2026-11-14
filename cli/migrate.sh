@@ -330,9 +330,31 @@ flush_version() {
 orphan_versions() {
   local version orphans=""
   for version in ${APPLIED:-}; do
-    in_versions "$version" || orphans="$orphans $version"
+    in_versions "$version" || orphans="${orphans:+$orphans, }$version"
   done
   printf '%s' "$orphans"
+}
+
+orphan_versions_sql() {
+  local version sql=""
+  for version in ${APPLIED:-}; do
+    in_versions "$version" || sql="${sql:+$sql, }'$version'"
+  done
+  printf '%s' "$sql"
+}
+
+# Every command refuses the same broken state: the ledger names versions that
+# db/migrate no longer has. The repair reconciles the two either way, so one
+# message shape carries it.
+die_orphans() {
+  local versions sql kind="version" pronoun="it" rows="row" files="file"
+  versions="$(orphan_versions)"
+  [[ -n $versions ]] || return 0
+  sql="$(orphan_versions_sql)"
+  if [[ $versions == *,* ]]; then
+    kind="versions" pronoun="them" rows="rows" files="files"
+  fi
+  die 1 "the ledger records $kind $versions with no migration $files — restore $pronoun, or delete the ledger $rows: DELETE FROM schema_migrations WHERE version IN ($sql)"
 }
 
 cmd_status() {
@@ -360,9 +382,7 @@ cmd_status() {
     printf "%-${width}s n/a (no %s file)\n" "$label" "$DB_ADAPTER"
   done
 
-  local orphans
-  orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
+  die_orphans
 }
 
 # The command the developer can paste back into the same shell. An empty
@@ -390,10 +410,9 @@ repair_command() { # <app-arg> <database-arg> <apply|load>
 # `migrate load` (uninitialized) or `migrate apply` (pending) step, never this
 # command.
 cmd_check() {
-  local orphans n="${#PENDING[@]}" version i message app_arg="" command full_command
+  local n="${#PENDING[@]}" version i message app_arg="" command full_command
   local subcommand=apply
-  orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
+  die_orphans
   ((LEDGER_PRESENT)) || subcommand=load
 
   if ((n == 0)); then
@@ -472,9 +491,7 @@ ensure_target_dir() {
 }
 
 cmd_apply() {
-  local orphans
-  orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
+  die_orphans
 
   if ((${#PENDING[@]} == 0)); then
     echo "nothing to apply"
@@ -529,9 +546,7 @@ run_dump() {
 # the schema dump load and only applies pending migrations; a schema-only app
 # reloads its schema dump because it has no migration path.
 cmd_load() {
-  local orphans
-  orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
+  die_orphans
 
   if ((${#VERSIONS[@]} == 0)) && [[ ! -f $APP/db/schema.sql ]]; then
     echo "nothing to load"
@@ -796,9 +811,7 @@ cmd_dump() {
 cmd_verify() {
   require_executor
 
-  local orphans
-  orphans="$(orphan_versions)"
-  [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
+  die_orphans
 
   local tmp
   tmp="$(mktemp -d)"
@@ -854,8 +867,7 @@ case "$COMMAND" in
     ;;
   status | apply | load | verify | check | dump) ;;
   *)
-    usage >&2
-    die 2 "unknown command: $COMMAND"
+    die 2 "unknown command: $COMMAND — run 'snails help migrate'"
     ;;
 esac
 
@@ -866,16 +878,16 @@ while (($#)); do
   case "$1" in
     --app)
       APP="${2:-}"
-      [[ -n $APP ]] || die 2 "--app needs a value"
+      [[ -n $APP ]] || die 2 "--app needs a value — run 'snails help migrate'"
       shift 2
       ;;
     --database)
       DB_OPTION="${2:-}"
-      [[ -n $DB_OPTION ]] || die 2 "--database needs a value"
+      [[ -n $DB_OPTION ]] || die 2 "--database needs a value — run 'snails help migrate'"
       shift 2
       ;;
     --verbose) VERBOSE=1; shift ;;
-    *) die 2 "unknown option: $1" ;;
+    *) die 2 "unknown option: $1 — run 'snails help migrate'" ;;
   esac
 done
 if [[ -n $APP ]]; then
@@ -884,16 +896,16 @@ if [[ -n $APP ]]; then
   # --app may name the repository root of a src/ layout; this is the same
   # rule the build engines use.
   APP_INPUT="$APP"
-  [[ -d $APP_INPUT ]] || die 2 "no such app directory: $APP_INPUT"
-  APP="$(cd "$APP_INPUT" && pwd)" || die 2 "no such app directory: $APP_INPUT"
+  [[ -d $APP_INPUT ]] || die 2 "no such app root: $APP_INPUT — pass the directory that holds config/database.rb"
+  APP="$(cd "$APP_INPUT" && pwd)" || die 2 "no such app root: $APP_INPUT — pass the directory that holds config/database.rb"
   APP="$(app_root_for "$APP")"
 else
   APP="$(resolve_app_root '[snails]' '--app DIR')" || exit 2
 fi
 
 PINS="$(discover_pins "$APP")"
-[[ -n $PINS ]] || die 2 "no pins file at or above $APP"
-[[ -f $PINS ]] || die 2 "pins file not found: $PINS"
+[[ -n $PINS ]] || die 2 "no pins file at or above $APP — add pins.toml (snails new stamps one)"
+[[ -f $PINS ]] || die 2 "pins file not found: $PINS — add pins.toml (snails new stamps one)"
 
 DB_ADAPTER="$(database_adapter_for "$APP")" || exit 2
 
@@ -907,7 +919,7 @@ OWNER="$(read_pins "$PINS" DB_OWNER)"
 OWNER="${OWNER:-self}"
 case " $OWNER " in
   " self " | " external ") ;;
-  *) die 2 "unknown DB_OWNER: $OWNER" ;;
+  *) die 2 "unknown DB_OWNER: $OWNER — must be \"self\" or \"external\"" ;;
 esac
 
 # Every command that reads or writes the database resolves the target before

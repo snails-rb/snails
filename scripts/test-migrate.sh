@@ -299,6 +299,7 @@ sqlite3 "$DB" "INSERT INTO schema_migrations (version, applied_at) VALUES ('0099
 out=$(migrate status 2>&1); code=$?
 chk "ledger gap exits 1" "$code" "1"
 chk_has "gap names the orphan version" "$out" "0099"
+chk_has "the gap offers the ledger repair" "$out" "DELETE FROM schema_migrations WHERE version IN ('0099')"
 out=$(migrate check 2>&1); code=$?
 chk "check refuses a ledger gap" "$code" "1"
 chk_has "the check gap names the orphan version" "$out" "0099"
@@ -596,7 +597,8 @@ chk_has "the refusal names the fix" "$out" "pass --app"
 
 out=$(bash "$ENGINE" status --app "$WORK/missing" 2>&1); code=$?
 chk "a missing --app exits 2" "$code" "2"
-chk_has "the missing --app message keeps the path" "$out" "no such app directory: $WORK/missing"
+chk_has "the missing --app message keeps the path" "$out" "no such app root: $WORK/missing"
+chk_has "the missing --app message names the fix" "$out" "pass the directory that holds config/database.rb"
 
 out=$(cd "$APP/storage" && "$CLI" migrate status 2>&1); code=$?
 chk "cli migrate resolves from a subdirectory" "$code" "0"
@@ -662,6 +664,12 @@ chk "the printed special-path command runs" "$?" "0"
 out=$(bash "$ENGINE" status --bogus 2>&1); code=$?
 chk "an unknown option is refused" "$code" "2"
 chk_has "the refusal names the option" "$out" "unknown option: --bogus"
+chk_has "the refusal points at migrate help" "$out" "run 'snails help migrate'"
+
+out=$(bash "$ENGINE" plna 2>&1); code=$?
+chk "an unknown subcommand is refused" "$code" "2"
+chk "an unknown subcommand keeps the refusal to one line" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "1"
+chk_has "the subcommand refusal points at migrate help" "$out" "run 'snails help migrate'"
 
 # --- a pins file above the app is not a resolution: the repository root
 # refuses whatever sits below it — no scan looks for an app to guess with.

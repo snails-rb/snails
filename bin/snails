@@ -1601,7 +1601,7 @@ cmd_new() {
   esac
   if [[ -e $dir ]]; then
     if [[ ! -d $dir || -n "$(ls -A "$dir" 2>/dev/null)" ]]; then
-      echo "[snails] target exists and is not empty: $dir" >&2
+      echo "[snails] target exists and is not empty: $dir — pick a new directory, or empty it first" >&2
       exit 1
     fi
   else

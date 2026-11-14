@@ -35,7 +35,7 @@ while (($#)); do
 done
 
 [[ -n $APP_ROOT ]] || { echo "usage: snails sync <app_root> [--verbose]" >&2; exit 1; }
-[[ -d $APP_ROOT ]] || { echo "[snails] no such app_root: $APP_ROOT" >&2; exit 1; }
+[[ -d $APP_ROOT ]] || { echo "[snails] no such app root: $APP_ROOT — pass the directory that holds config/database.rb" >&2; exit 1; }
 [[ -d $CORE ]] || { echo "[snails] core missing: $CORE" >&2; exit 1; }
 
 # The app-level boot.rb is retired: the entry is <vendored core>/boot.rb and

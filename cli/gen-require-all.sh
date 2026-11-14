@@ -283,7 +283,7 @@ fi
 if ((verbose && !check)); then
   die 2 "--verbose applies to '--check' — it lists the stale files"
 fi
-[[ -d $app_root ]] || die 2 "no such app_root: $app_root"
+[[ -d $app_root ]] || die 2 "no such app root: $app_root — pass the directory that holds config/database.rb"
 while [[ $app_root == */ && $app_root != / ]]; do
   app_root="${app_root%/}"
 done
