@@ -61,17 +61,23 @@ sha256_check() {
 
 # The default install follows the Latest release, whose tag names the rev
 # to install. A fresh channel has no stable release yet, so fall back to
-# the newest published release; without either, name a rev explicitly.
+# the newest dist release; without either, name a rev explicitly. The list
+# holds toolchain releases (`spinel-rev-…`) too, so the fallback picks the
+# newest `rev-` tag instead of assuming the newest release is a dist.
 if [[ -z $rev ]]; then
   body="$(curl -fsSL "$API/releases/latest")" || body=""
   if [[ -z $body ]]; then
-    body="$(curl -fsSL "$API/releases?per_page=1")" || body=""
+    body="$(curl -fsSL "$API/releases?per_page=100")" || body=""
   fi
   if [[ -z $body ]]; then
     echo "[snails] could not find a release for $REPO — check your network, or pass --rev <full-rev>" >&2
     exit 1
   fi
-  tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p')"
+  tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\(rev-[^"]*\)".*/\1/p' | head -n1)"
+  if [[ -z $tag ]]; then
+    echo "[snails] could not find a dist release for $REPO — check the release channel, or pass --rev <full-rev>" >&2
+    exit 1
+  fi
   rev="${tag#rev-}"
 fi
 if [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then

@@ -82,8 +82,12 @@ The database is under contention. `Sqlx::Busy` is a SQLite lock wait past `DATAB
 
 ### The first `snails new` stops in a compiler build
 
-`snails new` assembles the pinned compiler before it writes the project, so a missing compiler, header, or `pkg-config` stops it inside `make`. Install the packages in [Getting Started](02-getting-started.md#requirements) and run the command again.
+`snails new` downloads the pinned compiler. When no asset exists for your platform or revision, or the download fails, it falls back to a source build; a missing compiler, header, or `pkg-config` stops that build inside `make`. Install the packages under [Getting Started](02-getting-started.md#requirements) §If the prebuilt compiler is unavailable and run the command again.
 
-On macOS, if OpenSSL was missing during that first attempt, delete `.spinel/toolchain` and `~/.cache/snails/spinel/<rev>` first: the compiler built without the `openssl` package is cached at the pinned revision and is not rebuilt otherwise.
+On macOS, if OpenSSL was missing during that source build, delete `.spinel/toolchain` and `~/.cache/snails/spinel/<rev>` first: the compiler built without the `openssl` package is cached at the pinned revision and is not rebuilt otherwise.
+
+### The first `bin/dev` stops while compiling the app
+
+The app build links the C compiler, OpenSSL, SQLite, and jemalloc. A linker error such as `cannot find -lssl` names the missing development package; install the Linux or macOS packages under [Getting Started](02-getting-started.md#requirements) and run `bin/dev` again. `snails doctor` checks the database client and the toolchain but does not probe the linker.
 
 When the symptom is not here, run `snails doctor` first — it checks the pin, the toolchain, the database, and the local clients before you go looking further.

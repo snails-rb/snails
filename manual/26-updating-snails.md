@@ -41,7 +41,7 @@ Exit code 0 means everything matches; a mismatch prints what disagrees and exits
 
 1. Set `SNALS_REV` to the version you are moving to.
 2. If the release declares a new compiler revision, set `SPINEL_REV` to that value.
-3. Run `snails sync` — it fetches the core into `snails-core/`, materializes the pinned compiler, and re-seeds the generated files.
+3. Run `snails sync` — it fetches the core into `snails-core/`, downloads or reuses the pinned compiler, and re-seeds the generated files.
 4. Run `snails pins check` and `bin/test`. The check catches a mismatched pair; the test suite catches a change your app depends on.
 
 `snails sync --check` reports the same comparison without writing anything:

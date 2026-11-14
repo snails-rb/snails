@@ -40,6 +40,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       rev: ${{ steps.pin.outputs.rev }}
+      full: ${{ steps.pin.outputs.full }}
     steps:
       - name: Checkout snails
         uses: actions/checkout@v7
@@ -47,9 +48,24 @@ jobs:
       # grepping KEY=VALUE lines (same reader as ci.yml).
       - name: Read the spinel pin
         id: pin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
           echo "rev=$REV" >> "$GITHUB_OUTPUT"
+          FULL=$(curl -fsSL --connect-timeout 10 --max-time 60 \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            "https://api.github.com/repos/matz/spinel/commits/$REV" |
+            python3 -c 'import json, sys; print(json.load(sys.stdin)["sha"])')
+          [[ $FULL =~ ^[0-9a-f]{40}$ ]] || {
+            echo "the commit API did not return a full revision for $REV: $FULL" >&2
+            exit 1
+          }
+          [[ $FULL == "$REV"* ]] || {
+            echo "the resolved commit $FULL does not start with the pin $REV" >&2
+            exit 1
+          }
+          echo "full=$FULL" >> "$GITHUB_OUTPUT"
 
   build:
     name: build ${{ matrix.arch }}
@@ -137,6 +153,151 @@ jobs:
               exit 1
             fi
           done
+
+  # The toolchain tarballs are the non-Docker installation path. Linux
+  # assets come from the just-built bookworm image (the same ABI contract);
+  # macOS assets must be built natively because no image exists.
+  toolchain-linux:
+    name: toolchain asset linux ${{ matrix.arch }}
+    needs: [pin, build]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+      - name: Extract the toolchain from the published image
+        env:
+          REV: ${{ needs.pin.outputs.rev }}
+          FULL: ${{ needs.pin.outputs.full }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          cid="$(docker create "$IMAGE:$REV-$ARCH")"
+          unit="$RUNNER_TEMP/toolchain"
+          mkdir -p "$unit"
+          docker cp "$cid:/opt/spinel/lib/spinel/." "$unit/"
+          docker cp "$cid:/opt/spinel/LICENSE" "$unit/LICENSE"
+          docker cp "$cid:/opt/spinel/licenses" "$unit/licenses"
+          docker rm "$cid" >/dev/null
+          asset="$(bash -c 'source cli/toolchain.sh; spinel_toolchain_asset_name "$1" linux "$2"' _ "$FULL" "$ARCH")"
+          mkdir -p dist
+          tar -czf "dist/$asset" -C "$unit" .
+          if command -v sha256sum >/dev/null 2>&1; then
+            (cd dist && sha256sum "$asset" > "$asset.sha256")
+          else
+            (cd dist && shasum -a 256 "$asset" > "$asset.sha256")
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toolchain-linux-${{ matrix.arch }}
+          path: dist/
+          retention-days: 7
+
+  toolchain-macos:
+    name: toolchain asset macos ${{ matrix.arch }}
+    needs: pin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: amd64
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+      - name: Install Homebrew dependencies
+        run: |
+          brew install openssl@3 jemalloc pkg-config libpq libffi ruby
+          echo "$(brew --prefix ruby)/bin" >> "$GITHUB_PATH"
+          {
+            echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+            echo "CPATH=$(brew --prefix openssl@3)/include:$(brew --prefix jemalloc)/include:$(brew --prefix libpq)/include:$(brew --prefix libffi)/include:${CPATH:-}"
+            echo "LIBRARY_PATH=$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:$(brew --prefix libffi)/lib:${LIBRARY_PATH:-}"
+          } >> "$GITHUB_ENV"
+      - name: Build and smoke the toolchain asset
+        env:
+          REV: ${{ needs.pin.outputs.rev }}
+          FULL: ${{ needs.pin.outputs.full }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          bash scripts/build-toolchain-asset.sh \
+            --rev "$REV" --full "$FULL" --os darwin --arch "$ARCH" \
+            --out "$GITHUB_WORKSPACE/dist"
+      - name: Build a project with the packaged asset
+        env:
+          SNAILS_DIR: ${{ github.workspace }}
+          SNAILS_SPINEL_BASE_URL: file://${{ github.workspace }}/dist
+        run: |
+          app="$RUNNER_TEMP/asset-app"
+          rm -rf "$app"
+          "$SNAILS_DIR/bin/snails" new "$app"
+          "$app/bin/test"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toolchain-macos-${{ matrix.arch }}
+          path: dist/
+          retention-days: 7
+
+  publish-toolchain:
+    name: publish toolchain assets
+    needs: [pin, toolchain-linux, toolchain-macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download the toolchain assets
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish the toolchain release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          FULL: ${{ needs.pin.outputs.full }}
+        run: |
+          set -euo pipefail
+          tag="spinel-rev-$FULL"
+          cat > release-notes.md <<NOTES
+          spinel toolchain ${FULL}
+
+          Source: https://github.com/matz/spinel/commit/${FULL}
+
+          Assets: linux-amd64, linux-arm64, darwin-arm64, darwin-amd64.
+
+          - Linux assets are built from the bookworm image; they run on glibc 2.36 or newer.
+          - macOS assets target macOS 13 or newer and the standard Homebrew prefix (/opt/homebrew on Apple Silicon, /usr/local on Intel).
+          - The smoke built openssl, ffi, json, sqlite3, pq, and a jemalloc spin app.
+
+          The snails CLI downloads this release for the pinned SPINEL_REV; a
+          missing or unavailable asset falls back to the source build.
+          NOTES
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/* --clobber
+            gh release edit "$tag" --notes-file release-notes.md
+          else
+            gh release create "$tag" dist/* \
+              --title "spinel toolchain $FULL" \
+              --notes-file release-notes.md \
+              --latest=false
+          fi
 
   # An app build from the just-published image. Code pushes that do not publish
   # run the same test in platform-ci, where the image already exists.

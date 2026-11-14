@@ -44,7 +44,7 @@ snails new demo
 
 While the repository has only release candidates, add `prerelease=true` to that tool entry.
 
-The first command that needs the toolchain builds the pinned compiler. Install the system packages listed under [Requirements](manual/02-getting-started.md#requirements) first. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
+The first command that needs the compiler downloads the pinned one for Linux amd64/arm64 or macOS Apple Silicon/Intel. The first `bin/dev` or `bin/test` builds your app, so install the C compiler and libraries listed under [Requirements](manual/02-getting-started.md#requirements) before that build. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
 
 ## Benchmark
 
