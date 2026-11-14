@@ -33,7 +33,7 @@
 #     pass --app to name the app from there. A repository with several apps
 #     gives each app its own pins file and its own app root.
 #   - the runner refuses `apply` for a database owned by another app (pins
-#     DB_OWNER="external"); status/plan/verify stay available.
+#     DB_OWNER="external"); status/verify stay available.
 #   - `apply` writes only what the ledger says is pending, and the ledger
 #     is created by the tool, never by the app's schema files.
 #   - `check` is the read-only boot check: it exits 1 when any migration is
@@ -45,7 +45,7 @@
 #     target (`dump` takes no --database), while pg replays into a
 #     throwaway schema on the target and drops it on exit.
 #
-# usage: snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR]
+# usage: snails migrate <status|apply|load|verify|check|dump> [--app DIR]
 #                   [--database TARGET] [--verbose]
 #
 # exit: 0 = ok, 1 = violation (pending migration in check mode, ledger gap,
@@ -73,10 +73,9 @@ LEDGER_PRESENT=0
 
 usage() {
   cat <<'USAGE'
-usage: snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
+usage: snails migrate <status|apply|load|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
 
   status   applied/pending/not-applicable, plus a ledger gap check
-  plan     print the SQL of every pending migration (dry run)
   apply    run pending migrations in order, recording each in the ledger
   load     initialize the database: create it, load db/schema.sql, apply
            pending migrations, then refresh the schema dump
@@ -195,7 +194,7 @@ ledger_exists() {
 }
 
 # Reading must not create the target: the sqlite3 CLI creates a missing
-# file on open, so status/plan on a fresh checkout would leave an empty
+# file on open, so status on a fresh checkout would leave an empty
 # database behind. A missing sqlite target simply has nothing applied.
 target_exists() {
   [[ $DB_ADAPTER == sqlite ]] || return 0
@@ -364,25 +363,6 @@ cmd_status() {
   local orphans
   orphans="$(orphan_versions)"
   [[ -z $orphans ]] || die 1 "the ledger records versions with no migration file: $orphans"
-}
-
-cmd_plan() {
-  # A dry run: with no target resolved, the ledger cannot be read, so every
-  # migration is treated as pending, and the command says so.
-  if [[ -z $TARGET ]]; then
-    echo "[snails] no target resolved — listing every migration (the ledger was not read)" >&2
-  fi
-  if ((${#PENDING[@]} == 0)); then
-    echo "nothing to apply"
-    return 0
-  fi
-  local version i
-  for version in "${PENDING[@]}"; do
-    i="$(index_of_version "$version")"
-    echo "-- ${LABELS[$i]} ($(basename "${PATHS[$i]}"))"
-    cat "${PATHS[$i]}"
-    echo
-  done
 }
 
 # The command the developer can paste back into the same shell. An empty
@@ -872,7 +852,7 @@ case "$COMMAND" in
     usage
     exit 0
     ;;
-  status | plan | apply | load | verify | check | dump) ;;
+  status | apply | load | verify | check | dump) ;;
   *)
     usage >&2
     die 2 "unknown command: $COMMAND"
@@ -930,11 +910,10 @@ case " $OWNER " in
   *) die 2 "unknown DB_OWNER: $OWNER" ;;
 esac
 
-# The target is resolved lazily, and the ownership refusal comes first:
-# `plan` never needs a reachable database, and the refusal is a declaration
-# check; a target owned by another app must be refused whether or not a
-# server answers.
-resolve_target() { # <fatal: 0|1>
+# Every command that reads or writes the database resolves the target before
+# dispatch. The external-owner refusal for apply/load is a declaration check,
+# so a target owned by another app is refused whether or not a server answers.
+resolve_target() {
   local adapter_env="" env_value=""
   case "$DB_ADAPTER" in
     sqlite)
@@ -951,20 +930,16 @@ resolve_target() { # <fatal: 0|1>
     TARGET="$APP/$DEFAULT_SQLITE"
   fi
   if [[ -z $TARGET ]]; then
-    if [[ $1 == 1 ]]; then
-      die 2 "no $DB_ADAPTER target: pass --database or set $adapter_env"
-    fi
-    return 1
+    die 2 "no $DB_ADAPTER target: pass --database or set $adapter_env"
   fi
   return 0
 }
 
 TARGET=""
 case "$COMMAND" in
-  status | apply | load | verify | check) resolve_target 1 ;;
-  plan) resolve_target 0 || true ;;
+  status | apply | load | verify | check) resolve_target ;;
   dump)
-    if [[ $DB_ADAPTER == pg ]]; then resolve_target 1; fi
+    if [[ $DB_ADAPTER == pg ]]; then resolve_target; fi
     ;;
 esac
 if [[ ($COMMAND == apply || $COMMAND == load) && $OWNER == external ]]; then
@@ -999,7 +974,6 @@ done
 
 case "$COMMAND" in
   status) cmd_status ;;
-  plan) cmd_plan ;;
   apply) cmd_apply ;;
   load) cmd_load ;;
   verify) cmd_verify ;;
