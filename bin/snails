@@ -102,7 +102,7 @@
 #   bin/snails verify-scaffold [<app_root>]
 #       Scaffold contract check (cli/verify-scaffold.sh).
 #
-#   bin/snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR]
+#   bin/snails migrate <status|apply|load|verify|check|dump> [--app DIR]
 #                      [--database TARGET] [--verbose]
 #       Schema migrations for an EXISTING database: db/migrate/
 #       <version>_<name>[.<adapter>].sql — the version is a numeric
@@ -299,13 +299,12 @@ HELP
 
 help_migrate() {
   cat <<'HELP'
-Usage: snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
+Usage: snails migrate <status|apply|load|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
 
 Manage schema migrations and database initialization.
 
 Commands:
   status   Show applied and pending migrations
-  plan     Print the SQL of pending migrations
   apply    Apply pending migrations in order
   load     Initialize the database: create it, load db/schema.sql, apply
            pending migrations, then refresh the schema dump
@@ -337,13 +336,6 @@ help_migrate_sub() {
 Usage: snails migrate status [--app DIR] [--database TARGET] [--verbose]
 
 Show applied and pending migrations, plus a ledger gap check.
-HELP
-      ;;
-    plan)
-      cat <<'HELP'
-Usage: snails migrate plan [--app DIR] [--database TARGET] [--verbose]
-
-Print the SQL of every pending migration (dry run).
 HELP
       ;;
     apply)
@@ -2042,7 +2034,7 @@ cmd_migrate() {
     exit 0
   fi
   case "$1" in
-    status|plan|apply|load|verify|check|dump)
+    status|apply|load|verify|check|dump)
       if [[ ${2:-} == -h || ${2:-} == --help ]]; then
         help_migrate_sub "$1" || exit 2
         exit 0

@@ -5,7 +5,7 @@
 #
 # Cases: pending/applied status, idempotent apply + ledger, `load` (fresh
 # create/load/apply/dump, schema-only reload, existing-data preservation),
-# plan writes nothing, adapter-file selection and not-applicable reporting,
+# adapter-file selection and not-applicable reporting,
 # ambiguity and ledger-gap detection, the DB_OWNER=external refusal, `dump` (the schema dump
 # writer: generated format, idempotent rerun, its guards — no history, no
 # tables, --database, an unsupported object), the `verify` byte-compare
@@ -111,12 +111,6 @@ out=$(migrate check 2>&1); code=$?
 chk "check exits 1 on a missing database with migrations" "$code" "1"
 chk_has "check names the load repair" "$out" "snails migrate load"
 chk "check does not create the database" "$([[ -f $DB ]] && echo yes || echo no)" "no"
-
-# --- plan prints SQL and writes nothing (no database file created).
-out=$(migrate plan 2>&1); code=$?
-chk "plan exits 0" "$code" "0"
-chk_has "plan prints the pending SQL" "$out" "CREATE VIEW widget_totals"
-chk "plan does not create the database" "$([[ -f $DB ]] && echo yes || echo no)" "no"
 
 # --- apply: ledger + objects; second run is a no-op. The per-file
 # progress (`applying <label>`) prints on stderr; stdout is the summary.
@@ -245,12 +239,6 @@ chk "refusal does not touch the target" "$code" "2"
 chk_has "refusal is the ownership one" "$out" "external"
 cp "$WORK/pins.bak" "$APP/pins.toml"
 migrate apply >/dev/null 2>&1
-
-# --- plan is a dry run: it reads the ledger when a target is resolvable
-# (default path here), and says so when none is.
-out=$(bash "$ENGINE" plan --app "$APP" 2>&1); code=$?
-chk "plan works with the default target" "$code" "0"
-chk_has "plan prints a pending migration" "$out" "-- 0002_views"
 
 # --- the retired configuration name is still read: an app that has not bumped
 # its core pin runs the old scaffold (its boot chain requires `config/db`), so the
@@ -707,12 +695,6 @@ SQL
 
 mixmigrate() { bash "$ENGINE" "$@" --app "$MIXAPP" --database "$MIXAPP/storage/test.sqlite3"; }
 
-out=$(mixmigrate plan 2>&1); code=$?
-chk "timestamp-version plan exits 0" "$code" "0"
-chk "plan orders by numeric version (ordinal first)" \
-  "$(printf '%s\n' "$out" | sed -n 's/^-- \([^ ]*\).*/\1/p' | tr '\n' ' ')" \
-  "2100_legacy 20261026120000_first 20261026120001_second "
-
 out="$(mixmigrate apply 2> "$WORK/mix.err")"; code=$?
 chk "timestamp-version apply exits 0" "$code" "0"
 chk_has "apply reports three applied" "$out" "3 applied"
@@ -798,21 +780,6 @@ CREATE TABLE IF NOT EXISTS sqlite_only (id INTEGER PRIMARY KEY);
 SQL
 
   pgmigrate() { bash "$ENGINE" "$@" --app "$PGAPP" --database "$PG_TARGET"; }
-
-  # A dry run with nothing resolvable: PG_URL unset and no --database. With no
-  # target the ledger cannot be read, so every applicable migration is listed
-  # and none is filtered out as already applied. The notice should name that
-  # cause; its remaining wording is not part of the contract.
-  out=$(env -u PG_URL bash "$ENGINE" plan --app "$PGAPP" 2>&1); code=$?
-  chk "pg plan without a target exits 0" "$code" "0"
-  chk_has "pg plan without a target names the cause" "$out" "no target resolved"
-  missing=""
-  for version in 0001_baseline 0002_views 0003_pg_only; do
-    [[ $out == *"$version"* ]] || missing+=" $version"
-  done
-  chk "pg plan without a target lists every applicable migration" "$missing" ""
-  [[ $out == *0004_sqlite_only* ]]
-  chk "pg plan without a target skips the sqlite-only file" "$?" "1"
 
   out=$(pgmigrate status 2>&1); code=$?
   chk "pg status exits 0" "$code" "0"

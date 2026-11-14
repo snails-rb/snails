@@ -123,13 +123,12 @@ The project's `bin/build-binary`, `bin/build-image`, and `bin/compose` wrappers 
 `snails help <command>` prints the usage, subcommands, and options:
 
 ```text
-Usage: snails migrate <status|plan|apply|load|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
+Usage: snails migrate <status|apply|load|verify|check|dump> [--app DIR] [--database TARGET] [--verbose]
 
 Manage schema migrations and database initialization.
 
 Commands:
   status   Show applied and pending migrations
-  plan     Print the SQL of pending migrations
   apply    Apply pending migrations in order
   load     Initialize the database: create it, load db/schema.sql, apply
            pending migrations, then refresh the schema dump

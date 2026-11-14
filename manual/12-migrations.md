@@ -36,14 +36,7 @@ Add a numbered file for every change. The timestamp keeps files in apply order:
 ALTER TABLE posts ADD COLUMN slug TEXT;
 ```
 
-`snails migrate plan` prints the SQL of everything that has not been applied yet:
-
-```text
--- 20261112090000_add_slug_to_posts (20261112090000_add_slug_to_posts.sql)
--- Slugs give posts a stable URL segment.
-ALTER TABLE posts ADD COLUMN slug TEXT;
-```
-
+`snails migrate status` lists which files are applied and which are pending.
 `snails migrate apply` runs the pending files in order and records them:
 
 ```text
