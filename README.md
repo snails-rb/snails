@@ -8,11 +8,17 @@ The project is split into parts: the API-only, Rails-like runtime for [Spinel](h
 
 Status: 1.0 release candidate. The public API may still change before 1.0.
 
-## The Snails Design
+## Scope and design
 
-Snails keeps the Rails conventions that make an API app predictable — routes in `config/routes.rb`, controllers with actions, form objects for validation, mailers, jobs, and a conventional folder layout — and compiles your app code, the framework, and the HTTP server into one native binary. The framework has a small surface: no view layer or asset pipeline, no Active Record, and no gem compatibility. Models are plain classes over SQL, migrations are SQL files, the CLI and server run without Ruby, and `bin/test` runs against a real HTTP server.
+Snails 1.0 is for API-only Ruby apps. It keeps the Rails conventions that make an API app predictable — routes, controllers, forms, mailers, jobs, and a conventional project layout — and removes the abstractions that add runtime overhead.
 
-The design choices and the purpose behind each are in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). The [Coming from Rails](manual/04-coming-from-rails.md) chapter shows which Rails conventions carry over and what replaces the rest. The [FAQ](manual/28-faq.md) covers what Snails does and does not include.
+Coding agents change the work those abstractions were designed for. They write SQL, maintain a backend and a frontend as two stacks, and implement missing behavior in the app instead of adding a gem. Snails keeps the Rails conventions and uses SQL migrations. It removes the layers that add runtime overhead without reducing the agent's work: no view layer or asset pipeline, no Active Record, and no gem compatibility. The app compiles to one native binary that runs without Ruby.
+
+Abstraction is still necessary. The framework provides a standard model API and a real-server test harness; those are the rules the agent follows and the reviewer checks. The agent writes the code; humans review the route, the SQL, the migration, and the test evidence, and decide what ships. Review is the constraint, not the reason for the design.
+
+The full reasoning is in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). The [Coming from Rails](manual/04-coming-from-rails.md) chapter covers the Rails features that carry over and what replaces the rest, and the [FAQ](manual/28-faq.md) lists what is not included.
+
+If you need server-rendered pages, the full Ruby gem ecosystem, or Active Record's object model, Rails is the better fit.
 
 ## Install
 
@@ -31,7 +37,7 @@ snails new demo
 
 While the repository has only release candidates, add `prerelease=true` to that tool entry.
 
-The first command that needs the toolchain builds the pinned compiler, so install the system packages listed under [Requirements](manual/02-getting-started.md#requirements) first. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
+The first command that needs the toolchain builds the pinned compiler. Install the system packages listed under [Requirements](manual/02-getting-started.md#requirements) first. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
 
 ## Benchmark
 
