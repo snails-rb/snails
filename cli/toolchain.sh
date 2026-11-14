@@ -23,6 +23,8 @@ _toolchain_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$_toolchain_dir/app-root.sh"
 # shellcheck source=pins.sh
 source "$_toolchain_dir/pins.sh"
+# shellcheck source=download.sh
+source "$_toolchain_dir/download.sh"
 
 # spinel_snails_cli — locate the snails CLI without hardcoding a local path:
 # the CLI that set SNAILS_CLI (the one running the harness engine) is
@@ -224,14 +226,157 @@ spinel_toolchain_build() {
   rm -rf "$work"
 }
 
+# spinel_host_os — the OS segment of the release asset name. Only the
+# platforms that have published assets are recognized; anything else falls
+# through to the source build.
+spinel_host_os() {
+  case "$(uname -s 2>/dev/null || true)" in
+    Linux)  printf 'linux' ;;
+    Darwin) printf 'darwin' ;;
+    *)      return 1 ;;
+  esac
+}
+
+# spinel_host_arch — the architecture segment of the release asset name.
+# uname reports x86_64/aarch64 on Linux and arm64 on macOS; the assets use
+# the OCI names amd64/arm64.
+spinel_host_arch() {
+  case "$(uname -m 2>/dev/null || true)" in
+    x86_64|amd64)   printf 'amd64' ;;
+    arm64|aarch64)  printf 'arm64' ;;
+    *)              return 1 ;;
+  esac
+}
+
+# spinel_host_is_musl — the published Linux assets are glibc builds, so a
+# musl host (Alpine) must not download one. The platform is outside the
+# support contract; the source build remains the only path.
+spinel_host_is_musl() {
+  [[ -f /etc/alpine-release ]] && return 0
+  ldd --version 2>&1 | grep -qi musl
+}
+
+# spinel_toolchain_asset_name <full-rev> <os> <arch> — one naming rule for
+# the resolver and the publishing workflow.
+spinel_toolchain_asset_name() {
+  printf 'spinel-toolchain-%s-%s-%s.tar.gz' "$1" "$2" "$3"
+}
+
+# spinel_toolchain_release_base — where the toolchain release assets live.
+# The repositories are public; SNAILS_SPINEL_BASE_URL exists so a mirror or
+# a test can serve the same layout (the same convention as the dist base).
+spinel_toolchain_release_base() {
+  printf '%s' "${SNAILS_SPINEL_BASE_URL:-https://github.com/snails-rb/snails/releases/download}"
+}
+
+# spinel_toolchain_commit_base — the upstream commit API used to expand an
+# abbreviated pin. SNAILS_SPINEL_GIT_BASE_URL is the mirror/test override.
+spinel_toolchain_commit_base() {
+  printf '%s' "${SNAILS_SPINEL_GIT_BASE_URL:-https://api.github.com/repos/matz/spinel}"
+}
+
+# spinel_rev_full <pin> — the full 40-hex commit id of a pin. The release
+# tag and asset name use the full form; a pins file may carry 7–9 chars.
+# The commit API is the only reliable expansion (`git ls-remote` lists refs,
+# not arbitrary commits), so the mapping is cached and a token is allowed
+# for the API rate limit or a private mirror.
+spinel_rev_full() {
+  local pin="$1" base cache body full
+  if [[ $pin =~ ^[0-9a-f]{40}$ ]]; then
+    printf '%s' "$pin"
+    return 0
+  fi
+  [[ $pin =~ ^[0-9a-f]{4,39}$ ]] || return 1
+  base="${XDG_CACHE_HOME:-$HOME/.cache}/snails/spinel/commits"
+  cache="$base/$pin"
+  if [[ -f $cache ]]; then
+    full="$(<"$cache")"
+    [[ $full =~ ^[0-9a-f]{40}$ ]] && { printf '%s' "$full"; return 0; }
+  fi
+  body="$(snails_curl "$(spinel_toolchain_commit_base)/commits/$pin")" || return 1
+  full="$(printf '%s' "$body" | sed -n 's/.*"sha":[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p' | head -n1)"
+  [[ $full =~ ^[0-9a-f]{40}$ ]] || return 1
+  mkdir -p "$base" 2>/dev/null || true
+  printf '%s\n' "$full" > "$cache" 2>/dev/null || true
+  printf '%s' "$full"
+}
+
+# spinel_toolchain_download <pin> <cache> — fetch, verify, and store the
+# published toolchain asset for this host. Returns 0 on success, 1 when the
+# asset is unavailable (the caller may fall back to PATH or source), and 2
+# when the asset is present but fails its integrity or revision contract
+# (the caller must stop; a corrupt published artifact is not a cache miss).
+spinel_toolchain_download() {
+  local pin="$1" cache="$2" full os arch asset tag tmp
+  full="$(spinel_rev_full "$pin")" || {
+    echo "[snails] could not resolve the full revision for spinel ${pin} — falling back" >&2
+    return 1
+  }
+  os="$(spinel_host_os)" || {
+    echo "[snails] no prebuilt toolchain for spinel ${pin} on this OS — falling back" >&2
+    return 1
+  }
+  arch="$(spinel_host_arch)" || {
+    echo "[snails] no prebuilt toolchain for spinel ${pin} on this CPU — falling back" >&2
+    return 1
+  }
+  if [[ $os == linux ]] && spinel_host_is_musl; then
+    echo "[snails] the prebuilt toolchain for spinel ${pin} is glibc-only; Alpine/musl falls back to the source build" >&2
+    return 1
+  fi
+  asset="$(spinel_toolchain_asset_name "$full" "$os" "$arch")"
+  tag="spinel-rev-$full"
+  tmp="${cache}.download.$$"
+  rm -rf "$tmp"
+  mkdir -p "$tmp"
+  if ! snails_download "$(spinel_toolchain_release_base)/$tag/$asset" "$tmp/$asset"; then
+    rm -rf "$tmp"
+    echo "[snails] no prebuilt toolchain asset for spinel ${full} ${os}-${arch} — falling back" >&2
+    return 1
+  fi
+  if ! snails_download "$(spinel_toolchain_release_base)/$tag/$asset.sha256" "$tmp/$asset.sha256"; then
+    rm -rf "$tmp"
+    echo "[snails] the checksum for the spinel ${full} ${os}-${arch} toolchain is missing — falling back" >&2
+    return 1
+  fi
+  if ! snails_sha256_check "$tmp" "$asset.sha256" >/dev/null; then
+    rm -rf "$tmp"
+    echo "[snails] the spinel ${full} ${os}-${arch} toolchain failed its sha256 check — refusing the download" >&2
+    return 2
+  fi
+  if ! tar -xzf "$tmp/$asset" -C "$tmp" 2>/dev/null; then
+    rm -rf "$tmp"
+    echo "[snails] the spinel ${full} ${os}-${arch} toolchain is not a valid tar archive — refusing the download" >&2
+    return 2
+  fi
+  rm -f "$tmp/$asset" "$tmp/$asset.sha256"
+  if [[ ! -x $tmp/spin || ! -x $tmp/spinel || ! -d $tmp/builtins ||
+        ! -d $tmp/lib || ! -d $tmp/packages ]]; then
+    rm -rf "$tmp"
+    echo "[snails] the spinel ${full} ${os}-${arch} toolchain has an unexpected layout — refusing the download" >&2
+    return 2
+  fi
+  if ! spinel_toolchain_fresh "$tmp" "$pin"; then
+    rm -rf "$tmp"
+    echo "[snails] the spinel ${full} ${os}-${arch} toolchain reports a different revision — refusing the download" >&2
+    return 2
+  fi
+  if ! spinel_toolchain_store "$tmp" "$cache"; then
+    rm -rf "$tmp"
+    return 1
+  fi
+  rm -rf "$tmp"
+  return 0
+}
+
 # spinel_toolchain_ensure <pins> [<verbose>] — materialize the pinned
 # toolchain into the project copy: an existing cache entry first (a
-# differently spelled pin of the same revision reuses one copy), then a PATH
-# install already at the pin, then a source build. Each source is
-# version-checked before it is copied. The destination path is internal, so
-# only --verbose prints it.
+# differently spelled pin of the same revision reuses one copy), then the
+# published asset for this host, then a PATH install already at the pin, then
+# a source build. Each source is version-checked before it is copied. The
+# destination path is internal, so only --verbose prints it.
 spinel_toolchain_ensure() {
-  local pins="$1" verbose="${2:-0}" pin dest cache src reused detail=""
+  local pins="$1" verbose="${2:-0}" pin dest cache src reused detail="" download_rc=0
   pin="$(spinel_pins_rev "$pins")" || return 1
   dest="$(spinel_toolchain_dir "$pins")"
   spinel_toolchain_fresh "$dest" "$pin" && return 0
@@ -248,6 +393,19 @@ spinel_toolchain_ensure() {
     return 0
   fi
 
+  if spinel_toolchain_download "$pin" "$cache"; then
+    if spinel_toolchain_store "$cache" "$dest"; then
+      echo "[snails] spinel ${pin} ready (download)${detail}" >&2
+      return 0
+    fi
+  else
+    download_rc=$?
+    # 2 is an integrity failure, not a cache miss: the published artifact
+    # is corrupt or for another revision, and rebuilding from source would
+    # hide that instead of surfacing it.
+    ((download_rc == 2)) && return 1
+  fi
+
   src="$(spinel_toolchain_path_source "$pin")"
   if [[ -n $src ]]; then
     spinel_toolchain_store "$src" "$cache" 2>/dev/null || true
@@ -256,7 +414,7 @@ spinel_toolchain_ensure() {
     return 0
   fi
 
-  echo "[snails] no cached or PATH toolchain for spinel ${pin} — building from source (once per rev)" >&2
+  echo "[snails] no cached, downloaded, or PATH toolchain for spinel ${pin} — building from source (once per rev)" >&2
   spinel_toolchain_build "$pin" "$cache" || return 1
   spinel_toolchain_store "$cache" "$dest"
   echo "[snails] spinel ${pin} ready (source build)${detail}" >&2

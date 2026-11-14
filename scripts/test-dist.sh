@@ -597,9 +597,10 @@ chk "install.sh refuses an abbreviated rev" $? 1
 # The default install follows the Latest release; a channel with no stable
 # release yet falls back to the newest published one. Two API bases keep
 # the Latest object and the release list on separate paths.
-mkdir -p serve/api-latest/releases serve/api-list
+mkdir -p serve/api-latest/releases serve/api-list serve/api-list-toolchain
 printf '{"tag_name":"rev-%s"}\n' "$FAKE" > serve/api-latest/releases/latest
-printf '[{"tag_name":"rev-%s"}]\n' "$FAKE" > serve/api-list/releases
+printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"},{"tag_name":"rev-%s"}]\n' "$FAKE" > serve/api-list/releases
+printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"}]\n' > serve/api-list-toolchain/releases
 SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-latest" \
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 SNAILS_HOME="$WORK/ihome-latest" SNAILS_BIN_DIR="$WORK/ibin-latest" \
@@ -614,6 +615,15 @@ SNAILS_HOME="$WORK/ihome-fresh" SNAILS_BIN_DIR="$WORK/ibin-fresh" \
 chk "install.sh falls back to the newest release with no Latest" $? 0
 grep -q "\[snails\] dist $FAKE -> " inst-fresh.out
 chk "the fallback install is reported" $? 0
+grep -q 'spinel-rev' inst-fresh.out
+chk "the fallback ignores a toolchain release" $? 1
+SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-list-toolchain" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-none" SNAILS_BIN_DIR="$WORK/ibin-none" \
+  bash "$INSTALL" > inst-none.out 2>&1
+chk "install.sh refuses a channel with only toolchain releases" $? 1
+grep -q 'could not find a dist release' inst-none.out
+chk "the toolchain-only channel is named" $? 0
 
 # 10. the cache serves a repeat sync with the server gone.
 kill "$SERVER_PID" 2>/dev/null || true

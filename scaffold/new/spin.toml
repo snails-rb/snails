@@ -1,6 +1,8 @@
 # spin manifest for a `snails new` project.
 #
 # jemalloc is the server allocator; the build fails rather than quietly
-# producing a slower binary when libjemalloc is missing (libjemalloc-dev
-# required).
+# producing a slower binary when libjemalloc is missing (libjemalloc-dev or
+# `brew install jemalloc`). The allocator belongs to the `[package]` table
+# spinel reads; a top-level key would be ignored.
+[package]
 allocator = "jemalloc"

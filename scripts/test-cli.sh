@@ -14,6 +14,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT/cli/vendor-dir.sh"
 # shellcheck source=../cli/core-check.sh
 source "$ROOT/cli/core-check.sh"
+# shellcheck source=../cli/toolchain.sh
+source "$ROOT/cli/toolchain.sh"
 CLI="$ROOT/bin/snails"
 BOOT="$ROOT/runtime/boot.rb"
 BOOT_ALL="$ROOT/runtime/boot/all.rb"
@@ -22,12 +24,19 @@ MAIN="$ROOT/scaffold/main.rb"
 SEED="$ROOT/scaffold/seed/gen"
 
 WORK="$(mktemp -d)"
-# KEEP_WORK=1 preserves the workspace for inspection after a failure.
-if [[ ${KEEP_WORK:-} == 1 ]]; then
-  trap 'echo "KEPT=$WORK"' EXIT
-else
-  trap 'rm -rf "$WORK"' EXIT
-fi
+DL_SERVER_PID=""
+cleanup() {
+  if [[ -n $DL_SERVER_PID ]]; then
+    kill "$DL_SERVER_PID" 2>/dev/null || true
+  fi
+  # KEEP_WORK=1 preserves the workspace for inspection after a failure.
+  if [[ ${KEEP_WORK:-} == 1 ]]; then
+    echo "KEPT=$WORK"
+  else
+    rm -rf "$WORK"
+  fi
+}
+trap cleanup EXIT
 cd "$WORK"
 
 # No case may compile spinel: seed the cache with a fake toolchain for every
@@ -1019,6 +1028,171 @@ chmod +x "$COMPLETE/spin" "$COMPLETE/spinel"
 real_expected="$(cd "$COMPLETE" && pwd -P)"
 real_out="$(PATH="$COMPLETE:$PATH" bash path-source.sh "$ROOT" "$SPINEL_REV")"
 chk "a complete toolchain on PATH is still accepted" "$real_out" "$real_expected"
+
+# 10b. The published toolchain asset is preferred over PATH and the source
+#      build, and the download path keeps the same checksum, layout, and
+#      revision contract as the dist. The release server is local; no case
+#      touches github.com.
+DLREV="$(printf 'a%.0s' {1..40})"
+DLASSET="$(spinel_toolchain_asset_name "$DLREV" linux amd64)"
+DLUNIT="$WORK/dl-unit"
+mkdir -p "$DLUNIT/builtins" "$DLUNIT/lib" "$DLUNIT/packages"
+for b in spin spinel; do
+  cat > "$DLUNIT/$b" <<SH
+#!/bin/bash
+if [[ \${1:-} == "--version" ]]; then echo "$b unreleased ($DLREV)"; exit 0; fi
+echo "test toolchain: unexpected invocation: \$*" >&2
+exit 1
+SH
+  chmod +x "$DLUNIT/$b"
+done
+mkdir -p "dlserve/spinel-rev-$DLREV"
+tar -czf "dlserve/spinel-rev-$DLREV/$DLASSET" -C "$DLUNIT" .
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "dlserve/spinel-rev-$DLREV" && sha256sum "$DLASSET" > "$DLASSET.sha256")
+else
+  (cd "dlserve/spinel-rev-$DLREV" && shasum -a 256 "$DLASSET" > "$DLASSET.sha256")
+fi
+
+# The local release server for the download cases.
+DL_PORT="${DL_PORT:-8392}"
+(cd dlserve && exec python3 -m http.server "$DL_PORT" --bind 127.0.0.1 >/dev/null 2>&1) &
+DL_SERVER_PID=$!
+for _ in {1..25}; do
+  curl -fsS -o /dev/null "http://127.0.0.1:$DL_PORT/spinel-rev-$DLREV/$DLASSET.sha256" 2>/dev/null && break
+  sleep 0.2
+done
+curl -fsS -o /dev/null "http://127.0.0.1:$DL_PORT/spinel-rev-$DLREV/$DLASSET.sha256"
+chk "the local toolchain server is ready" $? 0
+
+mk_contract_app dlapp
+cat > dlapp/pins.toml <<CONF
+SPINEL_REV="$DLREV"
+SNALS_REV="$PIN_REV"
+CONF
+SNAILS_SPINEL_BASE_URL="http://127.0.0.1:$DL_PORT" bash "$PINSNAILS/bin/snails" sync dlapp > dl.out 2> dl.err
+chk "sync downloads the published toolchain" $? 0
+grep -q "spinel $DLREV ready (download)" dl.err
+chk "the download source is reported" $? 0
+[[ -x dlapp/.spinel/toolchain/spin && -x dlapp/.spinel/toolchain/spinel ]]
+chk "the downloaded toolchain lands next to the pins file" $? 0
+grep -q "^spinel unreleased ($DLREV)$" <<<"$(dlapp/.spinel/toolchain/spinel --version)"
+chk "the downloaded toolchain reports the pin" $? 0
+[[ -f "$XDG_CACHE_HOME/snails/spinel/$DLREV/toolchain/spin" ]]
+chk "the downloaded toolchain is cached" $? 0
+
+# A missing asset falls back to a complete PATH install; the one-line
+# fallback report names the reason.
+DLREV_MISS="$(printf 'd%.0s' {1..40})"
+DLPATH="$WORK/dl-path"
+mkdir -p "$DLPATH/builtins" "$DLPATH/lib" "$DLPATH/packages"
+for b in spin spinel; do
+  cat > "$DLPATH/$b" <<SH
+#!/bin/bash
+if [[ \${1:-} == "--version" ]]; then echo "$b unreleased ($DLREV_MISS)"; exit 0; fi
+echo "test toolchain: unexpected invocation: \$*" >&2
+exit 1
+SH
+  chmod +x "$DLPATH/$b"
+done
+mk_contract_app dlapp-miss
+cat > dlapp-miss/pins.toml <<CONF
+SPINEL_REV="$DLREV_MISS"
+SNALS_REV="$PIN_REV"
+CONF
+PATH="$DLPATH:$PATH" SNAILS_SPINEL_BASE_URL="http://127.0.0.1:$DL_PORT" \
+  bash "$PINSNAILS/bin/snails" sync dlapp-miss > dl-miss.out 2> dl-miss.err
+chk "a missing asset falls back to the PATH install" $? 0
+grep -q 'no prebuilt toolchain asset' dl-miss.err
+chk "the missing-asset fallback is reported" $? 0
+grep -q 'ready (PATH install)' dl-miss.err
+chk "the PATH fallback source is reported" $? 0
+
+# A corrupt sidecar is an integrity failure, not a cache miss: the sync
+# stops, leaves no cache entry, and does not rebuild from source.
+DLREV_BAD="$(printf 'e%.0s' {1..40})"
+DLASSET_BAD="$(spinel_toolchain_asset_name "$DLREV_BAD" linux amd64)"
+mkdir -p "dlserve/spinel-rev-$DLREV_BAD"
+cp "dlserve/spinel-rev-$DLREV/$DLASSET" "dlserve/spinel-rev-$DLREV_BAD/$DLASSET_BAD"
+printf '%064d  %s\n' 0 "$DLASSET_BAD" > "dlserve/spinel-rev-$DLREV_BAD/$DLASSET_BAD.sha256"
+mk_contract_app dlapp-bad
+cat > dlapp-bad/pins.toml <<CONF
+SPINEL_REV="$DLREV_BAD"
+SNALS_REV="$PIN_REV"
+CONF
+SNAILS_SPINEL_BASE_URL="http://127.0.0.1:$DL_PORT" bash "$PINSNAILS/bin/snails" sync dlapp-bad > dl-bad.out 2> dl-bad.err
+chk "a corrupt toolchain asset stops the sync" $? 1
+grep -q 'failed its sha256 check' dl-bad.err
+chk "the checksum failure is named" $? 0
+[[ ! -e "$XDG_CACHE_HOME/snails/spinel/$DLREV_BAD/toolchain" && ! -e dlapp-bad/.spinel/toolchain ]]
+chk "a corrupt download leaves no cache or project copy" $? 0
+
+# An abbreviated pin is expanded through the commit API before the asset
+# name is built; the mapping is cached.
+DLREV_SHORT="bbbbbbb"
+DLREV_SHORT_FULL="${DLREV_SHORT}$(printf 'c%.0s' {1..33})"
+DLASSET_SHORT="$(spinel_toolchain_asset_name "$DLREV_SHORT_FULL" linux amd64)"
+mkdir -p "dlserve/spinel-rev-$DLREV_SHORT_FULL" "dlserve/api/commits"
+printf '{"sha":"%s"}\n' "$DLREV_SHORT_FULL" > "dlserve/api/commits/$DLREV_SHORT"
+sed "s/$DLREV/$DLREV_SHORT_FULL/g" "$DLUNIT/spin" > "$WORK/dl-short-spin"
+sed "s/$DLREV/$DLREV_SHORT_FULL/g" "$DLUNIT/spinel" > "$WORK/dl-short-spinel"
+chmod +x "$WORK/dl-short-spin" "$WORK/dl-short-spinel"
+# Replace the two fake binaries in the archive with the shortened pin
+# spelling; the rest of the unit layout is the same.
+mkdir -p "$WORK/dl-short-unit/builtins" "$WORK/dl-short-unit/lib" "$WORK/dl-short-unit/packages"
+cp "$WORK/dl-short-spin" "$WORK/dl-short-unit/spin"
+cp "$WORK/dl-short-spinel" "$WORK/dl-short-unit/spinel"
+chmod +x "$WORK/dl-short-unit/spin" "$WORK/dl-short-unit/spinel"
+tar -czf "dlserve/spinel-rev-$DLREV_SHORT_FULL/$DLASSET_SHORT" -C "$WORK/dl-short-unit" .
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "dlserve/spinel-rev-$DLREV_SHORT_FULL" && sha256sum "$DLASSET_SHORT" > "$DLASSET_SHORT.sha256")
+else
+  (cd "dlserve/spinel-rev-$DLREV_SHORT_FULL" && shasum -a 256 "$DLASSET_SHORT" > "$DLASSET_SHORT.sha256")
+fi
+mk_contract_app dlapp-short
+cat > dlapp-short/pins.toml <<CONF
+SPINEL_REV="$DLREV_SHORT"
+SNALS_REV="$PIN_REV"
+CONF
+SNAILS_SPINEL_BASE_URL="http://127.0.0.1:$DL_PORT" \
+SNAILS_SPINEL_GIT_BASE_URL="http://127.0.0.1:$DL_PORT/api" \
+  bash "$PINSNAILS/bin/snails" sync dlapp-short > dl-short.out 2> dl-short.err
+chk "an abbreviated pin downloads the full-rev asset" $? 0
+grep -q "spinel $DLREV_SHORT ready (download)" dl-short.err
+chk "the abbreviated download source is reported" $? 0
+[[ "$(<"$XDG_CACHE_HOME/snails/spinel/commits/$DLREV_SHORT")" == "$DLREV_SHORT_FULL" ]]
+chk "the commit expansion is cached" $? 0
+
+# The naming and host detection are one contract shared with the release
+# workflow: Linux amd64/arm64 and macOS arm64/amd64.
+chk "the Linux amd64 asset name" \
+  "$(spinel_toolchain_asset_name "$DLREV" linux amd64)" \
+  "spinel-toolchain-$DLREV-linux-amd64.tar.gz"
+chk "the Linux arm64 asset name" \
+  "$(spinel_toolchain_asset_name "$DLREV" linux arm64)" \
+  "spinel-toolchain-$DLREV-linux-arm64.tar.gz"
+chk "the macOS arm64 asset name" \
+  "$(spinel_toolchain_asset_name "$DLREV" darwin arm64)" \
+  "spinel-toolchain-$DLREV-darwin-arm64.tar.gz"
+chk "the macOS amd64 asset name" \
+  "$(spinel_toolchain_asset_name "$DLREV" darwin amd64)" \
+  "spinel-toolchain-$DLREV-darwin-amd64.tar.gz"
+
+FAKEUNAME="$WORK/fake-uname"
+mkdir -p "$FAKEUNAME"
+cat > "$FAKEUNAME/uname" <<'SH'
+#!/bin/bash
+case "${1:-}" in
+  -s) echo Darwin ;;
+  -m) echo arm64 ;;
+  *) exec /usr/bin/uname "$@" ;;
+esac
+SH
+chmod +x "$FAKEUNAME/uname"
+out="$(PATH="$FAKEUNAME:$PATH" bash -c 'source "$1/cli/toolchain.sh"; spinel_host_os' _ "$ROOT")"
+chk "macOS is detected as darwin" "$out" "darwin"
+out="$(PATH="$FAKEUNAME:$PATH" bash -c 'source "$1/cli/toolchain.sh"; spinel_host_arch' _ "$ROOT")"
+chk "Apple Silicon is detected as arm64" "$out" "arm64"
 
 # The core checkout itself is refused as a sync target (self-vendor would
 # delete the core's runtime/).

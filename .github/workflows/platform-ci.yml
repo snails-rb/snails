@@ -188,7 +188,7 @@ jobs:
   macos:
     name: macos (full)
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout snails
         uses: actions/checkout@v4
@@ -202,12 +202,19 @@ jobs:
           echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
       - name: Install Homebrew dependencies
         run: |
-          brew install openssl@3 jemalloc pkg-config libpq
+          brew install openssl@3 jemalloc pkg-config libpq postgresql@18
           {
             echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
             echo "CPATH=$(brew --prefix openssl@3)/include:$(brew --prefix jemalloc)/include:${CPATH:-}"
             echo "LIBRARY_PATH=$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
           } >> "$GITHUB_ENV"
+      - name: Start PostgreSQL
+        run: |
+          pgbin="$(brew --prefix postgresql@18)/bin"
+          echo "$pgbin" >> "$GITHUB_PATH"
+          "$pgbin/initdb" -D "$RUNNER_TEMP/pgdata" -U postgres --no-locale >/dev/null
+          "$pgbin/pg_ctl" -D "$RUNNER_TEMP/pgdata" -l "$RUNNER_TEMP/pg.log" -o "-p 5432 -k $RUNNER_TEMP" start
+          "$pgbin/createdb" -h 127.0.0.1 -p 5432 -U postgres snails_test
       - name: Cache the pinned spinel install
         uses: actions/cache@v4
         with:
@@ -245,6 +252,8 @@ jobs:
             echo "$(brew --prefix coreutils)/libexec/gnubin"
           } >> "$GITHUB_PATH"
       - name: Full repo suite
+        env:
+          PG_URL: postgres://postgres@127.0.0.1:5432/snails_test
         run: |
           /bin/bash scripts/test-runtime.sh
           /bin/bash scripts/test-pins-format.sh
@@ -257,6 +266,16 @@ jobs:
           /bin/bash scripts/test-migrate.sh
           /bin/bash scripts/test-dist.sh
           /bin/bash scripts/test-new.sh --only=demo
+      - name: Harness test against PG_URL
+        env:
+          SNAILS_DIR: ${{ github.workspace }}
+          PG_URL: postgres://postgres@127.0.0.1:5432/snails_test
+        run: |
+          APP="$RUNNER_TEMP/pgapp"
+          rm -rf "$APP"
+          "$SNAILS_DIR/bin/snails" new "$APP" --scaffold --database=postgresql
+          "$SNAILS_DIR/bin/snails" migrate dump --app "$APP"
+          "$APP/bin/test"
 
   # The app image test builds an app from the pinned spinel image, so it can
   # only run when that image exists. A push that bumps the pin publishes it
