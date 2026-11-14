@@ -2,7 +2,7 @@
 
 `bin/test` builds the app and runs your test harness against a real HTTP server — no mocks. The suite is a set of files under `harness/test/`, and one fresh server serves them.
 
-The harness runs against a real server on purpose. Stubs and mocks are easier to write, so a coding agent left to choose will often produce a suite that describes the system instead of exercising it. Booting the real server makes the integration path the default, so a passing suite runs against the real HTTP server. See [The Snails Design](https://snails-rb.org/blog/the-snails-design/#integration-tests-against-a-real-server) for the design choice.
+The harness runs against a real server on purpose. Stubs and mocks are easier to write; a coding agent left to choose will often produce a suite that describes the system instead of exercising it. Booting the real server makes the integration path the default; a passing suite runs against the real HTTP server. See [The Snails Design](https://snails-rb.org/blog/the-snails-design/#integration-tests-against-a-real-server) for the design choice.
 
 ## Run everything
 
