@@ -95,7 +95,7 @@ asset="$(spinel_toolchain_asset_name "$full" "$os" "$arch")"
 # path too. The caller may set it; the standard formulas fill the gaps.
 if [[ "$(uname -s)" == Darwin ]] && command -v brew >/dev/null 2>&1; then
   dyld_path=""
-  for formula in openssl@3 jemalloc libpq libffi; do
+  for formula in openssl jemalloc libpq libffi; do
     dir="$(brew --prefix "$formula" 2>/dev/null)/lib"
     [[ -d $dir ]] && dyld_path+="${dir}:"
   done
