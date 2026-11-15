@@ -9,17 +9,15 @@
 
 [![ci](https://github.com/snails-rb/snails/actions/workflows/ci.yml/badge.svg)](https://github.com/snails-rb/snails/actions/workflows/ci.yml)
 
-Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions — routes, controllers, forms, mailers, and jobs in Ruby; models as plain classes over SQL; migrations in SQL — and compiles your app code, the framework, and the HTTP server into one native binary. The server does not depend on Ruby.
+Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions, drops the Ruby runtime, and compiles the app into one native binary. One process uses every core, with about 3× the throughput and 10× lower peak memory under load than Rails in cluster mode.
 
-The project is split into parts: the API-only, Rails-like framework for [Spinel](https://github.com/matz/spinel) (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). A consumer app vendors the `runtime/` tree as `snails-core/` and pins the revision in `pins.toml`.
+The repo is split into the framework (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). An app vendors `runtime/` as `snails-core/` and pins the revision in `pins.toml`.
 
 Status: 1.0. The public API is stable.
 
-## Scope and design
+## Why Snails
 
-Snails 1.0 is for API-only Ruby apps. The Rails conventions stay; the view layer, asset pipeline, Active Record, and gem compatibility are out. The design trade is explained in [The Snails Design](https://snails-rb.org/blog/the-snails-design/); the [Coming from Rails](manual/04-coming-from-rails.md) chapter covers what carries over and what replaces the rest, and the [FAQ](manual/28-faq.md) lists what is not included.
-
-If you need server-rendered pages, the full Ruby gem ecosystem, or Active Record's object model, Rails is the better fit.
+Snails keeps the Rails conventions an API needs and removes the layers that add runtime overhead: the view layer, Active Record, and gem compatibility. The design trade is explained in [The Snails Design](https://snails-rb.org/blog/the-snails-design/); [Coming from Rails](manual/04-coming-from-rails.md) covers what carries over and what replaces the rest.
 
 ## Install
 
@@ -36,7 +34,7 @@ mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_
 snails new demo
 ```
 
-The first command that needs the compiler downloads the pinned one for Linux amd64/arm64 or macOS Apple Silicon/Intel. The first `bin/dev` or `bin/test` builds your app, so install the C compiler and libraries listed under [Requirements](manual/02-getting-started.md#requirements) before that build. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
+`snails new` downloads the pinned compiler for Linux amd64/arm64 or macOS Apple Silicon/Intel. `bin/dev` and `bin/test` compile the app, so install the packages under [Requirements](manual/02-getting-started.md#requirements) before the first run. [Getting Started](manual/02-getting-started.md) has the full flow.
 
 ## Benchmark
 
