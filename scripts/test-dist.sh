@@ -385,7 +385,7 @@ tar -czf "serve/rev-$FAKE2/snails-dist-$FAKE2.tar.gz" -C fakesrc2 .
 printf 'SPINEL_REV="abc1234"\n' > "serve/rev-$FAKE2/pins.toml"
 
 DIST_PORT="${DIST_PORT:-8391}"
-(cd serve && exec python3 -m http.server "$DIST_PORT" --bind 127.0.0.1 >/dev/null 2>&1) &
+(cd serve && exec python3 "$ROOT/scripts/fixtures/api-server.py" "$DIST_PORT" >/dev/null 2>&1) &
 SERVER_PID=$!
 for _ in {1..25}; do
   curl -fsS -o /dev/null "http://127.0.0.1:$DIST_PORT/rev-$FAKE/snails-dist-$FAKE.tar.gz.sha256" 2>/dev/null && break
@@ -597,8 +597,10 @@ chk "install.sh refuses an abbreviated rev" $? 1
 # The default install follows the Latest release; a channel with no stable
 # release yet falls back to the newest published one. Two API bases keep
 # the Latest object and the release list on separate paths.
-mkdir -p serve/api-latest/releases serve/api-list serve/api-list-toolchain
+mkdir -p serve/api-latest/releases serve/api-list serve/api-list-toolchain serve/api-latest-toolchain/releases
 printf '{"tag_name":"rev-%s"}\n' "$FAKE" > serve/api-latest/releases/latest
+printf '{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"}\n' > serve/api-latest-toolchain/releases/latest
+printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"},{"tag_name":"rev-%s"}]\n' "$FAKE" > serve/api-latest-toolchain/list.json
 printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"},{"tag_name":"rev-%s"}]\n' "$FAKE" > serve/api-list/releases
 printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"}]\n' > serve/api-list-toolchain/releases
 SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-latest" \
@@ -617,6 +619,13 @@ grep -q "\[snails\] dist $FAKE -> " inst-fresh.out
 chk "the fallback install is reported" $? 0
 grep -q 'spinel-rev' inst-fresh.out
 chk "the fallback ignores a toolchain release" $? 1
+SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-latest-toolchain" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-latest-toolchain" SNAILS_BIN_DIR="$WORK/ibin-latest-toolchain" \
+  bash "$INSTALL" > inst-latest-toolchain.out 2>&1
+chk "install.sh falls back when Latest is a toolchain release" $? 0
+grep -q "\[snails\] dist $FAKE -> " inst-latest-toolchain.out
+chk "the latest-toolchain fallback install is reported" $? 0
 SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-list-toolchain" \
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 SNAILS_HOME="$WORK/ihome-none" SNAILS_BIN_DIR="$WORK/ibin-none" \

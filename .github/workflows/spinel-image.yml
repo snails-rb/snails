@@ -293,11 +293,12 @@ jobs:
           NOTES
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" dist/* --clobber
-            gh release edit "$tag" --notes-file release-notes.md
+            gh release edit "$tag" --notes-file release-notes.md --prerelease
           else
             gh release create "$tag" dist/* \
               --title "spinel toolchain $FULL" \
               --notes-file release-notes.md \
+              --prerelease \
               --latest=false
           fi
 
