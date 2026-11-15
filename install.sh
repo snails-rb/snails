@@ -66,14 +66,15 @@ sha256_check() {
 # newest `rev-` tag instead of assuming the newest release is a dist.
 if [[ -z $rev ]]; then
   body="$(curl -fsSL "$API/releases/latest")" || body=""
-  if [[ -z $body ]]; then
+  tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\(rev-[^"]*\)"[[:space:]]*[,}].*/\1/p' | head -n1)"
+  if [[ -z $tag ]]; then
     body="$(curl -fsSL "$API/releases?per_page=100")" || body=""
+    tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\(rev-[^"]*\)"[[:space:]]*[,}].*/\1/p' | head -n1)"
   fi
   if [[ -z $body ]]; then
     echo "[snails] could not find a release for $REPO — check your network, or pass --rev <full-rev>" >&2
     exit 1
   fi
-  tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\(rev-[^"]*\)".*/\1/p' | head -n1)"
   if [[ -z $tag ]]; then
     echo "[snails] could not find a dist release for $REPO — check the release channel, or pass --rev <full-rev>" >&2
     exit 1
