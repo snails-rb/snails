@@ -88,6 +88,6 @@ The source build runs a package smoke before caching. If OpenSSL or another pack
 
 ### The first `bin/dev` stops while compiling the app
 
-The app build links the C compiler, OpenSSL, SQLite, and jemalloc. A linker error such as `cannot find -lssl` names the missing development package; install the Linux or macOS packages under [Getting Started](02-getting-started.md#requirements) and run `bin/dev` again. `snails doctor` checks the database client and the toolchain but does not probe the linker.
+The app build links the C compiler, OpenSSL, SQLite, and jemalloc. A linker error such as `cannot find -lssl` names the missing development package; install the Linux or macOS packages under [Getting Started](02-getting-started.md#requirements) and run `bin/dev` again. On macOS, `openssl` is linked into the Homebrew prefix; PostgreSQL's `libpq` is keg-only and needs the `PATH`, `PKG_CONFIG_PATH`, and `DYLD_FALLBACK_LIBRARY_PATH` exports in Getting Started. `snails doctor` checks the database client and the toolchain but does not probe the linker.
 
 When the symptom is not here, run `snails doctor` first — it checks the pin, the toolchain, the database, and the local clients before you go looking further.

@@ -202,11 +202,11 @@ jobs:
           echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
       - name: Install Homebrew dependencies
         run: |
-          brew install openssl@3 jemalloc pkg-config libpq postgresql@18
+          brew install openssl jemalloc pkg-config libpq postgresql@18
           {
-            echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-            echo "CPATH=$(brew --prefix openssl@3)/include:$(brew --prefix jemalloc)/include:${CPATH:-}"
-            echo "LIBRARY_PATH=$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
+            echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+            echo "CPATH=$(brew --prefix openssl)/include:$(brew --prefix jemalloc)/include:${CPATH:-}"
+            echo "LIBRARY_PATH=$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
           } >> "$GITHUB_ENV"
       - name: Start PostgreSQL
         run: |

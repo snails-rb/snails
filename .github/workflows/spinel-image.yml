@@ -195,6 +195,11 @@ jobs:
           else
             (cd dist && shasum -a 256 "$asset" > "$asset.sha256")
           fi
+          tar -tzf "dist/$asset" | grep -qx './spin'
+          tar -tzf "dist/$asset" | grep -qx './spinel'
+          tar -tzf "dist/$asset" | grep -qx './builtins/'
+          tar -tzf "dist/$asset" | grep -qx './lib/'
+          tar -tzf "dist/$asset" | grep -qx './packages/'
       - uses: actions/upload-artifact@v4
         with:
           name: toolchain-linux-${{ matrix.arch }}
@@ -223,13 +228,13 @@ jobs:
         uses: actions/checkout@v7
       - name: Install Homebrew dependencies
         run: |
-          brew install openssl@3 jemalloc pkg-config libpq libffi ruby
+          brew install openssl jemalloc pkg-config libpq libffi ruby
           echo "$(brew --prefix ruby)/bin" >> "$GITHUB_PATH"
           {
-            echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-            echo "CPATH=$(brew --prefix openssl@3)/include:$(brew --prefix jemalloc)/include:$(brew --prefix libpq)/include:$(brew --prefix libffi)/include:${CPATH:-}"
-            echo "LIBRARY_PATH=$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:$(brew --prefix libffi)/lib:${LIBRARY_PATH:-}"
-            echo "DYLD_FALLBACK_LIBRARY_PATH=$(brew --prefix openssl@3)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:$(brew --prefix libffi)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
+            echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+            echo "CPATH=$(brew --prefix openssl)/include:$(brew --prefix jemalloc)/include:$(brew --prefix libpq)/include:$(brew --prefix libffi)/include:${CPATH:-}"
+            echo "LIBRARY_PATH=$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:$(brew --prefix libffi)/lib:${LIBRARY_PATH:-}"
+            echo "DYLD_FALLBACK_LIBRARY_PATH=$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:$(brew --prefix libffi)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
           } >> "$GITHUB_ENV"
       - name: Build and smoke the toolchain asset
         env:
@@ -243,11 +248,17 @@ jobs:
       - name: Build a project with the packaged asset
         env:
           SNAILS_DIR: ${{ github.workspace }}
-          SNAILS_SPINEL_BASE_URL: file://${{ github.workspace }}/dist
+          FULL: ${{ needs.pin.outputs.full }}
         run: |
+          release="$RUNNER_TEMP/release"
+          rm -rf "$release"
+          mkdir -p "$release/spinel-rev-$FULL"
+          cp "$GITHUB_WORKSPACE"/dist/* "$release/spinel-rev-$FULL/"
           app="$RUNNER_TEMP/asset-app"
           rm -rf "$app"
-          "$SNAILS_DIR/bin/snails" new "$app"
+          SNAILS_SPINEL_BASE_URL="file://$release" \
+            "$SNAILS_DIR/bin/snails" new "$app" > "$RUNNER_TEMP/asset-new.out" 2> "$RUNNER_TEMP/asset-new.err"
+          grep -q 'ready (download)' "$RUNNER_TEMP/asset-new.err"
           "$app/bin/test"
       - uses: actions/upload-artifact@v4
         with:
@@ -285,7 +296,7 @@ jobs:
           Assets: linux-amd64, linux-arm64, darwin-arm64, darwin-amd64.
 
           - Linux assets are built from the bookworm image; they run on glibc 2.36 or newer.
-          - macOS assets target macOS 13 or newer and the standard Homebrew prefix (/opt/homebrew on Apple Silicon, /usr/local on Intel).
+          - macOS assets target macOS 13 or newer and link against Homebrew's OpenSSL 4 (`brew install openssl`).
           - The smoke built openssl, ffi, json, sqlite3, pq, and a jemalloc spin app.
 
           The snails CLI downloads this release for the pinned SPINEL_REV; a
