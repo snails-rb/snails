@@ -112,11 +112,16 @@ jobs:
         run: |
           xcode-select -p
           brew install openssl jemalloc pkg-config
-      # Documented for Intel: Homebrew's 3.x openssl is keg-only there, so the
-      # app build finds it through PKG_CONFIG_PATH.
-      - name: Use the keg-only Intel OpenSSL
-        if: matrix.arch == 'amd64'
-        run: echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+      # Documented in the manual: the headers come from pkg-config (Intel's
+      # openssl is keg-only) and the library directory goes on LIBRARY_PATH,
+      # because the linker does not search Homebrew's Apple Silicon prefix.
+      # Both apply on either architecture.
+      - name: Export the documented OpenSSL paths
+        run: |
+          {
+            echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+            echo "LIBRARY_PATH=$(brew --prefix openssl)/lib:${LIBRARY_PATH:-}"
+          } >> "$GITHUB_ENV"
       - name: Derive the expected revision
         id: expect
         env:

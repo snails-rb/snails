@@ -71,9 +71,16 @@ xcode-select --install
 brew install openssl jemalloc pkg-config
 ```
 
-The prebuilt macOS compiler is built against Homebrew's `openssl`: 4.x on Apple Silicon, and currently 3.x on Intel. It runs on macOS 13 or newer. The app build links the `openssl` your Homebrew provides, so a non-standard Homebrew prefix is fine for the default app. For PostgreSQL, the `postgresql` runtime (or the client-only `libpq`) still needs the `DYLD_FALLBACK_LIBRARY_PATH` below.
+The prebuilt macOS compiler is built against Homebrew's `openssl`: 4.x on Apple Silicon, and currently 3.x on Intel. It runs on macOS 13 or newer. The app build links the `openssl` your Homebrew provides; Apple's linker searches `/usr/local/lib` but not Homebrew's Apple Silicon prefix, so export the OpenSSL paths for the app build:
 
-Xcode Command Line Tools provide the C compiler and linker for the app build. `openssl` is the OpenSSL the framework links; Homebrew's 4.x is linked into the prefix, so `pkg-config` finds it. On Intel, `openssl` may still be the keg-only 3.x — add `export PKG_CONFIG_PATH="$(brew --prefix openssl)/lib/pkgconfig"` for the app build. `jemalloc` is the scaffold's allocator.
+```sh
+export PKG_CONFIG_PATH="$(brew --prefix openssl)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+export LIBRARY_PATH="$(brew --prefix openssl)/lib:${LIBRARY_PATH:-}"
+```
+
+`PKG_CONFIG_PATH` supplies the headers (`openssl` is keg-only on Intel); `LIBRARY_PATH` is what makes `-lssl` resolve under `/opt/homebrew/lib`. For PostgreSQL, the `postgresql` runtime (or the client-only `libpq`) still needs the `DYLD_FALLBACK_LIBRARY_PATH` below.
+
+Xcode Command Line Tools provide the C compiler and linker for the app build. `jemalloc` is the scaffold's allocator.
 
 For the PostgreSQL adapter, install PostgreSQL and put its path on `PATH`, `PKG_CONFIG_PATH`, and `DYLD_FALLBACK_LIBRARY_PATH`. `brew install postgresql` installs the server, `psql`, `pg_dump`, and libpq; Homebrew keeps it keg-only, so the exports below make it visible. Start the local server with `brew services start postgresql`, or point `PG_URL` at an existing server. The test harness uses Docker Desktop when `PG_URL` is unset; a local server or an existing PostgreSQL works through `PG_URL`.
 
