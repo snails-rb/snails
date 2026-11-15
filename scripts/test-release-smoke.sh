@@ -73,6 +73,12 @@ chk "the reproduce command is printed" $? 0
 grep -q 'installer: cannot download' bad.out
 chk "the installer output is echoed" $? 0
 
+# 3b. --pg-link adds the seventh stage: the same early failure now counts 7.
+SNAILS_INSTALL_URL="file://$WORK/bad-install.sh" bash "$SMOKE" --pg-link > pg-bad.out 2>&1
+chk "--pg-link still fails a bad installer at step 1" $? 1
+grep -q 'FAILED at step 1/7' pg-bad.out
+chk "--pg-link counts the PostgreSQL stage" $? 0
+
 # 4. A dist symlink under SNAILS_HOME passes the installed-dist assertion. The
 #    stub CLI then fails the scaffold step, so the log names step 3.
 FAKE_REV="$(printf 'a%.0s' {1..40})"
