@@ -1,0 +1,143 @@
+name: release-smoke
+
+# The consumer install path, from the published channel: install.sh installs
+# the CLI, the installed dist scaffolds a project, the project's harness runs,
+# and bin/dev answers GET /up. None of it uses the checkout CLI, so a green
+# run is the claim a new user's first five minutes make.
+#
+# Triggers, in order of value:
+#
+#   release: published — the channel changed, and a missing asset or an
+#     unexpected Latest is invisible until someone installs. The release is
+#     created by scripts/publish-dist.sh from a developer machine, so the event
+#     fires; a release created by a workflow with GITHUB_TOKEN would not.
+#   schedule — drift. Runner images and Homebrew formulas move without a pin
+#     bump, and that can break the consumer path while every pin build stays
+#     green. Weekly is enough for that, and cheap: standard runners are free on
+#     a public repository, so only the macOS queue costs anything.
+#   workflow_dispatch — rerun a release check, or name a rev to expect.
+#
+# Keep the step that installs packages at the documented minimum. Adding a
+# package here hides a dependency the requirements docs promise, which is the
+# one thing this workflow can see that the platform jobs cannot.
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      rev:
+        description: 'Revision the install must resolve to (default: no expectation)'
+        required: false
+
+concurrency:
+  group: release-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+jobs:
+  linux:
+    name: linux (install path)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v4
+      # The manual's Linux list: build-essential, the OpenSSL/SQLite/jemalloc
+      # headers the app links, the sqlite3 client, tzdata, and curl/tar for the
+      # installer. Nothing else — see the trigger comment above.
+      - name: Install the documented packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential libssl-dev libsqlite3-dev libjemalloc-dev \
+            sqlite3 tzdata curl tar
+      - name: Derive the expected revision
+        id: expect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_REV: ${{ github.event.inputs.rev }}
+        run: |
+          rev=""
+          case "$EVENT_NAME" in
+            release) case "$RELEASE_TAG" in rev-*) rev="${RELEASE_TAG#rev-}" ;; esac ;;
+            workflow_dispatch) rev="$INPUT_REV" ;;
+          esac
+          if [[ -n $rev && ! $rev =~ ^[0-9a-f]{40}$ ]]; then
+            echo "the expected revision is not a full 40-hex rev: $rev" >&2
+            exit 1
+          fi
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+      - name: Release smoke (installed dist)
+        env:
+          # The installed CLI expands a short spinel pin through the commit
+          # API; without a token that call shares the runner IP's 60/hour
+          # budget and pushes `snails new` onto the source-build fallback.
+          SNAILS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_REV: ${{ steps.expect.outputs.rev }}
+        run: |
+          args=()
+          if [[ -n $EXPECTED_REV ]]; then args=(--rev "$EXPECTED_REV"); fi
+          bash scripts/release-smoke.sh ${args[@]+"${args[@]}"}
+
+  macos:
+    name: macos ${{ matrix.arch }} (install path)
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: amd64
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v4
+      # The manual's macOS list. Xcode Command Line Tools are on the runner
+      # image; the Homebrew packages are what a reader installs. Do not add
+      # libpq, libffi, ruby, gnu-sed, or coreutils — those are for other jobs.
+      - name: Install the documented packages
+        run: |
+          xcode-select -p
+          brew install openssl jemalloc pkg-config
+      # Documented for Intel: Homebrew's 3.x openssl is keg-only there, so the
+      # app build finds it through PKG_CONFIG_PATH.
+      - name: Use the keg-only Intel OpenSSL
+        if: matrix.arch == 'amd64'
+        run: echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+      - name: Derive the expected revision
+        id: expect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_REV: ${{ github.event.inputs.rev }}
+        run: |
+          rev=""
+          case "$EVENT_NAME" in
+            release) case "$RELEASE_TAG" in rev-*) rev="${RELEASE_TAG#rev-}" ;; esac ;;
+            workflow_dispatch) rev="$INPUT_REV" ;;
+          esac
+          if [[ -n $rev && ! $rev =~ ^[0-9a-f]{40}$ ]]; then
+            echo "the expected revision is not a full 40-hex rev: $rev" >&2
+            exit 1
+          fi
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+      - name: Release smoke (installed dist)
+        env:
+          SNAILS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_REV: ${{ steps.expect.outputs.rev }}
+        run: |
+          args=()
+          if [[ -n $EXPECTED_REV ]]; then args=(--rev "$EXPECTED_REV"); fi
+          bash scripts/release-smoke.sh ${args[@]+"${args[@]}"}

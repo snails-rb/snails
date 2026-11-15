@@ -17,6 +17,7 @@
 #   SNAILS_API_BASE_URL   API base URL (default: the repo's GitHub API)
 #   SNAILS_HOME           install root (default ~/.local/share/snails)
 #   SNAILS_BIN_DIR        symlink location (default ~/.local/bin)
+#   SNAILS_GITHUB_TOKEN   API token — raises the release-API rate limit only
 set -euo pipefail
 
 REPO="snails-rb/snails"
@@ -50,6 +51,18 @@ download_asset() {
   local tag="$1" asset="$2" out="$3"
   curl -fsSL -o "$out" "$BASE/$tag/$asset"
 }
+# The release API answers unauthenticated and shares the IP's 60/hour budget
+# with everything else on it. A CI runner behind a shared address can exhaust
+# that budget, so SNAILS_GITHUB_TOKEN is accepted here; the assets are public
+# and are fetched without the header.
+api_get() {
+  local url="$1"
+  if [[ -n ${SNAILS_GITHUB_TOKEN:-} ]]; then
+    curl -fsSL -H "Authorization: Bearer $SNAILS_GITHUB_TOKEN" "$url"
+  else
+    curl -fsSL "$url"
+  fi
+}
 sha256_check() {
   local dir="$1" file="$2"
   if command -v sha256sum >/dev/null 2>&1; then
@@ -65,10 +78,10 @@ sha256_check() {
 # holds toolchain releases (`spinel-rev-…`) too, so the fallback picks the
 # newest `rev-` tag instead of assuming the newest release is a dist.
 if [[ -z $rev ]]; then
-  body="$(curl -fsSL "$API/releases/latest")" || body=""
+  body="$(api_get "$API/releases/latest")" || body=""
   tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\(rev-[^"]*\)"[[:space:]]*[,}].*/\1/p' | head -n1)"
   if [[ -z $tag ]]; then
-    body="$(curl -fsSL "$API/releases?per_page=100")" || body=""
+    body="$(api_get "$API/releases?per_page=100")" || body=""
     tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\(rev-[^"]*\)"[[:space:]]*[,}].*/\1/p' | head -n1)"
   fi
   if [[ -z $body ]]; then
