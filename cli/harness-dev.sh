@@ -79,6 +79,9 @@ set -euo pipefail
 ENGINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=app-root.sh
 source "$ENGINE_DIR/app-root.sh"
+# shellcheck source=native-libs.sh
+source "$ENGINE_DIR/native-libs.sh"
+export_native_library_paths
 # shellcheck source=vendor-dir.sh
 source "$ENGINE_DIR/vendor-dir.sh"
 # shellcheck source=generators.sh
