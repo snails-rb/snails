@@ -95,8 +95,18 @@ grep -q "installed: snails dist (rev ${FAKE_REV:0:7})" good.out
 chk "the resolved revision is reported" $? 0
 grep -q 'FAILED at step 3/6: create a --scaffold project' good.out
 chk "the scaffold failure is reported at step 3" $? 0
-grep -q "the snails symlink does not point into" good.out
-chk "the dist assertion itself passed" $? 1
+! grep -q "the snails symlink does not point into" good.out
+chk "the symlink assertion accepted the installed dist" $? 0
+
+# 5. A channel that resolved another revision than the one expected must fail
+#    before anything is built — this is the guard against a moved Latest.
+OTHER_REV="$(printf 'b%.0s' {1..40})"
+SNAILS_INSTALL_URL="file://$WORK/good-install.sh" bash "$SMOKE" --rev "$OTHER_REV" > drift.out 2>&1
+chk "a mismatched expected revision fails the smoke" $? 1
+grep -q 'FAILED at step 2/6: assert the installed dist' drift.out
+chk "the revision mismatch is reported at step 2" $? 0
+grep -q "the install resolved $FAKE_REV, expected $OTHER_REV" drift.out
+chk "the mismatch names both revisions" $? 0
 
 echo "----"
 echo "pass=$pass fail=$fail"
