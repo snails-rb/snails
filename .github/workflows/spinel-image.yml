@@ -195,11 +195,13 @@ jobs:
           else
             (cd dist && shasum -a 256 "$asset" > "$asset.sha256")
           fi
-          tar -tzf "dist/$asset" | grep -qx './spin'
-          tar -tzf "dist/$asset" | grep -qx './spinel'
-          tar -tzf "dist/$asset" | grep -qx './builtins/'
-          tar -tzf "dist/$asset" | grep -qx './lib/'
-          tar -tzf "dist/$asset" | grep -qx './packages/'
+          listing="$RUNNER_TEMP/toolchain-list.txt"
+          tar -tzf "dist/$asset" > "$listing"
+          grep -qx './spin' "$listing"
+          grep -qx './spinel' "$listing"
+          grep -qx './builtins/' "$listing"
+          grep -qx './lib/' "$listing"
+          grep -qx './packages/' "$listing"
       - uses: actions/upload-artifact@v4
         with:
           name: toolchain-linux-${{ matrix.arch }}
