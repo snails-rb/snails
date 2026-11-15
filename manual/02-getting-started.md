@@ -75,10 +75,10 @@ The prebuilt macOS compiler is built against Homebrew's `openssl`: 4.x on Apple 
 
 ```sh
 export PKG_CONFIG_PATH="$(brew --prefix openssl)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-export LIBRARY_PATH="$(brew --prefix openssl)/lib:${LIBRARY_PATH:-}"
+export LIBRARY_PATH="$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:${LIBRARY_PATH:-}"
 ```
 
-`PKG_CONFIG_PATH` supplies the headers (`openssl` is keg-only on Intel); `LIBRARY_PATH` is what makes `-lssl` resolve under `/opt/homebrew/lib`. For PostgreSQL, the `postgresql` runtime (or the client-only `libpq`) still needs the `DYLD_FALLBACK_LIBRARY_PATH` below.
+`PKG_CONFIG_PATH` supplies the headers (`openssl` is keg-only on Intel); `LIBRARY_PATH` is what makes `-lssl` and `-ljemalloc` resolve under `/opt/homebrew/lib` — the app links OpenSSL, and the test harness links jemalloc, the scaffold's allocator. For PostgreSQL, the `postgresql` runtime (or the client-only `libpq`) still needs the `DYLD_FALLBACK_LIBRARY_PATH` below.
 
 Xcode Command Line Tools provide the C compiler and linker for the app build. `jemalloc` is the scaffold's allocator.
 
