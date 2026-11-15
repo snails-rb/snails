@@ -1,6 +1,6 @@
 # Snails CLI
 
-`snails` is the entry point for everything outside your app's own `bin/` scripts. It creates projects, generates files, checks the setup, migrates the database, syncs the pinned runtime, and builds images or a host binary. Each command prints a one-line summary unless you ask for help or more detail.
+`snails` is the entry point for everything outside your app's own `bin/` scripts. It creates projects, generates files, checks the setup, migrates the database, syncs the pinned framework, and builds images or a host binary. Each command prints a one-line summary unless you ask for help or more detail.
 
 ## What it can do
 
@@ -13,7 +13,7 @@ Common
   new           Create a project
   generate      Generate code (g)
   migrate       Manage schema migrations
-  sync          Update the vendored runtime
+  sync          Update the vendored framework
 
 Project
   pins          Check pin declarations or print the pins file
@@ -46,7 +46,7 @@ snails new demo --scaffold
 snails new demo --database=postgresql --scaffold
 ```
 
-`new` copies the project template, vendors the pinned runtime, seeds the harness, and prints the next commands. `--scaffold` overlays the posts-and-comments example; `--database` selects sqlite or PostgreSQL.
+`new` copies the project template, vendors the pinned framework, seeds the harness, and prints the next commands. `--scaffold` overlays the posts-and-comments example; `--database` selects sqlite or PostgreSQL.
 
 ## Everyday commands
 
@@ -73,13 +73,13 @@ Examples:
 
 `snails migrate` handles the rest of the schema flow; `snails help migrate` prints the command list and the `--app`/`--database` options.
 
-`snails pins check` reads `pins.toml` and confirms the runtime and toolchain pair:
+`snails pins check` reads `pins.toml` and confirms the framework and toolchain pair:
 
 ```text
 [snails] pins ok (spinel=858dde41b snails=v0.48.0)
 ```
 
-`snails pins path` prints the nearest pins file. `snails sync` vendors the runtime and toolchain declared by that file; `snails sync --check` reports whether the tree is in step without writing.
+`snails pins path` prints the nearest pins file. `snails sync` vendors the framework and toolchain declared by that file; `snails sync --check` reports whether the tree is in step without writing.
 
 ## Doctor
 

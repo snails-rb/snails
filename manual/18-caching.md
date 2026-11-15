@@ -41,6 +41,6 @@ A development restart clears the cache. `bin/test` clears it before each case, s
 
 `fetch` misses run their block outside the store's lock, so two threads that miss the same key can both compute; the later write wins. That is duplicate work, not a wrong value. Counters are the exception: `increment` is one locked read-modify-write.
 
-HTTP caching is separate. The runtime does not write `Cache-Control` or validators for you; set `headers["Cache-Control"]` (or `ETag`, `Last-Modified`) in the action when a proxy or client should cache the response. The cache above is server-side and does not affect response headers.
+HTTP caching is separate. The framework does not write `Cache-Control` or validators for you; set `headers["Cache-Control"]` (or `ETag`, `Last-Modified`) in the action when a proxy or client should cache the response. The cache above is server-side and does not affect response headers.
 
 [Time, Dates, and JSON](17-time-dates-and-json.md) covers the `Duration` values an expiry can take.

@@ -55,8 +55,8 @@ A fresh project is small. Most of the tree is setup you touch once; the day-to-d
 
 ## The files that pin the app together
 
-- `main.rb` is the compile root. It requires `config/boot.rb`, which starts the runtime and loads the app's own files at the end of the chain.
-- `pins.toml` records the runtime release and the compiler revision. The first command that needs the toolchain assembles the one this file names.
+- `main.rb` is the compile root. It requires `config/boot.rb`, which starts the framework and loads the app's own files at the end of the chain.
+- `pins.toml` records the framework release and the compiler revision. The first command that needs the toolchain assembles the one this file names.
 - `spin.toml` is the build manifest. It names the allocator and any build-level settings the compiler needs.
 - `compose.yml` is the single-host deployment file. `Dockerfile` builds the image; `deploy/Caddyfile` is the optional TLS proxy.
 - `.env.sample` is a template for environment variables, not configuration. Copy it to `.env` and source it; the app does not read the file itself.
@@ -66,7 +66,7 @@ A fresh project is small. Most of the tree is setup you touch once; the day-to-d
 
 `gen/` is build output. The require-list files carry a `# scan:` spec and a literal list for one app folder; `snails` refreshes them before every build. `gen/route_helpers.rb` and `gen/model_columns.rb` are generated outright from the route table and the schema. Do not edit any of them by hand — a file added under `app/` appears after the next `bin/dev` or `bin/test`.
 
-`snails-core/` and `.spinel/` are local state assembled by sync: the vendored runtime and the pinned compiler. Both are gitignored, so a fresh clone rebuilds them on the first command that needs them.
+`snails-core/` and `.spinel/` are local state assembled by sync: the vendored framework and the pinned compiler. Both are gitignored, so a fresh clone rebuilds them on the first command that needs them.
 
 The exception is a placeholder file in a fresh project. `gen/model_columns.rb` stays a stub until a schema exists, and the first build tells you to run `snails migrate dump` when a model needs it.
 

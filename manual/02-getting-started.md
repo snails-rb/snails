@@ -25,7 +25,7 @@ snails new myapp
 cd myapp
 ```
 
-`new` writes a small but complete app. It answers `GET /up`, carries a test harness, runs through `bin/dev` and `bin/test`, and records the runtime and compiler it builds with in `pins.toml`. You do not fetch or match versions by hand; the first command that needs the compiler downloads the pinned one. The download is about 13 MB and is cached per revision.
+`new` writes a small but complete app. It answers `GET /up`, carries a test harness, runs through `bin/dev` and `bin/test`, and records the framework and compiler it builds with in `pins.toml`. You do not fetch or match versions by hand; the first command that needs the compiler downloads the pinned one. The download is about 13 MB and is cached per revision.
 
 ```text
 [snails] created myapp (GET /up)
@@ -56,7 +56,7 @@ The first `snails new` downloads the pinned compiler for Linux amd64/arm64 or ma
 sudo apt-get install -y build-essential libssl-dev libsqlite3-dev libjemalloc-dev sqlite3 tzdata
 ```
 
-These are the Debian and Ubuntu package names; other distributions use the same packages under different names. `build-essential` provides the C compiler and linker; the runtime's logger links OpenSSL, the default database links SQLite, and the scaffold's allocator links jemalloc. `sqlite3` is the migration and test client, and `tzdata` provides the time zone files app boot reads.
+These are the Debian and Ubuntu package names; other distributions use the same packages under different names. `build-essential` provides the C compiler and linker; the framework's logger links OpenSSL, the default database links SQLite, and the scaffold's allocator links jemalloc. `sqlite3` is the migration and test client, and `tzdata` provides the time zone files app boot reads.
 
 For the PostgreSQL adapter, install the client and the libraries its native package links:
 
@@ -75,7 +75,7 @@ brew install openssl@3 jemalloc pkg-config
 
 The prebuilt macOS compiler is built against the standard Homebrew prefix — `/opt/homebrew` on Apple Silicon, `/usr/local` on Intel — and runs on macOS 13 or newer. If your Homebrew uses another prefix, the prebuilt compiler cannot find the OpenSSL it was built against; build it from source instead (below).
 
-Xcode Command Line Tools provide the C compiler and linker for the app build. `openssl@3` is the OpenSSL the runtime links, `jemalloc` is the scaffold's allocator, and `pkg-config` lets spinel find Homebrew libraries outside the default search path.
+Xcode Command Line Tools provide the C compiler and linker for the app build. `openssl@3` is the OpenSSL the framework links, `jemalloc` is the scaffold's allocator, and `pkg-config` lets spinel find Homebrew libraries outside the default search path.
 
 For the PostgreSQL adapter, install the client and put its path on `PATH`, `PKG_CONFIG_PATH`, and `DYLD_FALLBACK_LIBRARY_PATH`. The test harness runs its disposable database in Docker Desktop unless you pass `PG_URL`.
 
@@ -156,6 +156,6 @@ The count is case files, not individual cases. As your app grows you add files b
 
 ## Where to go from here
 
-That is the whole loop: edit, `bin/dev` to try it live, `bin/test` before you call it complete. Your controllers live in `app/controllers`, routes in `config/routes.rb`, and data in the database that `bin/dev` uses. A fresh app has no controllers; `GET /up` comes from the runtime.
+That is the whole loop: edit, `bin/dev` to try it live, `bin/test` before you call it complete. Your controllers live in `app/controllers`, routes in `config/routes.rb`, and data in the database that `bin/dev` uses. A fresh app has no controllers; `GET /up` comes from the framework.
 
 [Your App's Structure](05-your-app-structure.md) describes the folder layout, and [Routes and Controllers](06-routes-and-controllers.md) begins the request path.

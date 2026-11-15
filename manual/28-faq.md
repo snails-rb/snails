@@ -36,7 +36,7 @@ Set `SNALS_REV` in `pins.toml` back to the version you came from, restore the ma
 
 ### Can I use Rails gems?
 
-No. Your app and the framework compile into one native binary; a gem that expects a Ruby runtime, a Bundler load path, or a native extension has no place in that graph. `spin.toml` declares the build needs, and the runtime's helpers are listed in [Ruby Helpers](19-ruby-helpers.md). The framework provides the helpers an API app needs; a behavior outside that set belongs in the app.
+No. Your app and the framework compile into one native binary; a gem that expects a Ruby runtime, a Bundler load path, or a native extension has no place in that graph. `spin.toml` declares the build needs, and the framework's helpers are listed in [Ruby Helpers](19-ruby-helpers.md). The framework provides the helpers an API app needs; a behavior outside that set belongs in the app.
 
 ### Why is there no Active Record?
 

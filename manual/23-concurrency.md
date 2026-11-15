@@ -13,7 +13,7 @@ manual-demo (spinel) listening on http://0.0.0.0:3000, pid 74898
   one green thread per connection; OS workers: one per core (SPINEL_WORKERS=N to cap); processes: 1
 ```
 
-`SPINEL_WORKERS` caps the OS worker threads; without it the runtime uses one per core. The server accepts `-w N` and `WORKERS`, but it runs one process. Run more copies of the binary (or more containers) when one process is not enough; each copy is independent.
+`SPINEL_WORKERS` caps the OS worker threads; without it the framework uses one per core. The server accepts `-w N` and `WORKERS`, but it runs one process. Run more copies of the binary (or more containers) when one process is not enough; each copy is independent.
 
 `SIGTERM` and `SIGINT` set a stop flag that the accept loop checks once a second. The server exits on the next check instead of waiting out keep-alive connections; a client that needs a graceful drain should stop sending new work before the signal.
 

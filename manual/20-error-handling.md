@@ -44,7 +44,7 @@ rescue Sqlx::RecordNotUnique
 end
 ```
 
-For a case that belongs to one action, use a normal `begin`/`rescue` in that action. Do not rescue `Exception`; the runtime re-raises `SystemExit`, `SignalException`, and `NoMemoryError` at its own boundaries, and catching them in app code only moves the failure.
+For a case that belongs to one action, use a normal `begin`/`rescue` in that action. Do not rescue `Exception`; the framework re-raises `SystemExit`, `SignalException`, and `NoMemoryError` at its own boundaries, and catching them in app code only moves the failure.
 
 ## The error classes
 
@@ -63,7 +63,7 @@ For a case that belongs to one action, use a normal `begin`/`rescue` in that act
 
 `Sqlx::Busy` means the unit did not commit, so retry the whole transaction or job. `Sqlx::ConnectionFailed` may leave the unit's outcome unknown — the statement may have committed — so retry the whole unit, never one statement inside it. `ConnectionTimeout` means the statement did not run, so the same retry rule applies.
 
-There is no `rescue_from`. Registration is a plain method override, which keeps the dispatch path readable and makes the order of rescues explicit. `ActionController::UnpermittedParameters` and `ActionController::UnknownFormat` exist for rescue clauses but no runtime path raises them.
+There is no `rescue_from`. Registration is a plain method override, which keeps the dispatch path readable and makes the order of rescues explicit. `ActionController::UnpermittedParameters` and `ActionController::UnknownFormat` exist for rescue clauses but nothing in the framework raises them.
 
 ## Failures in the background
 

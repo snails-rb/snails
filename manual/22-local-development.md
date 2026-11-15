@@ -15,7 +15,7 @@ manual-demo (spinel) listening on http://0.0.0.0:3000, pid 74898
   one green thread per connection; OS workers: one per core (SPINEL_WORKERS=N to cap); processes: 1
 ```
 
-The first lines check the pin, sync the vendored runtime, and compile. The next two say where it listens and where the log goes. [Logging](21-logging.md) covers the record format.
+The first lines check the pin, sync the vendored framework, and compile. The next two say where it listens and where the log goes. [Logging](21-logging.md) covers the record format.
 
 The server does not watch files. After an edit, stop it and run `bin/dev` again; the rebuild is cached, so only what changed is recompiled. When the build is already fresh and you only want to restart the process, `bin/dev --skip-build` serves the existing binary.
 
@@ -47,6 +47,6 @@ The `bin/` wrappers resolve the CLI without a machine-specific path: `SNAILS_DIR
 SNAILS_DIR=/path/to/snails bin/dev
 ```
 
-Without `SNAILS_DIR`, the wrapper uses the installed release. A project created from a checkout records `SNALS_SOURCE="checkout"` in `pins.toml`, so its runtime comes from that working tree; a project created from a release records `"pin"` and syncs the published release. [Updating Snails](26-updating-snails.md) covers the pin.
+Without `SNAILS_DIR`, the wrapper uses the installed release. A project created from a checkout records `SNALS_SOURCE="checkout"` in `pins.toml`, so its framework comes from that working tree; a project created from a release records `"pin"` and syncs the published release. [Updating Snails](26-updating-snails.md) covers the pin.
 
 [Concurrency](23-concurrency.md) explains the server's green threads, OS workers, and database pool.

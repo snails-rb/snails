@@ -72,7 +72,7 @@ time.in_time_zone("Seoul")           # fixed-offset Time, +09:00
 time.in_time_zone("UTC")
 ```
 
-Both a zone name from the runtime's vocabulary (`"Seoul"`, `"Eastern Time (US & Canada)"`) and an IANA identifier (`"Asia/Seoul"`) are accepted. The name must have a zone file; a typo raises at the call, not at the first request.
+Both a zone name from the framework's vocabulary (`"Seoul"`, `"Eastern Time (US & Canada)"`) and an IANA identifier (`"Asia/Seoul"`) are accepted. The name must have a zone file; a typo raises at the call, not at the first request.
 
 `Time.now.utc` is the same instant in UTC. `Duration#ago` and `from_now` return UTC, because they were built from `Time.now.utc`; call `in_time_zone` when the result is for a human in the app zone.
 
