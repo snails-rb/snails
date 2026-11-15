@@ -122,7 +122,7 @@ Bug reports and focused pull requests are welcome. Read [`CONTRIBUTING.md`](CONT
 
 ## Acknowledgements
 
-Snails builds on [Spinel](https://github.com/matz/spinel), the Ruby AOT compiler by [Yukihiro "Matz" Matsumoto](https://github.com/matz). Spinel is what makes the one-native-binary build possible; without it, this project would not exist in its current form. Thank you to Matz and the Spinel contributors.
+Snails builds on [Spinel](https://github.com/matz/spinel), the Ruby AOT compiler by [Yukihiro "Matz" Matsumoto](https://github.com/matz). Spinel is what makes the one-native-binary build possible. Thank you to Matz and the Spinel contributors.
 
 ## License
 
