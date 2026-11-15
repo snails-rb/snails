@@ -82,13 +82,14 @@ export LIBRARY_PATH="$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:
 
 Xcode Command Line Tools provide the C compiler and linker for the app build. `jemalloc` is the scaffold's allocator.
 
-For the PostgreSQL adapter, install PostgreSQL and put its path on `PATH`, `PKG_CONFIG_PATH`, and `DYLD_FALLBACK_LIBRARY_PATH`. `brew install postgresql` installs the server, `psql`, `pg_dump`, and libpq; Homebrew keeps it keg-only, so the exports below make it visible. Start the local server with `brew services start postgresql`, or point `PG_URL` at an existing server. The test harness uses Docker Desktop when `PG_URL` is unset; a local server or an existing PostgreSQL works through `PG_URL`.
+For the PostgreSQL adapter, install PostgreSQL and put its path on `PATH`, `PKG_CONFIG_PATH`, `LIBRARY_PATH`, and `DYLD_FALLBACK_LIBRARY_PATH`. `brew install postgresql` installs the server, `psql`, `pg_dump`, and libpq; Homebrew keeps it keg-only, so the exports below make it visible. `LIBRARY_PATH` is what makes `-lpq` resolve — the adapter links it through `ffi_lib`. Start the local server with `brew services start postgresql`, or point `PG_URL` at an existing server. The test harness uses Docker Desktop when `PG_URL` is unset; a local server or an existing PostgreSQL works through `PG_URL`.
 
 ```sh
 brew install postgresql
 brew services start postgresql
 export PATH="$(brew --prefix postgresql)/bin:$PATH"
 export PKG_CONFIG_PATH="$(brew --prefix postgresql)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+export LIBRARY_PATH="$(brew --prefix postgresql)/lib:${LIBRARY_PATH:-}"
 export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix postgresql)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
 createdb myapp_development
 export PG_URL="postgres://$(whoami)@127.0.0.1:5432/myapp_development"

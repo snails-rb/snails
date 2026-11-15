@@ -11,9 +11,10 @@
 # A superset hides a missing dependency the docs promise (platform-ci's macOS
 # job passes gnu-sed and coreutils for the repo scripts, for example).
 #
-# Usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--keep]
+# Usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--keep] [--pg-link]
 #   --rev <rev>  expected revision — the install must resolve to it
 #   --keep       keep the work directory and print its path
+#   --pg-link    also build a --database=postgresql app (link only, no server)
 #
 # Environment:
 #   SNAILS_INSTALL_URL   installer URL (default: the documented raw URL)
@@ -27,12 +28,14 @@ set -uo pipefail
 INSTALL_URL="${SNAILS_INSTALL_URL:-https://raw.githubusercontent.com/snails-rb/snails/main/install.sh}"
 EXPECTED_REV=""
 KEEP=""
+PG_LINK=""
 
 usage() {
   cat <<'USAGE'
-usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--keep]
+usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--keep] [--pg-link]
   --rev <rev>  expected revision — the install must resolve to it
   --keep       keep the work directory and print its path
+  --pg-link    also build a --database=postgresql app (link only, no server)
 USAGE
 }
 
@@ -48,6 +51,7 @@ while (($#)); do
       shift 2
       ;;
     --keep) KEEP=1; shift ;;
+    --pg-link) PG_LINK=1; shift ;;
     -h | --help) usage; exit 0 ;;
     *)
       echo "[release-smoke] unknown argument: $1" >&2
@@ -77,7 +81,11 @@ export SNAILS_HOME SNAILS_BIN_DIR
 export PATH="$SNAILS_BIN_DIR:$PATH"
 
 STAGE_N=0
-STAGE_TOTAL=6
+if [[ -n $PG_LINK ]]; then
+  STAGE_TOTAL=7
+else
+  STAGE_TOTAL=6
+fi
 STAGE="start"
 DEV_PID=""
 
@@ -211,6 +219,24 @@ DEV_PID=""
 if command -v pgrep >/dev/null 2>&1 && pgrep -f "$app/build/bin/" >/dev/null 2>&1; then
   pkill -f "$app/build/bin/" 2>/dev/null || true
   fail "the dev server outlived its own stop ($app/build/bin)"
+fi
+
+# 7. A PostgreSQL app links libpq through ffi_lib, and the linker answers on
+#    its own: bin/build-binary is verify-pins, sync, generators, and spin
+#    build, with no server and no migrations. This is the link half of the
+#    documented pg requirements; the runtime path stays with platform-ci's
+#    local PostgreSQL job.
+if [[ -n $PG_LINK ]]; then
+  stage "build a PostgreSQL app (link only, no server)"
+  pg_app="$WORK/pg-app"
+  snails new "$pg_app" --database=postgresql >"$WORK/pg-new.log" 2>&1 || {
+    cat "$WORK/pg-new.log" >&2
+    fail "the installed CLI could not scaffold a PostgreSQL project"
+  }
+  "$pg_app/bin/build-binary" >"$WORK/pg-build.log" 2>&1 || {
+    cat "$WORK/pg-build.log" >&2
+    fail "the PostgreSQL app did not link — check the libpq library directory (LIBRARY_PATH)"
+  }
 fi
 
 echo "[release-smoke] PASS (rev $rev)"
