@@ -13,7 +13,8 @@
 #
 # Environment the caller owns:
 #   CC and the C compiler; PKG_CONFIG_PATH/CPATH/LIBRARY_PATH for Homebrew
-#   OpenSSL, libffi, libpq, jemalloc; MACOSX_DEPLOYMENT_TARGET for macOS.
+#   OpenSSL, libffi, libpq, jemalloc (the smoke; the build unsets the two
+#   that would mask its OpenSSL probe); MACOSX_DEPLOYMENT_TARGET for macOS.
 #
 # The release asset is `<out>/spinel-toolchain-<full>-<os>-<arch>.tar.gz` and
 # a sha256 sidecar beside it. The smoke build is a hard gate: a toolchain
@@ -116,7 +117,16 @@ if command -v gem >/dev/null 2>&1; then
   gem install 'prism:1.9.0' 'rbs:4.0.1' --no-document >/dev/null 2>&1 || true
 fi
 
-(cd "$src" && make deps && make -j"$jobs" && make install PREFIX="$prefix")
+# The Makefile records the OpenSSL directory its own probe finds, and the
+# compiler puts that -L beside the package's -lssl. Exporting LIBRARY_PATH or
+# CPATH here would let the first probe pass without a prefix and record an
+# empty directory (#7191, #10858). The smoke below still runs with the
+# caller's environment.
+(
+  cd "$src"
+  unset CPATH LIBRARY_PATH
+  make deps && make -j"$jobs" && make install PREFIX="$prefix"
+)
 
 unit="$prefix/lib/spinel"
 [[ -x $unit/spin && -x $unit/spinel && -d $unit/builtins && -d $unit/lib && -d $unit/packages ]] \
