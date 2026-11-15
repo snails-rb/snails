@@ -138,8 +138,10 @@ if [[ -z $version ]]; then
 elif [[ $version == *-* ]]; then
   channel=prerelease
 else
-  # A stable release shares its commit with its own last prerelease, so the
-  # change list spans the whole version rather than only the candidate.
+  # The stable body spans the whole version: skip every candidate tag of the
+  # same base (vX.Y.Z-rc.N) so the list starts at the previous version. The
+  # stable release sits on a new rev (one release per rev), so its commit is
+  # not the candidate's.
   skip_same_base=1
 fi
 if [[ -n $version ]]; then
@@ -181,12 +183,12 @@ newest_other_stable_tag() {
 }
 
 # previous_version_tag <rev> <version> <skip_same_base> — the newest v* tag
-# reachable from <rev> that is not the version being published. A stable
-# release shares its commit with its own last prerelease, so a stable body
-# sets skip_same_base=1 and lists changes across the whole version; a
-# prerelease skips only itself, so each candidate lists changes since the
-# previous one. With no version (an unversioned release) any version tag anchors
-# the list. Prints nothing when no version tag is reachable.
+# reachable from <rev> that is not the version being published. A stable body
+# sets skip_same_base=1 to skip every candidate of the same base and list
+# changes across the whole version; a prerelease skips only itself, so each
+# candidate lists changes since the previous one. With no version (an
+# unversioned release) any version tag anchors the list. Prints nothing when
+# no version tag is reachable.
 previous_version_tag() {
   local rev="$1" version="$2" skip_same_base="$3" base tag best=""
   base="${version%%-*}"
