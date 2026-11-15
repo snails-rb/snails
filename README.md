@@ -120,6 +120,10 @@ bash scripts/test-migrate.sh
 
 Bug reports and focused pull requests are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) before opening a PR, and use the issue templates for reproducible bugs or feature proposals. Questions and show-and-tell go to [Discussions](https://github.com/snails-rb/snails/discussions).
 
+## Acknowledgements
+
+Snails builds on [Spinel](https://github.com/matz/spinel), the Ruby AOT compiler by [Yukihiro "Matz" Matsumoto](https://github.com/matz), the creator of Ruby. Spinel compiles Ruby source into the native binary Snails ships. Thank you to Matz and the Spinel contributors.
+
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
