@@ -132,6 +132,7 @@ jobs:
           {
             echo "PATH=$(brew --prefix libpq)/bin:${PATH}"
             echo "PKG_CONFIG_PATH=$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+            echo "LIBRARY_PATH=$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
             echo "DYLD_FALLBACK_LIBRARY_PATH=$(brew --prefix libpq)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
           } >> "$GITHUB_ENV"
       - name: Derive the expected revision
