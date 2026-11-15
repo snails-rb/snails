@@ -106,6 +106,7 @@ mkdir -p "$out"
 rm -f "$out/$asset" "$out/$asset.sha256"
 
 echo "[build-toolchain-asset] building spinel $rev from source" >&2
+echo "[build-toolchain-asset] openssl $(pkg-config --modversion openssl 2>/dev/null || echo unknown)" >&2
 git clone -q https://github.com/matz/spinel "$src"
 git -C "$src" checkout -q "$rev"
 

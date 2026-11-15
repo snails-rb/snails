@@ -251,16 +251,25 @@ jobs:
         env:
           SNAILS_DIR: ${{ github.workspace }}
           FULL: ${{ needs.pin.outputs.full }}
+          # The CLI expands the short pin through the commit API. Without a
+          # token that call shares the runner IP's 60/hour budget, and a
+          # failure sends `snails new` down the source-build fallback.
+          SNAILS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           release="$RUNNER_TEMP/release"
           rm -rf "$release"
           mkdir -p "$release/spinel-rev-$FULL"
           cp "$GITHUB_WORKSPACE"/dist/* "$release/spinel-rev-$FULL/"
           app="$RUNNER_TEMP/asset-app"
           rm -rf "$app"
+          log="$RUNNER_TEMP/asset-new.log"
           SNAILS_SPINEL_BASE_URL="file://$release" \
-            "$SNAILS_DIR/bin/snails" new "$app" > "$RUNNER_TEMP/asset-new.out" 2> "$RUNNER_TEMP/asset-new.err"
-          grep -q 'ready (download)' "$RUNNER_TEMP/asset-new.err"
+            "$SNAILS_DIR/bin/snails" new "$app" 2>&1 | tee "$log"
+          grep -q 'ready (download)' "$log" || {
+            echo "snails new did not use the packaged asset — see the output above" >&2
+            exit 1
+          }
           "$app/bin/test"
       - uses: actions/upload-artifact@v4
         with:
@@ -298,7 +307,7 @@ jobs:
           Assets: linux-amd64, linux-arm64, darwin-arm64, darwin-amd64.
 
           - Linux assets are built from the bookworm image; they run on glibc 2.36 or newer.
-          - macOS assets target macOS 13 or newer and link against Homebrew's OpenSSL 4 (`brew install openssl`).
+          - macOS assets target macOS 13 or newer and link the Homebrew openssl they were built with (brew install openssl; 4.x on Apple Silicon, currently 3.x on Intel).
           - The smoke built openssl, ffi, json, sqlite3, pq, and a jemalloc spin app.
 
           The snails CLI downloads this release for the pinned SPINEL_REV; a
