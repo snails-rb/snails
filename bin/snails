@@ -219,7 +219,7 @@ Common
   new           Create a project
   generate      Generate code (g)
   migrate       Manage schema migrations
-  sync          Update the vendored runtime
+  sync          Update the vendored framework
 
 Project
   pins          Check pin declarations or print the pins file
@@ -398,7 +398,7 @@ help_sync() {
   cat <<'HELP'
 Usage: snails sync [<app_root>] [--pins FILE] [--from-checkout] [--check] [--skip-toolchain] [--verbose]
 
-Vendor the runtime declared by pins.toml into <app_root>/snails-core/.
+Vendor the framework declared by pins.toml into <app_root>/snails-core/.
 
 Options:
   --pins FILE        Read the pin from FILE (default: nearest pins.toml)
@@ -450,7 +450,7 @@ help_doctor() {
   cat <<'HELP'
 Usage: snails doctor [<app_root>] [--verbose]
 
-Check the CLI version, pin declaration, vendored runtime, toolchain,
+Check the CLI version, pin declaration, vendored framework, toolchain,
 environment, database target, and local clients. Exit 1 when a check fails.
 HELP
 }

@@ -93,7 +93,7 @@ Each writes the `WWW-Authenticate` header, a 401 status, and a plain-text body. 
 
 ## What the framework owns
 
-The runtime owns the header parsing and the 401 response shape. Your app owns the credential store and the comparison. A token lookup is a model query like any other:
+The framework owns the header parsing and the 401 response shape. Your app owns the credential store and the comparison. A token lookup is a model query like any other:
 
 ```ruby
 def current_account
@@ -103,6 +103,6 @@ def current_account
 end
 ```
 
-`find_by` is enough when the token column is unique; a token table with an expiry or scope column is your schema. Nothing in the runtime stores sessions, rotates tokens, or compares secrets in constant time.
+`find_by` is enough when the token column is unique; a token table with an expiry or scope column is your schema. Nothing in the framework stores sessions, rotates tokens, or compares secrets in constant time.
 
 The signing key for tokens you issue yourself comes from `Snails.app.secret_key_base`; [Configuration](16-configuration.md) covers that setting.

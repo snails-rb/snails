@@ -27,7 +27,7 @@ Snails.app.app_name       # "billing"
 Snails.app.version        # "1.4.2"
 ```
 
-The runtime supplies these defaults when an app declares none:
+The framework supplies these defaults when an app declares none:
 
 | Reader | Default | Notes |
 |---|---|---|
@@ -41,7 +41,7 @@ Values are read at call time. A deployment can set `REVISION=...` without rebuil
 
 ## Wiring lives in config/environment.rb
 
-This file runs once at boot, after the runtime and every app file. The generated file sets the time zone, selects the process queue, and registers the test mail capture:
+This file runs once at boot, after the framework and every app file. The generated file sets the time zone, selects the process queue, and registers the test mail capture:
 
 ```ruby
 Snails.time_zone = "UTC"
@@ -51,18 +51,18 @@ ActiveJob.queue_adapter = ActiveJob::ProcessQueue
 ActionMailer::Base.delivery_method = ActionMailer::DeliveryLog if Snails.env.test?
 ```
 
-A time-zone name is resolved and validated here. `"Seoul"` and `"Asia/Seoul"` both name the same zone; an unknown name raises at boot, so a typo cannot leave the process silently in UTC. Change this line rather than setting `TZ` in the environment — `TZ` is process-global and the runtime sets it from this slot.
+A time-zone name is resolved and validated here. `"Seoul"` and `"Asia/Seoul"` both name the same zone; an unknown name raises at boot, so a typo cannot leave the process silently in UTC. Change this line rather than setting `TZ` in the environment — `TZ` is process-global and the framework sets it from this slot.
 
 The logger slots, the mail provider, and any boot override belong here too. The file is app-owned; `snails sync` never rewrites it.
 
 ## The boot chain
 
-`main.rb` is the compile root. It requires `config/boot.rb`, which requires the runtime boot chain, and the chain ends by requiring the app's own files:
+`main.rb` is the compile root. It requires `config/boot.rb`, which requires the framework boot chain, and the chain ends by requiring the app's own files:
 
 ```text
 main.rb
   config/boot.rb            require snails-core/boot/all
-    runtime                   the framework
+    framework                 Snails core
     config/database.rb        one adapter
     config/application.rb     app values
     config/routes.rb          route table

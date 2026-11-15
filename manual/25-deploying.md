@@ -27,7 +27,7 @@ Open http://localhost:3000/up and you get `{"status":"ok"}`. The named volume ke
 docker run --rm -p 3000:3000 -e PG_URL=postgres://... myapp:local
 ```
 
-The runtime needs the database client library, `tzdata`, and the binary's dynamic libraries. The generated `Dockerfile` installs them; a host binary needs the same packages on the host.
+The framework needs the database client library, `tzdata`, and the binary's dynamic libraries. The generated `Dockerfile` installs them; a host binary needs the same packages on the host.
 
 ## Deploy to a single server
 
