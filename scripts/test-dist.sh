@@ -7,7 +7,8 @@
 # pin that is not the dist's own rev downloads, verifies, caches, and reuses
 # the published dist), the version-pin resolution through the release
 # repository's tag, `verify-pin` in dist mode (publication check), and
-# install.sh (download, verify, unpack, symlink, and latest resolution).
+# install.sh (download, verify, unpack, symlink, latest resolution, and the
+# optional API token).
 #
 # The distribution base is a local HTTP server serving the same layout
 # as the GitHub releases, so no network is touched; the GitHub-specific
@@ -37,9 +38,13 @@ ROUTE_AST="$ROOT/scripts/fixtures/scaffold-new-routes.ast"
 
 WORK="$(mktemp -d)"
 SERVER_PID=""
+TOKEN_PID=""
 cleanup() {
   if [[ -n $SERVER_PID ]]; then
     kill "$SERVER_PID" 2>/dev/null || true
+  fi
+  if [[ -n $TOKEN_PID ]]; then
+    kill "$TOKEN_PID" 2>/dev/null || true
   fi
   # KEEP_WORK=1 preserves the workspace for inspection after a failure.
   if [[ ${KEEP_WORK:-} == 1 ]]; then
@@ -633,6 +638,39 @@ SNAILS_HOME="$WORK/ihome-none" SNAILS_BIN_DIR="$WORK/ibin-none" \
 chk "install.sh refuses a channel with only toolchain releases" $? 1
 grep -q 'could not find a dist release' inst-none.out
 chk "the toolchain-only channel is named" $? 0
+
+# 9b. install.sh sends SNAILS_GITHUB_TOKEN to the release API. CI runners share
+#     their IP's 60/hour unauthenticated budget, so a release smoke that installs
+#     from the channel needs the header. The server here refuses every request
+#     without it, so only the header path can pass.
+TOKEN_PORT="${TOKEN_PORT:-8392}"
+(cd serve && exec python3 "$ROOT/scripts/fixtures/api-server.py" "$TOKEN_PORT" expected-token >/dev/null 2>&1) &
+TOKEN_PID=$!
+for _ in {1..25}; do
+  curl -fsS -H "Authorization: Bearer expected-token" -o /dev/null \
+    "http://127.0.0.1:$TOKEN_PORT/api-latest/releases/latest" 2>/dev/null && break
+  sleep 0.2
+done
+curl -fsS -H "Authorization: Bearer expected-token" -o /dev/null \
+  "http://127.0.0.1:$TOKEN_PORT/api-latest/releases/latest"
+chk "the token-gated dist server is ready" $? 0
+SNAILS_API_BASE_URL="http://127.0.0.1:$TOKEN_PORT/api-latest" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_GITHUB_TOKEN=expected-token \
+SNAILS_HOME="$WORK/ihome-token" SNAILS_BIN_DIR="$WORK/ibin-token" \
+  bash "$INSTALL" > inst-token.out 2>&1
+chk "install.sh resolves Latest with SNAILS_GITHUB_TOKEN" $? 0
+grep -q "\[snails\] dist $FAKE -> " inst-token.out
+chk "the token install is reported" $? 0
+SNAILS_API_BASE_URL="http://127.0.0.1:$TOKEN_PORT/api-latest" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-noheader" SNAILS_BIN_DIR="$WORK/ibin-noheader" \
+  bash "$INSTALL" > inst-noheader.out 2>&1
+chk "install.sh fails the release lookup without the token" $? 1
+grep -q 'could not find a release' inst-noheader.out
+chk "the missing token is reported as a release lookup failure" $? 0
+kill "$TOKEN_PID" 2>/dev/null || true
+TOKEN_PID=""
 
 # 10. the cache serves a repeat sync with the server gone.
 kill "$SERVER_PID" 2>/dev/null || true

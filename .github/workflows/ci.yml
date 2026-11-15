@@ -54,6 +54,8 @@ jobs:
         run: bash scripts/test-cli.sh
       - name: Dist lifecycle regression
         run: bash scripts/test-dist.sh
+      - name: Release smoke contract
+        run: bash scripts/test-release-smoke.sh
 
   runtime:
     name: linux amd64 (core harness)
