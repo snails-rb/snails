@@ -37,7 +37,7 @@ cd myapp
   database         sqlite (storage/development.sqlite3)
 ```
 
-Pass `--scaffold` for a working posts-and-comments JSON API you can read end to end. Pass `--database=postgresql` to build against PostgreSQL instead of the default SQLite; that variant uses Docker for the development database.
+Pass `--scaffold` for a working posts-and-comments JSON API you can read end to end. Pass `--database=postgresql` to build against PostgreSQL instead of the default SQLite; that variant uses Docker or `PG_URL` for the development database.
 
 ```sh
 snails new demo --scaffold
@@ -73,17 +73,20 @@ xcode-select --install
 brew install openssl jemalloc pkg-config
 ```
 
-The prebuilt macOS compiler is built against Homebrew's OpenSSL 4 and runs on macOS 13 or newer. The app build links the `openssl` your Homebrew provides, so a non-standard Homebrew prefix is fine for the default app. For PostgreSQL, the `libpq` runtime still needs the `DYLD_FALLBACK_LIBRARY_PATH` below.
+The prebuilt macOS compiler is built against Homebrew's OpenSSL 4 and runs on macOS 13 or newer. The app build links the `openssl` your Homebrew provides, so a non-standard Homebrew prefix is fine for the default app. For PostgreSQL, the `postgresql` runtime (or the client-only `libpq`) still needs the `DYLD_FALLBACK_LIBRARY_PATH` below.
 
 Xcode Command Line Tools provide the C compiler and linker for the app build. `openssl` (Homebrew's current OpenSSL 4) is the OpenSSL the framework links; Homebrew links it into the prefix, so `pkg-config` finds it. `jemalloc` is the scaffold's allocator.
 
-For the PostgreSQL adapter, install the client and put its path on `PATH`, `PKG_CONFIG_PATH`, and `DYLD_FALLBACK_LIBRARY_PATH`. `libpq` is keg-only because it conflicts with PostgreSQL, so Homebrew does not link it into the prefix. The test harness runs its disposable database in Docker Desktop unless you pass `PG_URL`.
+For the PostgreSQL adapter, install PostgreSQL and put its path on `PATH`, `PKG_CONFIG_PATH`, and `DYLD_FALLBACK_LIBRARY_PATH`. `brew install postgresql` installs the server, `psql`, `pg_dump`, and libpq; Homebrew keeps it keg-only, so the exports below make it visible. Start the local server with `brew services start postgresql`, or point `PG_URL` at an existing server. The test harness uses Docker Desktop when `PG_URL` is unset; a local server or an existing PostgreSQL works through `PG_URL`.
 
 ```sh
-brew install libpq
-export PATH="$(brew --prefix libpq)/bin:$PATH"
-export PKG_CONFIG_PATH="$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix libpq)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
+brew install postgresql
+brew services start postgresql
+export PATH="$(brew --prefix postgresql)/bin:$PATH"
+export PKG_CONFIG_PATH="$(brew --prefix postgresql)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix postgresql)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
+createdb myapp_development
+export PG_URL="postgres://$(whoami)@127.0.0.1:5432/myapp_development"
 ```
 
 ### If the prebuilt compiler is unavailable
@@ -103,13 +106,13 @@ On macOS:
 ```sh
 xcode-select --install
 brew install openssl jemalloc pkg-config libffi ruby
-export PATH="$(brew --prefix ruby)/bin:$PATH"
+export PATH="$(brew --prefix ruby)/bin:$(brew --prefix postgresql)/bin:$PATH"
 gem install prism:1.9.0 rbs:4.0.1 --no-document
-brew install libpq   # PostgreSQL adapter
-export PKG_CONFIG_PATH="$(brew --prefix openssl)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+brew install postgresql   # PostgreSQL adapter
+export PKG_CONFIG_PATH="$(brew --prefix openssl)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix postgresql)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export CPATH="$(brew --prefix openssl)/include:$(brew --prefix jemalloc)/include:${CPATH:-}"
-export LIBRARY_PATH="$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
-export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
+export LIBRARY_PATH="$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix postgresql)/lib:${LIBRARY_PATH:-}"
+export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix postgresql)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
 ```
 
 The source build runs the same package smoke as the published asset. If openssl, ffi, json, or sqlite3 is missing, it stops before caching and names the development packages; install the headers (`openssl`, `libffi`, SQLite) and retry.
