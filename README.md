@@ -9,23 +9,15 @@
 
 [![ci](https://github.com/snails-rb/snails/actions/workflows/ci.yml/badge.svg)](https://github.com/snails-rb/snails/actions/workflows/ci.yml)
 
-Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions — routes, controllers, models, forms, mailers, and jobs in Ruby; migrations in SQL — and compiles your app code, the framework, and the HTTP server into one native executable. The server does not depend on Ruby. There is no view layer or asset pipeline.
+Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions, drops the Ruby runtime, and compiles the app into one native binary. One process uses every core, with about 3× the throughput and 10× lower peak memory under load than Rails in cluster mode.
 
-The project is split into parts: the API-only, Rails-like runtime for [Spinel](https://github.com/matz/spinel) (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). A consumer app vendors the runtime as `snails-core/` and pins the revision in `pins.toml`.
+The repo is split into the framework (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). An app vendors `runtime/` as `snails-core/` and pins the revision in `pins.toml`.
 
 Status: 1.0. The public API is stable.
 
-## Scope and design
+## Why Snails
 
-Snails 1.0 is for API-only Ruby apps. It keeps the Rails conventions that make an API app predictable — routes, controllers, forms, mailers, jobs, and a conventional project layout — and removes the abstractions that add runtime overhead.
-
-Coding agents change the work those abstractions were designed for. They write SQL, maintain a backend and a frontend as two stacks, and implement missing behavior in the app instead of adding a gem. Snails keeps the Rails conventions and uses SQL migrations. It removes the layers that add runtime overhead without reducing the agent's work: no view layer or asset pipeline, no Active Record, and no gem compatibility. The app compiles to one native binary that runs without Ruby.
-
-Abstraction is still necessary. The framework provides a standard model API and a real-server test harness; those are the rules the agent follows and the reviewer checks. The agent writes the code; humans review the route, the SQL, the migration, and the test evidence, and decide what ships. Review is the constraint, not the reason for the design.
-
-The full reasoning is in [The Snails Design](https://snails-rb.org/blog/the-snails-design/). The [Coming from Rails](manual/04-coming-from-rails.md) chapter covers the Rails features that carry over and what replaces the rest, and the [FAQ](manual/28-faq.md) lists what is not included.
-
-If you need server-rendered pages, the full Ruby gem ecosystem, or Active Record's object model, Rails is the better fit.
+Snails keeps the Rails conventions an API needs and removes the layers that add runtime overhead: the view layer, Active Record, and gem compatibility. The design trade is explained in [The Snails Design](https://snails-rb.org/blog/the-snails-design/); [Coming from Rails](manual/04-coming-from-rails.md) covers what carries over and what replaces the rest.
 
 ## Install
 
@@ -42,11 +34,11 @@ mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_
 snails new demo
 ```
 
-The first command that needs the compiler downloads the pinned one for Linux amd64/arm64 or macOS Apple Silicon/Intel. The first `bin/dev` or `bin/test` builds your app, so install the C compiler and libraries listed under [Requirements](manual/02-getting-started.md#requirements) before that build. See [Getting Started](manual/02-getting-started.md) for the full first-project flow.
+`snails new` downloads the pinned compiler for Linux amd64/arm64 or macOS Apple Silicon/Intel. `bin/dev` and `bin/test` compile the app, so install the packages under [Requirements](manual/02-getting-started.md#requirements) before the first run. [Getting Started](manual/02-getting-started.md) has the full flow.
 
 ## Benchmark
 
-The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode, with peak-memory savings of 10× or more under load, and about 12× the throughput of a default Rails app. A separate single-row database read is about 3.1× faster than Rails, close to the microbenchmark ratio.
+The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode, with peak memory 10× lower under load, and about 11.9× the throughput of a default Rails app. A separate single-row database read is about 3.1× faster than Rails, close to the microbenchmark ratio.
 
 Reproduce from that repository with `bin/bench`, `bin/bench-scenario`, `bin/boottime`, and `bin/imagesize`. The result tables are under [`results/`](https://github.com/snails-rb/snails-benchmark/tree/main/results).
 
@@ -56,7 +48,7 @@ The manual is the product documentation for developers building an app. It lives
 
 **The Basics**
 
-- [Welcome to Snails!](manual/01-welcome-to-snails.md)
+- [Welcome to Snails](manual/01-welcome-to-snails.md)
 - [Getting Started](manual/02-getting-started.md)
 - [Snails CLI](manual/03-snails-cli.md)
 - [Coming from Rails](manual/04-coming-from-rails.md)
@@ -132,4 +124,4 @@ Bug reports and focused pull requests are welcome. Read [`CONTRIBUTING.md`](CONT
 
 MIT. See [`LICENSE`](LICENSE).
 
-`runtime/` began as a fork of Spinel's scaffold output and has been substantially rewritten. The derived portions live in `runtime/action_controller/` and `runtime/action_dispatch/`; each carries the upstream notice in its `NOTICE` file. `runtime/tep/` follows tep's notice in `runtime/tep/NOTICE`. The rest of the runtime is Snails' own work.
+`runtime/` began as a fork of Spinel's scaffold output and has been substantially rewritten. The derived portions live in `runtime/action_controller/` and `runtime/action_dispatch/`; each carries the upstream notice in its `NOTICE` file. `runtime/tep/` follows tep's notice in `runtime/tep/NOTICE`. The rest of the `runtime/` tree is Snails' own work.
