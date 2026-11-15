@@ -10,12 +10,17 @@ name: release-smoke
 #   release: published — the channel changed, and a missing asset or an
 #     unexpected Latest is invisible until someone installs. The release is
 #     created by scripts/publish-dist.sh from a developer machine, so the event
-#     fires; a release created by a workflow with GITHUB_TOKEN would not.
+#     fires; a release created by a workflow with GITHUB_TOKEN would not. This
+#     run does not pin a revision: a prerelease or an unversioned publish
+#     leaves Latest where it is on purpose, so the smoke asserts what the
+#     channel resolves to, not this release's rev.
 #   schedule — drift. Runner images and Homebrew formulas move without a pin
 #     bump, and that can break the consumer path while every pin build stays
 #     green. Weekly is enough for that, and cheap: standard runners are free on
 #     a public repository, so only the macOS queue costs anything.
-#   workflow_dispatch — rerun a release check, or name a rev to expect.
+#   workflow_dispatch — rerun a release check, or pass a rev to pin the
+#     revision the install must resolve to (after a stable publish, that proves
+#     the release is the one installs receive).
 #
 # Keep the step that installs packages at the documented minimum. Adding a
 # package here hides a dependency the requirements docs promise, which is the
@@ -64,14 +69,10 @@ jobs:
         id: expect
         env:
           EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
           INPUT_REV: ${{ github.event.inputs.rev }}
         run: |
           rev=""
-          case "$EVENT_NAME" in
-            release) case "$RELEASE_TAG" in rev-*) rev="${RELEASE_TAG#rev-}" ;; esac ;;
-            workflow_dispatch) rev="$INPUT_REV" ;;
-          esac
+          if [[ $EVENT_NAME == "workflow_dispatch" ]]; then rev="$INPUT_REV"; fi
           if [[ -n $rev && ! $rev =~ ^[0-9a-f]{40}$ ]]; then
             echo "the expected revision is not a full 40-hex rev: $rev" >&2
             exit 1
@@ -120,14 +121,10 @@ jobs:
         id: expect
         env:
           EVENT_NAME: ${{ github.event_name }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
           INPUT_REV: ${{ github.event.inputs.rev }}
         run: |
           rev=""
-          case "$EVENT_NAME" in
-            release) case "$RELEASE_TAG" in rev-*) rev="${RELEASE_TAG#rev-}" ;; esac ;;
-            workflow_dispatch) rev="$INPUT_REV" ;;
-          esac
+          if [[ $EVENT_NAME == "workflow_dispatch" ]]; then rev="$INPUT_REV"; fi
           if [[ -n $rev && ! $rev =~ ^[0-9a-f]{40}$ ]]; then
             echo "the expected revision is not a full 40-hex rev: $rev" >&2
             exit 1
