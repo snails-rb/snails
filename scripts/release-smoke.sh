@@ -165,9 +165,11 @@ snails migrate load --app "$app" >"$WORK/load.log" 2>&1 || {
 }
 
 # 5. The project's own gate: build, boot, and the scaffold's CRUD cases. The
-#    case count is not asserted — a case count is not a contract.
+#    case count is not asserted — a case count is not a contract. The exit
+#    status is: a failed build must stop here, not fall through to the dev
+#    step and report its own missing binary.
 stage "run the project harness (bin/test)"
-"$app/bin/test"
+"$app/bin/test" || fail "the project harness (bin/test) failed"
 
 # 6. bin/dev is a foreground server. The port is picked free here so a foreign
 #    listener cannot answer the readiness probe.

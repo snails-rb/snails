@@ -108,6 +108,32 @@ chk "the revision mismatch is reported at step 2" $? 0
 grep -q "the install resolved $FAKE_REV, expected $OTHER_REV" drift.out
 chk "the mismatch names both revisions" $? 0
 
+# 6. A failing project harness must stop at step 5. Without that check the
+#    failure flows into the dev step, which reports its own missing binary and
+#    hides the build failure that came first.
+cat > failing-test-install.sh <<SH
+mkdir -p "\$SNAILS_HOME/dist/$FAKE_REV/bin"
+printf '%s\n' "$FAKE_REV" > "\$SNAILS_HOME/dist/$FAKE_REV/REV"
+cat > "\$SNAILS_HOME/dist/$FAKE_REV/bin/snails" <<'CLI'
+#!/bin/bash
+if [[ \${1:-} == version ]]; then echo "snails dist (rev aaaaaaa)"; exit 0; fi
+case "\${1:-}" in
+  new) mkdir -p "\${2:-}/bin"; printf '#!/bin/bash\nexit 1\n' > "\${2:-}/bin/test"; chmod +x "\${2:-}/bin/test"; exit 0 ;;
+  migrate) exit 0 ;;
+esac
+exit 1
+CLI
+chmod +x "\$SNAILS_HOME/dist/$FAKE_REV/bin/snails"
+mkdir -p "\$SNAILS_BIN_DIR"
+ln -sfn "\$SNAILS_HOME/dist/$FAKE_REV/bin/snails" "\$SNAILS_BIN_DIR/snails"
+SH
+SNAILS_INSTALL_URL="file://$WORK/failing-test-install.sh" bash "$SMOKE" > failtest.out 2>&1
+chk "a failing project harness fails the smoke" $? 1
+grep -q 'FAILED at step 5/6: run the project harness' failtest.out
+chk "the harness failure is reported at step 5" $? 0
+! grep -q 'step 6/6' failtest.out
+chk "the dev step does not run after a harness failure" $? 0
+
 echo "----"
 echo "pass=$pass fail=$fail"
 if ((fail > 0)); then
