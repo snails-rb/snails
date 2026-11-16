@@ -34,7 +34,10 @@ on:
   workflow_dispatch:
     inputs:
       rev:
-        description: 'Revision the install must resolve to (default: no expectation)'
+        description: 'Revision the default install must resolve to (default: no expectation)'
+        required: false
+      install_rev:
+        description: 'Install this revision with install.sh --rev (prerelease or edge dist)'
         required: false
 
 concurrency:
@@ -85,9 +88,11 @@ jobs:
           # budget and pushes `snails new` onto the source-build fallback.
           SNAILS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_REV: ${{ steps.expect.outputs.rev }}
+          INSTALL_REV: ${{ github.event.inputs.install_rev }}
         run: |
           args=()
           if [[ -n $EXPECTED_REV ]]; then args=(--rev "$EXPECTED_REV"); fi
+          if [[ -n $INSTALL_REV ]]; then args=(--install-rev "$INSTALL_REV"); fi
           bash scripts/release-smoke.sh ${args[@]+"${args[@]}"}
 
   macos:
@@ -118,21 +123,19 @@ jobs:
       # because the linker does not search Homebrew's Apple Silicon prefix.
       # jemalloc is here for the harness's schema loader, which compiles
       # through spinel and links the allocator directly.
-      - name: Export the documented OpenSSL and jemalloc paths
-        run: |
-          {
-            echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-            echo "LIBRARY_PATH=$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:${LIBRARY_PATH:-}"
-          } >> "$GITHUB_ENV"
+      # Documented in the manual. pkg-config supplies headers on Intel (the
+      # keg-only 3.x) and names the library directories the CLI puts on
+      # LIBRARY_PATH; the user exports only the search path.
+      - name: Export the documented pkg-config path
+        run: echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
       # The manual's PostgreSQL section, with libpq as the client-only choice.
-      # The pg link step runs with exactly these; a missing directory is the
-      # finding this step exists to surface, not a setup gap to patch here.
+      # pkg-config names libpq's directory for the CLI; the link step runs with
+      # exactly these exports, so a missing directory is the finding.
       - name: Export the documented PostgreSQL paths
         run: |
           {
             echo "PATH=$(brew --prefix libpq)/bin:${PATH}"
             echo "PKG_CONFIG_PATH=$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-            echo "LIBRARY_PATH=$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
             echo "DYLD_FALLBACK_LIBRARY_PATH=$(brew --prefix libpq)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
           } >> "$GITHUB_ENV"
       - name: Derive the expected revision
@@ -152,7 +155,9 @@ jobs:
         env:
           SNAILS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_REV: ${{ steps.expect.outputs.rev }}
+          INSTALL_REV: ${{ github.event.inputs.install_rev }}
         run: |
           args=(--pg-link)
           if [[ -n $EXPECTED_REV ]]; then args+=(--rev "$EXPECTED_REV"); fi
+          if [[ -n $INSTALL_REV ]]; then args+=(--install-rev "$INSTALL_REV"); fi
           bash scripts/release-smoke.sh "${args[@]}"

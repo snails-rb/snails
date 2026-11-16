@@ -50,6 +50,14 @@ bash "$SMOKE" --rev deadbee > rev-short.out 2>&1
 chk "an abbreviated --rev exits 2" $? 2
 grep -q 'must be a full 40-hex revision' rev-short.out
 chk "the abbreviated --rev is named" $? 0
+bash "$SMOKE" --install-rev deadbee > install-rev-short.out 2>&1
+chk "an abbreviated --install-rev exits 2" $? 2
+grep -q 'must be a full 40-hex revision' install-rev-short.out
+chk "the abbreviated --install-rev is named" $? 0
+bash "$SMOKE" --rev "$(printf 'a%.0s' {1..40})" --install-rev "$(printf 'b%.0s' {1..40})" > both-rev.out 2>&1
+chk "an expectation plus an explicit install exits 2" $? 2
+grep -q 'disagree' both-rev.out
+chk "the conflicting revisions are named" $? 0
 
 # 2. The checkout CLI must never be used: SNAILS_DIR is the switch that would
 #    turn every step below into source mode.
@@ -83,6 +91,7 @@ chk "--pg-link counts the PostgreSQL stage" $? 0
 #    stub CLI then fails the scaffold step, so the log names step 3.
 FAKE_REV="$(printf 'a%.0s' {1..40})"
 cat > good-install.sh <<SH
+printf '%s\n' "\$@" > "\${INSTALL_ARGS:-/dev/null}"
 mkdir -p "\$SNAILS_HOME/dist/$FAKE_REV/bin"
 printf '%s\n' "$FAKE_REV" > "\$SNAILS_HOME/dist/$FAKE_REV/REV"
 cat > "\$SNAILS_HOME/dist/$FAKE_REV/bin/snails" <<'CLI'
@@ -113,6 +122,18 @@ grep -q 'FAILED at step 2/6: assert the installed dist' drift.out
 chk "the revision mismatch is reported at step 2" $? 0
 grep -q "the install resolved $FAKE_REV, expected $OTHER_REV" drift.out
 chk "the mismatch names both revisions" $? 0
+
+# 5b. --install-rev is the prerelease/edge path: the installer gets --rev,
+#     and the dist assertion expects that revision instead of the channel.
+export INSTALL_ARGS="$WORK/install-args"
+SNAILS_INSTALL_URL="file://$WORK/good-install.sh" bash "$SMOKE" --install-rev "$FAKE_REV" > install-rev.out 2>&1
+chk "an explicit install revision still fails the stub scaffold" $? 1
+grep -q -e '^--rev$' "$INSTALL_ARGS"
+chk "the installer received --rev" $? 0
+grep -q -e "^$FAKE_REV$" "$INSTALL_ARGS"
+chk "the installer received the revision" $? 0
+grep -q 'FAILED at step 3/6: create a --scaffold project' install-rev.out
+chk "the explicit install passes the dist assertion" $? 0
 
 # 6. A failing project harness must stop at step 5. Without that check the
 #    failure flows into the dev step, which reports its own missing binary and

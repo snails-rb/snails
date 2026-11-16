@@ -11,10 +11,13 @@
 # A superset hides a missing dependency the docs promise (platform-ci's macOS
 # job passes gnu-sed and coreutils for the repo scripts, for example).
 #
-# Usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--keep] [--pg-link]
-#   --rev <rev>  expected revision — the install must resolve to it
-#   --keep       keep the work directory and print its path
-#   --pg-link    also build a --database=postgresql app (link only, no server)
+# Usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--install-rev <full-rev>]
+#                                    [--keep] [--pg-link]
+#   --rev <rev>          expected revision — the default install must resolve to it
+#   --install-rev <rev>  install this revision (install.sh --rev) instead of the
+#                        default channel; for a prerelease or edge dist
+#   --keep               keep the work directory and print its path
+#   --pg-link            also build a --database=postgresql app (link only, no server)
 #
 # Environment:
 #   SNAILS_INSTALL_URL   installer URL (default: the documented raw URL)
@@ -27,15 +30,19 @@ set -uo pipefail
 
 INSTALL_URL="${SNAILS_INSTALL_URL:-https://raw.githubusercontent.com/snails-rb/snails/main/install.sh}"
 EXPECTED_REV=""
+INSTALL_REV=""
 KEEP=""
 PG_LINK=""
 
 usage() {
   cat <<'USAGE'
-usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--keep] [--pg-link]
-  --rev <rev>  expected revision — the install must resolve to it
-  --keep       keep the work directory and print its path
-  --pg-link    also build a --database=postgresql app (link only, no server)
+usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--install-rev <full-rev>]
+                                   [--keep] [--pg-link]
+  --rev <rev>          expected revision — the default install must resolve to it
+  --install-rev <rev>  install this revision (install.sh --rev) instead of the
+                       default channel; for a prerelease or edge dist
+  --keep               keep the work directory and print its path
+  --pg-link            also build a --database=postgresql app (link only, no server)
 USAGE
 }
 
@@ -48,6 +55,15 @@ while (($#)); do
         exit 2
       }
       EXPECTED_REV="$2"
+      shift 2
+      ;;
+    --install-rev)
+      [[ $# -ge 2 && -n $2 ]] || {
+        echo "[release-smoke] --install-rev needs a value" >&2
+        usage >&2
+        exit 2
+      }
+      INSTALL_REV="$2"
       shift 2
       ;;
     --keep) KEEP=1; shift ;;
@@ -63,6 +79,14 @@ done
 
 [[ -z $EXPECTED_REV || $EXPECTED_REV =~ ^[0-9a-f]{40}$ ]] || {
   echo "[release-smoke] --rev must be a full 40-hex revision: '$EXPECTED_REV'" >&2
+  exit 2
+}
+[[ -z $INSTALL_REV || $INSTALL_REV =~ ^[0-9a-f]{40}$ ]] || {
+  echo "[release-smoke] --install-rev must be a full 40-hex revision: '$INSTALL_REV'" >&2
+  exit 2
+}
+[[ -z $EXPECTED_REV || -z $INSTALL_REV ]] || {
+  echo "[release-smoke] --rev and --install-rev disagree — an explicit install already fixes the revision" >&2
   exit 2
 }
 # A checkout CLI makes every step below source-mode, which is the path this
@@ -132,7 +156,13 @@ fail() {
 #    checkout copy of install.sh would skip the pipe path the manual shows.
 stage "install the CLI from the published channel"
 install_log="$WORK/install.log"
-if ! curl -fsSL "$INSTALL_URL" | bash >"$install_log" 2>&1; then
+# The documented pipe form; --install-rev is the prerelease/edge variant
+# (`install.sh --rev`), which the default channel lookup never selects.
+installer=(bash)
+if [[ -n $INSTALL_REV ]]; then
+  installer=(bash -s -- --rev "$INSTALL_REV")
+fi
+if ! curl -fsSL "$INSTALL_URL" | "${installer[@]}" >"$install_log" 2>&1; then
   cat "$install_log" >&2
   fail "the installer failed: $INSTALL_URL"
 fi
@@ -149,8 +179,9 @@ esac
 dist="${target%/bin/snails}"
 rev="$(cat "$dist/REV" 2>/dev/null || true)"
 [[ $rev =~ ^[0-9a-f]{40}$ ]] || fail "no full revision in $dist/REV (got '$rev')"
-if [[ -n $EXPECTED_REV && $rev != "$EXPECTED_REV" ]]; then
-  fail "the install resolved $rev, expected $EXPECTED_REV — the channel moved or the API answered an older release"
+expected_rev="${INSTALL_REV:-$EXPECTED_REV}"
+if [[ -n $expected_rev && $rev != "$expected_rev" ]]; then
+  fail "the install resolved $rev, expected $expected_rev — the channel moved or the API answered another release"
 fi
 version="$(snails version 2>&1 || true)"
 [[ $version == *"rev ${rev:0:7}"* ]] || fail "'snails version' does not name the installed revision: '$version'"
