@@ -71,23 +71,18 @@ xcode-select --install
 brew install openssl jemalloc pkg-config
 ```
 
-The prebuilt macOS compiler is built against Homebrew's `openssl`: 4.x on Apple Silicon, and currently 3.x on Intel. It runs on macOS 13 or newer. macOS keeps Homebrew's libraries outside the linker's default paths, so `bin/test`, `bin/dev`, and `bin/build-binary` resolve the OpenSSL, jemalloc, and libpq directories through `pkg-config` before they compile. Keep `pkg-config` installed. Export its search path for the keg-only formulas:
+The prebuilt macOS compiler is built against Homebrew's `openssl`: 4.x on Apple Silicon, and currently 3.x on Intel. It runs on macOS 13 or newer. macOS keeps Homebrew's libraries and their `pkg-config` files outside the default search paths, so `bin/test`, `bin/dev`, and `bin/build-binary` add the Homebrew directories for OpenSSL, jemalloc, libpq, and PostgreSQL before they compile. Keep `pkg-config` installed; no export is needed.
 
-```sh
-export PKG_CONFIG_PATH="$(brew --prefix openssl)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-```
-
-`openssl` is keg-only on Intel, so `pkg-config` needs that path to find its headers there. For PostgreSQL, the `postgresql` runtime (or the client-only `libpq`) still needs the `DYLD_FALLBACK_LIBRARY_PATH` below.
+For PostgreSQL, the `postgresql` runtime (or the client-only `libpq`) still needs the `DYLD_FALLBACK_LIBRARY_PATH` below.
 
 Xcode Command Line Tools provide the C compiler and linker for the app build. `jemalloc` is the scaffold's allocator.
 
-For the PostgreSQL adapter, install PostgreSQL and put its path on `PATH` and `DYLD_FALLBACK_LIBRARY_PATH`, and add its `pkg-config` directory so the CLI can find the library. `brew install postgresql` installs the server, `psql`, `pg_dump`, and libpq; Homebrew keeps it keg-only, so the exports below make it visible. Start the local server with `brew services start postgresql`, or point `PG_URL` at an existing server. The test harness uses Docker Desktop when `PG_URL` is unset; a local server or an existing PostgreSQL works through `PG_URL`.
+For the PostgreSQL adapter, install PostgreSQL and put its path on `PATH` and `DYLD_FALLBACK_LIBRARY_PATH`. `brew install postgresql` installs the server, `psql`, `pg_dump`, and libpq; Homebrew keeps it keg-only, so the exports below make it visible. The CLI adds its `pkg-config` directory and library path on its own. Start the local server with `brew services start postgresql`, or point `PG_URL` at an existing server. The test harness uses Docker Desktop when `PG_URL` is unset; a local server or an existing PostgreSQL works through `PG_URL`.
 
 ```sh
 brew install postgresql
 brew services start postgresql
 export PATH="$(brew --prefix postgresql)/bin:$PATH"
-export PKG_CONFIG_PATH="$(brew --prefix postgresql)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix postgresql)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
 createdb myapp_development
 export PG_URL="postgres://$(whoami)@127.0.0.1:5432/myapp_development"
