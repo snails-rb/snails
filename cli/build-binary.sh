@@ -14,6 +14,9 @@ SNAILS_ROOT="$(cd "$ENGINE_DIR/.." && pwd)"
 SNAILS_CLI="$SNAILS_ROOT/bin/snails"
 # shellcheck source=app-root.sh
 source "$ENGINE_DIR/app-root.sh"
+# shellcheck source=native-libs.sh
+source "$ENGINE_DIR/native-libs.sh"
+export_native_library_paths
 # shellcheck source=generators.sh
 source "$ENGINE_DIR/generators.sh"
 

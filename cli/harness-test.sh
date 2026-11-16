@@ -62,6 +62,9 @@ source "$ENGINE_DIR/app-root.sh"
 source "$ENGINE_DIR/vendor-dir.sh"
 # shellcheck source=generators.sh
 source "$ENGINE_DIR/generators.sh"
+# shellcheck source=native-libs.sh
+source "$ENGINE_DIR/native-libs.sh"
+export_native_library_paths
 [[ -n ${1:-} && -d ${1:-} ]] || {
   echo "[snails] usage: snails harness test <app_root> [--force] [--verbose] [-- <case file>...] (app_root must be a directory)" >&2
   exit 2
