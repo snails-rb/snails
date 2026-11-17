@@ -18,7 +18,6 @@ module Snails
       def self.enqueue!: (String name, untyped? payload, Time scheduled_at, Time now) -> void
       def self.claim_due_row: (Time now) -> Hash[String, untyped]?
       def self.claim_due: (Time now) -> Snails::Queue::Job?
-      def self.release_orphaned!: (Time started_before, Time now, String error) -> Integer
       def self.mark_succeeded!: (untyped id, Time now) -> void
       def self.mark_deferred!: (untyped id, Time scheduled_at, String error, Time now) -> void
       def self.mark_failed!: (untyped id, String error, Time now) -> void
