@@ -17,11 +17,11 @@ module Tep
   # reports the declaration, never a measurement.
   #
   # @return [String] "N (SPINEL_WORKERS)" when the variable is set, otherwise
-  #   "one per core (SPINEL_WORKERS=N to cap)"
+  #   "main + one per core (SPINEL_WORKERS=N sets the total)"
   def self.os_workers_desc
     w = ENV["SPINEL_WORKERS"] || ""
     if w.length == 0
-      "one per core (SPINEL_WORKERS=N to cap)"
+      "main + one per core (SPINEL_WORKERS=N sets the total)"
     else
       w + " (SPINEL_WORKERS)"
     end

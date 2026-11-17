@@ -38,6 +38,10 @@ services:
       SNAILS_ENV: production
       PORT: "3000"
       PG_URL: postgres://postgres:${POSTGRES_PASSWORD:-password}@db:5432/__DB_NAME__
+      # OS workers: main + helpers. 3 leaves two helpers so a long DB job
+      # holding one does not stop serving. On larger hosts raise this to
+      # `nproc + 1`, matching the runtime's one-helper-per-core autodetect.
+      SPINEL_WORKERS: "${SPINEL_WORKERS:-3}"
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
     depends_on:
       db:

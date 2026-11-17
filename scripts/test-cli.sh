@@ -681,6 +681,8 @@ grep -Fq 'SNAILS_MIGRATE_REPAIR="bin/compose run --rm app snails migrate apply"'
 chk "the image supplies the host repair command to the runner" $? 0
 grep -q 'DATABASE_PATH: /snails/storage/production.sqlite3' newapp/compose.yml && grep -q './storage:/snails/storage' newapp/compose.yml && grep -q 'PUID' newapp/compose.yml && grep -q 'driver: local' newapp/compose.yml && grep -q 'max-size: "20m"' newapp/compose.yml && grep -q 'max-file: "5"' newapp/compose.yml && grep -q 'compress: "true"' newapp/compose.yml && ! grep -q 'postgres' newapp/compose.yml && ! grep -q 'app_storage' newapp/compose.yml
 chk "the sqlite compose file binds storage, maps the uid, and bounds the log" $? 0
+grep -Fq 'SPINEL_WORKERS: "${SPINEL_WORKERS:-3}"' newapp/compose.yml
+chk "the sqlite compose file defaults OS workers to three" $? 0
 [[ ! -e newapp/compose.sqlite.yml && ! -e newapp/compose.pg.yml ]]
 chk "new leaves one compose file" $? 0
 ! grep -Eq '__[A-Z_]+__' newapp/config/application.rb newapp/config/database.rb newapp/bin/newapp.rb newapp/pins.toml newapp/Dockerfile newapp/compose.yml newpg/compose.yml
@@ -714,6 +716,8 @@ grep -q 'POSTGRES_DB: newpg_production' newpg/compose.yml && grep -q '5432/newpg
 chk "the pg database follows the app_environment naming" $? 0
 grep -q 'driver: local' newpg/compose.yml && grep -q 'max-size: "20m"' newpg/compose.yml && grep -q 'max-file: "5"' newpg/compose.yml && grep -q 'compress: "true"' newpg/compose.yml
 chk "the pg compose file bounds the app log" $? 0
+grep -Fq 'SPINEL_WORKERS: "${SPINEL_WORKERS:-3}"' newpg/compose.yml
+chk "the pg compose file defaults OS workers to three" $? 0
 ! grep -q '127.0.0.1:5432' newpg/compose.yml
 chk "the pg compose file publishes no host port (the runner is in the container)" $? 0
 bash "$CLI" new newbad --database=oracle >/dev/null 2>&1

@@ -101,7 +101,7 @@ set +a
 | `SNAILS_ENV` | all | `development` (default), `test`, `staging`, `production` |
 | `PORT` | server | Listen port; `--port` overrides it. Default `3000` |
 | `WORKERS` | server | Accepted for multi-process operation; the server runs one process |
-| `SPINEL_WORKERS` | server | Caps OS worker threads per process; the default is one per core |
+| `SPINEL_WORKERS` | server | OS worker threads per process, counting main. Unset uses one helper per core plus main; set the total to 3 or more when the process also runs jobs |
 | `SECRET_KEY_BASE` | all | Signing key read by `Snails.app.secret_key_base` |
 | `REVISION` | all | Deployment identifier, ahead of a `REVISION` file |
 | `DATABASE_PATH` | sqlite | Database file; relative paths resolve from the app root. Default `storage/development.sqlite3` |

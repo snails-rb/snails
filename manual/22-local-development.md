@@ -12,7 +12,7 @@ build manual-demo (up to date)
 [snails] serving manual-demo on http://127.0.0.1:3000
 [snails] log: tmp/development.log (append)
 manual-demo (spinel) listening on http://0.0.0.0:3000, pid 74898
-  one green thread per connection; OS workers: one per core (SPINEL_WORKERS=N to cap); processes: 1
+  one green thread per connection; OS workers: main + one per core (SPINEL_WORKERS=N sets the total); processes: 1
 ```
 
 The first lines check the pin, sync the vendored framework, and compile. The next two say where it listens and where the log goes. [Logging](21-logging.md) covers the record format.
