@@ -39,6 +39,14 @@ A job runs outside a request, on the job thread's own database lease. A model ca
 
 The process queue holds at most 1,000 pending jobs. A full queue drops the new hand-off and writes one local warning; it does not grow without bound. The DB queue has no such cap because its rows are in the database.
 
+### Long jobs and serving
+
+A job that runs one long database statement holds its OS worker for the whole statement: the call has no yield point inside it. A collection raised meanwhile also waits for that worker, so the other workers park at the barrier with it. While the statement runs, nothing else in the process makes progress — a weekly scan over a multi-gigabyte database can stop `GET /up` for minutes.
+
+`SPINEL_WORKERS` is what gives serving a worker of its own. It counts the main thread, and connections and job threads run on the remaining workers, so a process that serves and runs jobs needs at least three (`N-1 = 2`). The database adapters already declare their calls `blocking: true`, so a collection does not wait for a worker inside one, and the second worker keeps answering while the statement runs.
+
+That still leaves one gap: a connection pinned to the busy worker waits for the statement, and every green thread stays on the worker it first ran on. A health check that lands there times out even though the process is otherwise healthy. When a job can run for minutes, give it its own process or container instead of sharing the serving one.
+
 ## What is shared
 
 | State | Shared across processes? |
