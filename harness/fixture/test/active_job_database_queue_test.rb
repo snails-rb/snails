@@ -35,11 +35,11 @@ end
 # name back to a class (`Object.const_get`), runs it with the decoded
 # payload, and records the outcome on the same row; failures and
 # unresolvable names land on the row instead of vanishing; a claim from
-# a dead process is returned to the queue (at-least-once); a recurring
-# beat queues once per interval start through the ledger, while a
-# one-off schedule keeps every distinct payload. The setup rebuilds the
-# queue tables from the shipped DDL template each case — the template
-# and the model declarations are one contract, checked below.
+# a dead process is recorded failed after the window and never re-queued;
+# a recurring beat queues once per interval start through the ledger,
+# while a one-off schedule keeps every distinct payload. The setup
+# rebuilds the queue tables from the shipped DDL template each case — the
+# template and the model declarations are one contract, checked below.
 class DatabaseQueueAdapterTest < TestBase
   def setup
     TestDatabase.configure!("active_job_database_queue")
@@ -160,20 +160,27 @@ class DatabaseQueueAdapterTest < TestBase
     assert_equal "succeeded", scalar("SELECT status FROM snails_queue_jobs WHERE name = 'QueueSinkJob'")
   end
 
-  # A claim older than the orphan window means its process is dead —
-  # the next drain returns the row to pending and runs it again (the
-  # attempts counter already holds the lost run).
-  def test_a_stale_running_row_is_reclaimed
+  # A claim older than the orphan window is recorded failed and is never run
+  # again: the framework has no liveness signal, so it cannot tell a dead owner
+  # from a long run, and retrying an execution that may still be running would
+  # duplicate its work. A fresh claim stays untouched.
+  def test_a_stale_running_row_is_recorded_as_failed
     ActiveJob.register_executor
-    stale = Time.now.utc - 3600
+    stale = Time.now.utc - 7200
+    fresh = Time.now.utc - 60
     Sqlx::Base.write("INSERT INTO snails_queue_jobs (name, payload, status, scheduled_at, started_at, attempts, created_at, updated_at) " +
                      "VALUES (?, ?, 'running', ?, ?, 1, ?, ?)",
                      [ "QueueSinkJob", "{\"n\":5}", stale, stale, stale, stale ])
+    Sqlx::Base.write("INSERT INTO snails_queue_jobs (name, payload, status, scheduled_at, started_at, attempts, created_at, updated_at) " +
+                     "VALUES (?, ?, 'running', ?, ?, 1, ?, ?)",
+                     [ "QueueSinkJob", "{\"n\":6}", fresh, fresh, fresh, fresh ])
     ran = ActiveJob::DatabaseQueue.drain
-    assert_equal 1, ran
-    assert_equal 5, QueueJobSink::RAN[0]
-    assert_equal "succeeded", scalar("SELECT status FROM snails_queue_jobs")
-    assert_equal 2, scalar("SELECT attempts FROM snails_queue_jobs")
+    assert_equal 0, ran
+    assert_equal 0, QueueJobSink::RAN.length
+    assert_equal "failed", scalar("SELECT status FROM snails_queue_jobs WHERE payload = '{\"n\":5}'")
+    assert_equal "orphaned run: no completion within 3600s", scalar("SELECT last_error FROM snails_queue_jobs WHERE payload = '{\"n\":5}'")
+    assert_equal 1, scalar("SELECT attempts FROM snails_queue_jobs WHERE payload = '{\"n\":5}'")
+    assert_equal "running", scalar("SELECT status FROM snails_queue_jobs WHERE payload = '{\"n\":6}'")
   end
 
   # Without a registered executor the hand-off runs at the call site — a
@@ -424,7 +431,7 @@ FixtureRunner.run(DatabaseQueueAdapterTest, [
   "test_a_raising_job_is_recorded_and_the_drain_moves_on",
   "test_an_unknown_name_fails_the_row",
   "test_a_job_without_perform_is_recorded_and_the_drain_moves_on",
-  "test_a_stale_running_row_is_reclaimed",
+  "test_a_stale_running_row_is_recorded_as_failed",
   "test_without_an_executor_the_call_site_runs_the_job",
   "test_enqueue_once_is_idempotent_per_interval_start",
   "test_enqueue_once_records_the_occurrence",

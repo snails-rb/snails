@@ -6,10 +6,12 @@
 
 module ActiveJob
   class DatabaseQueue
-    # A row running longer than this belongs to a dead process — the
-    # next drain returns it to pending (at-least-once: the row's
-    # attempts counter has already recorded the lost run).
-    ORPHANED_AFTER_SECONDS = 600
+    # A row still running after this long is treated as abandoned: its owner
+    # may be dead, and the framework has no liveness signal to tell. The drain
+    # records it failed and never runs it again — a longer run is the app's
+    # decision, and retrying an execution that may still be running is worse
+    # than leaving it failed (Solid Queue prunes a dead process the same way).
+    ORPHANED_AFTER_SECONDS = 3600
 
     # The most rows one drain runs — the rest waits for the next
     # drain, so one slow queue never holds the worker loop.
@@ -120,14 +122,17 @@ module ActiveJob
     # drain is due at once, a shorter drain — even an empty one — clears it and
     # the idle interval takes over. With N worker threads, N rows run at once
     # (one per worker thread) and a drain processes up to `BATCH_SIZE` rows per
-    # worker thread; a row abandoned by a dead process returns to pending after
-    # `ORPHANED_AFTER_SECONDS`.
+    # worker thread; a row still running after `ORPHANED_AFTER_SECONDS` is
+    # recorded failed, never returned to the queue.
     #
     # @return [Integer] the number of rows this drain ran
     def self.drain
       DRAIN_FLAGS_LOCK.synchronize { LAST_DRAIN_AT[0] = Time.now.to_i }
       now = Time.now.utc
-      Snails::Queue::Job.release_orphaned!(now - ORPHANED_AFTER_SECONDS, now)
+      Snails::Queue::Job.release_orphaned!(
+        now - ORPHANED_AFTER_SECONDS, now,
+        "orphaned run: no completion within " + ORPHANED_AFTER_SECONDS.to_s + "s"
+      )
       processed = 0
       while processed < BATCH_SIZE
         job = Snails::Queue::Job.claim_due(now)

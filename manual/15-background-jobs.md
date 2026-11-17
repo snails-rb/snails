@@ -77,7 +77,7 @@ ActiveJob.recurring(Snails::Queue::PruneJob, 86400)
 
 The server starts the job loop and one worker thread at boot. A drain is one pass that runs the due jobs; `WORKER_CONCURRENCY` raises the thread count, and each worker takes its own database connection and drains through the selected adapter. At one worker the queue is first-in-first-out; above one the DB adapter's atomic claim splits rows across workers, so global FIFO is no longer promised. [Concurrency](23-concurrency.md) covers the pool sizing.
 
-A job that raises becomes a `job.failed` record and does not stop the drain. The DB adapter writes the exception class and message to the row; there are no retries and no dead-letter queue. A job whose process died while running is returned to pending after ten minutes — at-least-once, with the attempts counter recording the lost run.
+A job that raises becomes a `job.failed` record and does not stop the drain. The DB adapter writes the exception class and message to the row; there are no retries and no dead-letter queue. A job whose process died while running is recorded failed after an hour and is not returned to the queue — running it again could duplicate work that is still in flight. Snails has no process liveness signal yet, so a job that legitimately runs longer than an hour gets the same failed stamp while it runs; its own result overwrites the row when it finishes.
 
 `ProcessQueue` caps pending work at 1,000. When a producer outruns the drain, the new job is dropped instead of growing the process; the warning is local and does not enqueue another job.
 
