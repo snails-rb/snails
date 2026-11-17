@@ -19,6 +19,14 @@ Status: 1.0. The public API is stable.
 
 Snails keeps the Rails conventions an API needs and removes the layers that add runtime overhead: the view layer, Active Record, and gem compatibility. The design trade is explained in [The Snails Design](https://snails-rb.org/blog/the-snails-design/); [Coming from Rails](manual/04-coming-from-rails.md) covers what carries over and what replaces the rest.
 
+## Demo
+
+![Terminal demo: snails new demo --scaffold, bin/test, bin/dev, and a posts API request](demo/demo.gif)
+
+`snails new demo --scaffold` creates a posts-and-comments API, `bin/test` runs the suite against a real server, and `bin/dev` serves it. A `POST /posts` stores a row and `GET /posts/1` reads it back. `/up` is the framework's default health check — every Snails app answers it.
+
+The recording starts with the pinned compiler cached and the first app build warmed; a cold first build takes about two minutes.
+
 ## Install
 
 ```sh
@@ -98,6 +106,7 @@ scaffold/       # snails new and --scaffold templates, plus the harness skeleton
 bin/snails      # the CLI entry point
 cli/            # the CLI implementation shipped in the dist
 scripts/        # repository-only verification and release tools (not in the dist)
+demo/           # README demo tape and rendered GIF
 install.sh      # curl installer for the CLI
 pins.toml       # SPINEL_REV — the spinel revision this core is verified with
 manual/         # product documentation (English)
