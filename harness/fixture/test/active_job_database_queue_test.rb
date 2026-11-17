@@ -63,6 +63,15 @@ class DatabaseQueueAdapterTest < TestBase
     row[row.keys[0]]
   end
 
+  # The queue's rows per status — the failure message when the concurrent
+  # drain does not account for every row, so a short count says whether a
+  # row is still pending, left running, or already terminal.
+  def queue_counts
+    %w[pending running succeeded failed].map do |status|
+      "#{status}=#{scalar("SELECT COUNT(*) FROM snails_queue_jobs WHERE status = '#{status}'")}"
+    end.join(" ")
+  end
+
   def table_columns(table)
     if TestDatabase.pg?
       Sqlx::Base.rows_by_sql("SELECT column_name AS name FROM information_schema.columns " +
@@ -331,25 +340,35 @@ class DatabaseQueueAdapterTest < TestBase
   # Concurrent worker threads (WORKER_CONCURRENCY > 1) never claim the same
   # row twice: the claim is a single atomic UPDATE, so the batch is split
   # between the worker threads and every row runs exactly once.
+  #
+  # The threads stop on the row count, not on a drain that found nothing due:
+  # a drain returning 0 only says the rows were claimed elsewhere at that
+  # instant. A thread that stopped there could leave the last row to a peer
+  # that never counted it, so a 0 drain retries briefly until the count
+  # arrives or the deadline passes. The deadline keeps a lost row from
+  # hanging the case; the failure message then names the queue's statuses.
   def test_concurrent_worker_threads_share_the_queue_without_double_claiming
     ActiveJob.register_executor
     20.times { |i| ActiveJob.enqueue(QueueSinkJob, { "n" => i }) }
 
     total = [ 0 ]
     lock = Mutex.new
+    deadline = Time.now.to_f + 10
     threads = []
     3.times do
       threads << Thread.new do
-        while true
+        loop do
+          break if lock.synchronize { total[0] >= 20 }
+          break if Time.now.to_f > deadline
           delta = Sqlx::Database.with_connection { ActiveJob::DatabaseQueue.drain }
           lock.synchronize { total[0] = total[0] + delta }
-          break if delta == 0
+          sleep 0.01 if delta == 0
         end
       end
     end
     threads.each { |t| t.join }
 
-    assert_equal 20, total[0]
+    assert_equal 20, total[0], "queue rows: #{queue_counts}; sink ran #{QueueJobSink::RAN.length}"
     assert_equal 20, QueueJobSink::RAN.length
     assert_equal 20, scalar("SELECT COUNT(*) FROM snails_queue_jobs WHERE status = 'succeeded'")
     assert_equal 0, scalar("SELECT COUNT(*) FROM snails_queue_jobs WHERE status = 'running'")
