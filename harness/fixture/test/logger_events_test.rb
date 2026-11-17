@@ -210,6 +210,28 @@ class LoggerEventsTest < TestBase
     assert_equal "boom", failed.exception_message
   end
 
+  # A delivery deferral must not record `job.started`: the body never ran.
+  # The row waits in pending, and the only job record is the deferred warning.
+  def test_a_delivery_deferral_does_not_record_job_started
+    TestDatabase.configure!("logger_events")
+    TestDatabase.load_queue_schema!
+    ActiveJob.queue_adapter = ActiveJob::DatabaseQueue
+    ActiveJob.register_executor
+    Snails.logger.level = :debug
+
+    ActiveJob::DatabaseQueue.enqueue("GhostJob", -> { 0 }, nil)
+    ActiveJob::DatabaseQueue.drain
+    Snails.logger.flush
+
+    assert_equal nil, event_record("job.started")
+    deferred = event_record("job.deferred")
+    assert_equal true, !deferred.nil?
+    assert_equal :warn, deferred.severity
+    assert_equal "GhostJob", deferred.fields["snails.job.name"]
+    assert_equal "pending", deferred.fields["snails.job.status"]
+    assert_equal 1, deferred.fields["snails.job.attempt"]
+  end
+
   # The process queue has no queue bookkeeping, so a DB-using job proves
   # that the body's statements reach the job record.
   def test_job_db_time_includes_body_statements
@@ -259,6 +281,7 @@ FixtureRunner.run(LoggerEventsTest, [
   "test_job_started_at_debug",
   "test_job_failed_is_an_error_record",
   "test_database_queue_job_events",
+  "test_a_delivery_deferral_does_not_record_job_started",
   "test_job_db_time_includes_body_statements",
   "test_warn_drops_info_but_keeps_errors",
   "test_job_events_are_dropped_only_for_the_delivery_job"

@@ -77,7 +77,11 @@ ActiveJob.recurring(Snails::Queue::PruneJob, 86400)
 
 The server starts the job loop and one worker thread at boot. A drain is one pass that runs the due jobs; `WORKER_CONCURRENCY` raises the thread count, and each worker takes its own database connection and drains through the selected adapter. At one worker the queue is first-in-first-out; above one the DB adapter's atomic claim splits rows across workers, so global FIFO is no longer promised. [Concurrency](23-concurrency.md) covers the pool sizing.
 
-A job that raises becomes a `job.failed` record and does not stop the drain. The DB adapter writes the exception class and message to the row; there are no retries and no dead-letter queue. A job whose process died while running is marked failed after an hour and is not queued again — a second run could duplicate work the first one is still doing. Snails has no liveness signal for its processes yet, so a job that legitimately runs longer than an hour is marked failed the same way while it runs; its own result overwrites that row when it finishes.
+A job that raises becomes a `job.failed` record and does not stop the drain. The DB adapter writes the exception class and message to the row; job bodies are not retried.
+
+A delivery failure is not a job failure. The running binary could not execute the row: the stored job name has no class in this binary (an old and a new deploy sharing one queue), or the row's payload is not valid JSON. The DB adapter returns the row to pending with a growing delay — 30 seconds first (`DELIVERY_RETRY_SECONDS`), doubling up to 10 minutes (`DELIVERY_MAX_DELAY_SECONDS`). The row gets `DELIVERY_MAX_ATTEMPTS` attempts (ten) before it becomes `failed` with `handler_not_found: <name>` or `payload_unreadable: ...` in its last error. That failed row is the dead letter.
+
+A job whose process died while running is marked failed after an hour and is not queued again — a second run could duplicate work the first one is still doing. Snails has no liveness signal for its processes yet, so a job that legitimately runs longer than an hour is marked failed the same way while it runs; its own result overwrites that row when it finishes.
 
 `ProcessQueue` caps pending work at 1,000. When a producer outruns the drain, the new job is dropped instead of growing the process; the warning is local and does not enqueue another job.
 
