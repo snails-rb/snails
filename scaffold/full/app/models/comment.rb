@@ -7,6 +7,6 @@
 class Comment < Sqlx::Base
   def self.table_name = "comments"
 
-  # No from_row — the default hydration copies the columns and converts the
+  # No from_row — the default record building copies the columns and converts the
   # declared time columns.
 end

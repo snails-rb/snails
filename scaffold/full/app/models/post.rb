@@ -7,7 +7,7 @@
 class Post < Sqlx::Base
   def self.table_name = "posts"
 
-  # No from_row — the default hydration copies the columns and converts the
+  # No from_row — the default record building copies the columns and converts the
   # declared time columns.
 
   # Every post, newest first. The conditions-hash entries refuse an empty hash

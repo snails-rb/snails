@@ -40,7 +40,7 @@ A model exists but `db/schema.sql` does not. Run `snails migrate dump` to write 
 
 `ActionController::Params.require_key` raises `ParameterMissing` for an absent or blank value, and the dispatcher turns it into `{"error":"bad_request"}`. If a blank string is a valid value for that field, use `str` or `provided` instead of `require_key`. See [Requests and Parameters](07-requests-and-parameters.md).
 
-### A date, boolean, or JSON column raises during hydration
+### A date, boolean, or JSON column raises while a record is built
 
 `from_row` raises `ArgumentError` when a declared `datetime_columns`, `date_columns`, `boolean_columns`, or `json_columns` entry is not in the projection. A hand-written narrower SELECT must declare the narrowed columns or override `from_row`. The built-in `created_at`/`updated_at` pair is the only exception. See [Columns and Types](11-columns-and-types.md).
 

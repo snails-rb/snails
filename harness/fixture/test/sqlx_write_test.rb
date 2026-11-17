@@ -182,7 +182,7 @@ class WriteTest < TestBase
 end
 
 # The model for the inheritance check: only the write path
-# through the model's own constant runs here, so hydration never
+# through the model's own constant runs here, so record building never
 # fires — the body keeps the named-row shape.
 class SqlxWriteModel < Sqlx::Base
   def self.from_row(row)

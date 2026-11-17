@@ -82,7 +82,7 @@ class RenderTest < TestBase
   end
 
   # A Time in the payload renders as its JSON spelling — millisecond
-  # truncation and the zone's offset — so a hydrated time column goes
+  # truncation and the zone's offset — so a time column built from the row goes
   # into the payload as Time, with no controller-side formatter.
   def test_json_renders_time_as_iso8601
     c = ApplicationController.new

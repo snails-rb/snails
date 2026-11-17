@@ -1,5 +1,5 @@
 module Sqlx
-  # The row-object layer — the instance side of hydration: the generic
+  # The row-object layer — the instance side of record building: the generic
   # constructor and the read seam every literal accessor routes
   # through. Included into Base so models inherit the instance
   # methods; a hand-written model initialize still overrides.
@@ -14,7 +14,7 @@ module Sqlx
     # @param attrs [Hash{Symbol => Object}] the row's column values, keyed by column name
     # @raise [ArgumentError] when a key is not one of the model's declared columns
     # @raise [NotImplementedError] when the model declares no `only_columns` (an empty call never reaches the check)
-    # @example hydration — the class-side factory hands its columns over
+    # @example record building — the class-side factory hands its columns over
     #   def self.from_row(row)
     #     new(id: row["id"], name: row["name"])
     #   end

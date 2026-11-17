@@ -56,7 +56,7 @@ The generated lists are the type contract between the database and Ruby:
 
 A `datetime` column read from SQLite text goes through the stored-time parser and comes back in the app's time zone. A `date` column reads through `String#to_date`; the generator loads the optional date codec only when some model projects a `DATE` column. A boolean is stored as `1`/`0` on SQLite and read back as `true`/`false`. A JSON column is encoded on every write and decoded on every read, so app code hands over a Hash and reads a Hash. A value JSON cannot represent — a `Time`, for example — raises at the write instead of being stringified into the column.
 
-`integer_columns` is the condition cast list, not a hydration conversion. A String condition value for a declared column is parsed as a decimal integer before it binds; a non-decimal value raises `Sqlx::CastError`. The literal `where_clause` renderer and raw SQL do not apply the cast. A model that declares a boolean, datetime, date, or json column keeps that type even when the schema backs it with `INTEGER`; its declaration list wins.
+`integer_columns` is the condition cast list, not a conversion applied when a record is built. A String condition value for a declared column is parsed as a decimal integer before it binds; a non-decimal value raises `Sqlx::CastError`. The literal `where_clause` renderer and raw SQL do not apply the cast. A model that declares a boolean, datetime, date, or json column keeps that type even when the schema backs it with `INTEGER`; its declaration list wins.
 
 The built-in timestamp pair is special in one way: `create!` and `update!` fill a declared `created_at`/`updated_at` the caller left out. A table without those columns is legal and gets no stamp.
 
@@ -81,7 +81,7 @@ class Event < Sqlx::Base
 end
 ```
 
-`from_row` copies every `only_columns` entry and then applies the declared conversions. A conversion naming a column outside `only_columns` raises — only the built-in timestamp pair may be absent. If you hand-write a narrower SELECT, declare the narrowed columns or override `from_row`; leaving the generated lists in place while the SELECT omits a declared date, boolean, JSON, or extra datetime column is the common source of an `ArgumentError` at hydration.
+`from_row` copies every `only_columns` entry and then applies the declared conversions. A conversion naming a column outside `only_columns` raises — only the built-in timestamp pair may be absent. If you hand-write a narrower SELECT, declare the narrowed columns or override `from_row`; leaving the generated lists in place while the SELECT omits a declared date, boolean, JSON, or extra datetime column is the common source of an `ArgumentError` when a record is built.
 
 A model that needs more than the five declarations overrides `from_row` outright. It receives one name-keyed row and answers one record:
 
