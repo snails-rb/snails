@@ -21,7 +21,7 @@ class SqlxTest < TestBase
     # UNIQUE email, so create!/update! stamping and the UNIQUE check
     # ride on one declaration pair.
     TestDatabase.exec("CREATE TABLE write_entries (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)")
-    # The default-hydration fixture: no model method converts
+    # The default-record-building fixture: no model method converts
     # anything — the declaration pair below is the whole contract.
     TestDatabase.exec("CREATE TABLE declared_samples (id INTEGER PRIMARY KEY, name TEXT NOT NULL, created_at DATETIME, seen_at DATETIME, flag INTEGER)")
     TestDatabase.exec("INSERT INTO declared_samples (name, created_at, seen_at, flag) VALUES ('alpha', '2026-10-05 17:32:02.443000', '2026-10-06 08:00:00.000000', 1), ('beta', NULL, NULL, 0)")
@@ -70,7 +70,7 @@ class SqlxTest < TestBase
   # The wrapper-free multi-row shape: a cross-class reader whose
   # sidecar .rbs declares Array[<Model>] compiles and hands back
   # mapped records — the specialized walk and the declaration agree,
-  # so no per-model hydration wrapper exists for typing.
+  # so no per-model record-building wrapper exists for typing.
   def test_cross_class_typed_array
     rows = SqlxCrossReader.read_samples
     assert_equal 3, rows.length
@@ -85,8 +85,8 @@ class SqlxTest < TestBase
     assert_equal 0, SqlxCaptureModel.calls
   end
 
-  # Existence is answered without hydrating a record (the counter stays 0).
-  def test_exists_does_not_hydrate
+  # Existence is answered without building a record (the counter stays 0).
+  def test_exists_builds_no_record
     assert_equal true, SqlxCaptureModel.exists?({ name: "alpha" })
     assert_equal 0, SqlxCaptureModel.calls
   end
@@ -94,7 +94,7 @@ class SqlxTest < TestBase
   # The raw-read half: a statement no model can stand behind hands back
   # name→value Hash rows, and it runs off the BASE — no
   # table_name/only_columns/from_row declaration needed, which is what
-  # the model-hydrating trio demands.
+  # the record-building trio demands.
   def test_rows_by_sql_returns_hash_rows
     rows = Sqlx::Base.rows_by_sql("SELECT name, id FROM samples ORDER BY id LIMIT 1")
     assert_equal 1, rows.length
@@ -115,8 +115,8 @@ class SqlxTest < TestBase
     assert_equal [], Sqlx::Base.rows_by_sql("SELECT name FROM samples WHERE id > 100")
   end
 
-  # And it hydrates nothing — the capture counter stays at zero.
-  def test_rows_by_sql_does_not_hydrate
+  # And it builds no record — the capture counter stays at zero.
+  def test_rows_by_sql_builds_no_record
     SqlxCaptureModel.rows_by_sql("SELECT name FROM samples ORDER BY id")
     assert_equal 0, SqlxCaptureModel.calls
   end
@@ -492,7 +492,7 @@ class SqlxTest < TestBase
   end
 
   # The declared count: each model's table row total, straight from
-  # COUNT(*) — no hydration and no cursor for the caller to walk.
+  # COUNT(*) — no record building and no cursor for the caller to walk.
   # The reserved-word model rides along so the quoting policy is
   # shared with find_by.
   def test_count_returns_row_count
@@ -547,7 +547,7 @@ class SqlxTest < TestBase
     raise "expected a missing value list to be loud"
   end
 
-  # The hydrated entry delegates to the raw one, so the same missing
+  # The record-building entry delegates to the raw one, so the same missing
   # value list is loud before a row is mapped.
   def test_find_by_sql_without_values_is_loud
     begin
@@ -569,7 +569,7 @@ class SqlxTest < TestBase
   # The raw single-row form: the first row, keyed by column name, or
   # nil when the statement yields none. It is the raw counterpart of
   # the model-level single-row read — the same query without the
-  # hydration.
+  # record building.
   def test_row_by_sql_returns_the_first_row
     row = Sqlx::Base.row_by_sql("SELECT name, tag FROM samples ORDER BY id")
     assert_equal "alpha", row["name"]
@@ -705,7 +705,7 @@ class SqlxTest < TestBase
   end
 
   # The conditions-hash form answers true for a matching row and
-  # false for a miss — find_by's rule without hydration.
+  # false for a miss — find_by's rule without record building.
   def test_exists_with_conditions
     assert_equal true, SqlxCaptureModel.exists?({ id: 2 })
     assert_equal false, SqlxCaptureModel.exists?({ id: 999 })
@@ -841,7 +841,7 @@ class SqlxTest < TestBase
   end
 
   # The multi-row reader inherits the null test: only rows that have
-  # the value come back, hydrated by the model's default.
+  # the value come back, built by the model's default.
   def test_fetch_many_is_not_null_condition
     rows = SqlxDeclaredModel.fetch_many({ seen_at: { is_not: nil } })
     assert_equal ["alpha"], rows.map(&:name)
@@ -884,7 +884,7 @@ class SqlxTest < TestBase
   end
 
   # nil conditions mean the whole table: every row comes back,
-  # hydrated through the receiver's from_row — "every row" is the
+  # built through the receiver's from_row — "every row" is the
   # explicit nil, never an empty hash.
   def test_fetch_many_nil_conditions_whole_table
     assert_equal ["alpha", "beta", "gamma"], SqlxCaptureModel.fetch_many(nil)
@@ -1089,7 +1089,7 @@ class SqlxTest < TestBase
     assert_equal 3, SqlxEachModel.calls
   end
 
-  # No matching row means no yield and no hydration.
+  # No matching row means no yield and no record building.
   def test_find_each_empty_result_yields_nothing
     seen = []
     SqlxEachModel.find_each({ name: "zeta" }, batch_size: 2) { |name| seen << name }
@@ -1166,7 +1166,7 @@ class SqlxTest < TestBase
   end
 
   # break in the block stops the walk at that row; the remaining rows
-  # are never hydrated.
+  # are never built.
   def test_find_each_break_stops_the_walk
     seen = []
     SqlxEachModel.find_each(nil, batch_size: 1) do |name|
@@ -1178,8 +1178,8 @@ class SqlxTest < TestBase
   end
 
   # Batching is real, not a full load followed by yields: at the first
-  # yield only the first one-row batch has been hydrated.
-  def test_find_each_hydrates_one_batch_at_a_time
+  # yield only the first one-row batch has been built.
+  def test_find_each_builds_one_batch_at_a_time
     seen = []
     SqlxEachModel.find_each(nil, batch_size: 1) do |name|
       seen << name
@@ -1263,7 +1263,7 @@ class SqlxTest < TestBase
     assert_equal ["alpha", "beta", "gamma"], SqlxCaptureModel.fetch_many({ tag: "seen" }, order: :asc)
   end
 
-  # No matching row means no batch and no hydration.
+  # No matching row means no batch and no record building.
   def test_find_in_batches_empty_result_yields_nothing
     batches = []
     SqlxEachModel.find_in_batches({ name: "zeta" }, batch_size: 2) { |rows| batches << rows }
@@ -1345,10 +1345,10 @@ class SqlxTest < TestBase
     assert_equal 1, SqlxEachModel.calls
   end
 
-  # The whole batch is hydrated before the block runs, but the next
+  # The whole batch is built before the block runs, but the next
   # batch is not: at the first yield only two of the three rows have
-  # been hydrated.
-  def test_find_in_batches_hydrates_one_batch_at_a_time
+  # been built.
+  def test_find_in_batches_builds_one_batch_at_a_time
     batches = []
     SqlxEachModel.find_in_batches(nil, batch_size: 2) do |rows|
       batches << rows
@@ -1361,7 +1361,7 @@ class SqlxTest < TestBase
   end
 
   # The hash-backed path end to end: the inherited find_by assembles
-  # from the model's declarations and hydrates through from_row into
+  # from the model's declarations and builds through from_row into
   # the generic initialize — the loop-generated readers answer with
   # no hand-written initialize or attr_reader anywhere in the model.
   def test_loop_find_by
@@ -1386,7 +1386,7 @@ class SqlxTest < TestBase
   end
 
   # The counter shape rides the same path: the declared table's row
-  # total comes back without hydration, same as the plain path.
+  # total comes back without record building, same as the plain path.
   def test_loop_count
     assert_equal 3, SqlxLoopModel.count
   end
@@ -1420,12 +1420,12 @@ class SqlxTest < TestBase
     assert_equal nil, row.name
   end
 
-  # The default hydration: with no from_row on the model, the
+  # The default record building: with no from_row on the model, the
   # inherited walk copies every projected column and converts the
   # built-in stamps plus the declared exceptions — the stored-TEXT
   # datetime becomes a Time (created_at with no declaration at all)
   # and the stored 1/0 becomes a boolean, NULL staying nil.
-  def test_default_hydration_converts_declared_columns
+  def test_default_record_building_converts_declared_columns
     alpha = SqlxDeclaredModel.find(1)
     assert_equal "alpha", alpha.name
     assert_equal true, alpha.created_at.is_a?(Time)
@@ -1440,8 +1440,8 @@ class SqlxTest < TestBase
   end
 
   # The stamp pair is legal even where the table has no such column:
-  # the default hydration passes the absent stamps by, so a model
-  # over a stamp-less table hydrates without a declaration error.
+  # the default record building passes the absent stamps by, so a model
+  # over a stamp-less table builds records without a declaration error.
   def test_default_stamps_skip_when_table_lacks_them
     rec = SqlxStamplessModel.find(1)
     assert_equal "alpha", rec.name
@@ -1450,7 +1450,7 @@ class SqlxTest < TestBase
   # A declared exception outside only_columns is loud — only the
   # built-in stamps are exempt — so a typo fails at the declaration
   # instead of staying raw silently.
-  def test_default_hydration_unknown_declared_column_loud
+  def test_default_record_building_unknown_declared_column_loud
     begin
       SqlxBadDeclaredModel.find(1)
     rescue ArgumentError
@@ -1459,11 +1459,11 @@ class SqlxTest < TestBase
     raise "expected ArgumentError from the unknown declared column"
   end
 
-  # The named-row shape end to end: hydration keys off column
+  # The named-row shape end to end: record building keys off column
   # names, so a SELECT whose column order differs from only_columns
   # still lands every value on its own attribute — the positional
   # read this shape replaced could only stay correct by hand.
-  def test_hydration_is_column_order_independent
+  def test_record_building_is_column_order_independent
     rows = SqlxLoopModel.find_by_sql("SELECT name, id FROM samples WHERE id = 2")
     row = rows[0]
     assert_equal 2, row.id
@@ -1934,7 +1934,7 @@ class SqlxTest < TestBase
   end
 
   # A bare scalar number is the codec's scalar case: a JSON column may
-  # store '42' as a number, so hydration recovers the serialized text
+  # store '42' as a number, so record building recovers the serialized text
   # before decoding — the value comes back equal, not raised and not
   # reshaped.
   def test_json_column_scalar_number_roundtrips
@@ -1962,7 +1962,7 @@ class SqlxTest < TestBase
     raise "expected ArgumentError from the json write entry"
   end
 
-  # A json declaration outside only_columns fails at hydration — the
+  # A json declaration outside only_columns fails during record building — the
   # same loud rule as the other type exceptions, never raw text
   # returned under a declared name.
   def test_json_declaration_outside_only_columns_loud
@@ -2116,7 +2116,7 @@ class SqlxCrossReader
 end
 
 # The batch-walk fixture: only_columns carries the id cursor, and
-# from_row counts calls so a test can prove the walk hydrates one batch
+# from_row counts calls so a test can prove the walk builds one batch
 # at a time instead of the whole table up front.
 class SqlxEachModel < Sqlx::Base
   def self.calls
@@ -2150,7 +2150,7 @@ class SqlxWriteEntryModel < Sqlx::Base
   def self.only_columns = [:id, :name, :email, :created_at, :updated_at]
 end
 
-# The default-hydration fixture: no from_row on the model — the
+# The default-record-building fixture: no from_row on the model — the
 # inherited walk copies the projected columns and converts the
 # declared datetime list (the option replaces the default stamp
 # pair, so it spells both stamps plus the extra seen_at) and the
@@ -2172,7 +2172,7 @@ end
 
 # The stamp-less fixture: the built-in stamps are always legal
 # datetime columns, and this table has neither — the default
-# hydration must pass them by (not raise) instead of demanding
+# record building must pass them by (not raise) instead of demanding
 # columns the model never declared.
 class SqlxStamplessModel < Sqlx::Base
   %w[id name].each do |n|
@@ -2184,7 +2184,7 @@ class SqlxStamplessModel < Sqlx::Base
 end
 
 # The declaration-typo fixture: its datetime exception names a
-# column outside only_columns, so the default hydration must fail
+# column outside only_columns, so the default record building must fail
 # loud instead of staying raw silently (only the built-in stamps are
 # exempt from the check).
 class SqlxBadDeclaredModel < Sqlx::Base
@@ -2215,7 +2215,7 @@ class SqlxJsonModel < Sqlx::Base
 end
 
 # The json declaration-typo fixture: its exception names a column
-# outside only_columns, so the default hydration must fail loud
+# outside only_columns, so the default record building must fail loud
 # instead of returning raw text under the declared name.
 class SqlxBadJsonModel < Sqlx::Base
   def self.table_name = "json_samples"
@@ -2250,11 +2250,11 @@ FixtureRunner.run(SqlxTest, [
   "test_find_by_sql_maps_rows",
   "test_cross_class_typed_array",
   "test_empty_result",
-  "test_exists_does_not_hydrate",
+  "test_exists_builds_no_record",
   "test_rows_by_sql_returns_hash_rows",
   "test_rows_by_sql_aggregate",
   "test_rows_by_sql_empty_is_array",
-  "test_rows_by_sql_does_not_hydrate",
+  "test_rows_by_sql_builds_no_record",
   "test_find_by_base_loud",
   "test_find_by_bang_base_loud",
   "test_declaration_stubs_base_loud",
@@ -2362,7 +2362,7 @@ FixtureRunner.run(SqlxTest, [
   "test_find_each_requires_id_projection",
   "test_find_each_base_loud",
   "test_find_each_break_stops_the_walk",
-  "test_find_each_hydrates_one_batch_at_a_time",
+  "test_find_each_builds_one_batch_at_a_time",
   "test_find_in_batches_yields_batch_arrays",
   "test_find_in_batches_default_batch_size_is_one_batch",
   "test_find_in_batches_exact_batch_size_does_not_repeat",
@@ -2377,7 +2377,7 @@ FixtureRunner.run(SqlxTest, [
   "test_find_in_batches_requires_id_projection",
   "test_find_in_batches_base_loud",
   "test_find_in_batches_break_stops_the_walk",
-  "test_find_in_batches_hydrates_one_batch_at_a_time",
+  "test_find_in_batches_builds_one_batch_at_a_time",
   "test_loop_find_by",
   "test_loop_fetch_many",
   "test_loop_declarations",
@@ -2385,10 +2385,10 @@ FixtureRunner.run(SqlxTest, [
   "test_loop_cross_class_typed_array",
   "test_loop_unknown_attribute_loud",
   "test_loop_missing_attribute_is_nil",
-  "test_default_hydration_converts_declared_columns",
+  "test_default_record_building_converts_declared_columns",
   "test_default_stamps_skip_when_table_lacks_them",
-  "test_default_hydration_unknown_declared_column_loud",
-  "test_hydration_is_column_order_independent",
+  "test_default_record_building_unknown_declared_column_loud",
+  "test_record_building_is_column_order_independent",
   "test_null_column_reads_as_nil",
   "test_create_returns_persisted_record",
   "test_create_with_explicit_id_returns_that_row",

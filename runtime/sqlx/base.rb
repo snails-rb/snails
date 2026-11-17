@@ -29,7 +29,7 @@ module Sqlx
     # declaration pair, declared as a column-name array. It is a required
     # declaration, not an optional filter — core assembles it into the SELECT
     # list (every identifier quoted, so a reserved-word column like `order` is
-    # safe), and hydration reads the projected names out of the row, so the
+    # safe), and record building reads the projected names out of the row, so the
     # list's order binds no read. The base raises so a model that forgot the
     # declaration fails at the call instead of splicing nil into the SQL.
     #
@@ -48,7 +48,7 @@ module Sqlx
 
     # The built-in timestamp columns: the default `datetime_columns` pair
     # and the names `create!`/`update!` stamp on write. A table without them
-    # stays legal — hydration passes them by instead of raising.
+    # stays legal — record building passes them by instead of raising.
     TIMESTAMP_COLUMNS = [ "created_at", "updated_at" ]
 
     # the projected columns whose stored TEXT is a time: the type exceptions the
@@ -127,7 +127,7 @@ module Sqlx
       []
     end
 
-    # the default hydration: one name-keyed row in, one record out. Every
+    # the default record building: one name-keyed row in, one record out. Every
     # projected column is copied by name and the declared type exceptions are
     # converted — `datetime_columns` through the stored-time codec,
     # `date_columns` through `String#to_date`, `boolean_columns` from the stored
@@ -139,7 +139,7 @@ module Sqlx
     # @param row [Hash{String => Object}] one name-keyed row — the
     #   `rows_by_sql` shape: the projected column names as keys, the
     #   adapter's native values (Integer, Float, String, nil for NULL)
-    # @return [Object] the hydrated record
+    # @return [Object] the built record
     # @raise [NotImplementedError] the model declared no `only_columns`
     #   (the declaration stub raises before any copy runs)
     # @raise [ArgumentError] a declared exception names a column

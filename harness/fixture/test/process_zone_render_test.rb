@@ -9,7 +9,7 @@ require_relative "test_database"
 # instant compares equal either way), so these cases pin the same stored
 # instant while the slot says Seoul.
 class ProcessZoneRenderTest < TestBase
-  # The model for the DB case: one declared datetime column, hydrated through
+  # The model for the DB case: one declared datetime column, built through
   # the core `from_row`.
   class ZoneStamp < Sqlx::Base
     %w[id at].each { |n| define_method(n) { read_attribute(n) } }

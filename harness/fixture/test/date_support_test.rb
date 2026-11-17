@@ -4,7 +4,7 @@ require_relative "harness_runner"
 require_relative "test_database"
 
 # Date support (core) — the opt-in date codec and the `date_columns`
-# hydration path. The fixture app has no DATE column, so this case file
+# record-building path. The fixture app has no DATE column, so this case file
 # loads the codec the generated model file loads for a DATE schema; setup owns
 # a fresh table per case.
 class DateSupportTest < TestBase
@@ -16,7 +16,7 @@ class DateSupportTest < TestBase
     def self.date_columns = %w[happens_on issued_on]
   end
 
-  # A declaration typo names a column outside only_columns: hydration must
+  # A declaration typo names a column outside only_columns: record building must
   # fail loud instead of leaving the value raw.
   class BadDateModel < Sqlx::Base
     def self.table_name = "events"
@@ -46,7 +46,7 @@ class DateSupportTest < TestBase
 
   # The model read converts a declared DATE column through the date codec;
   # a NULL stays nil instead of becoming a blank date.
-  def test_model_date_columns_hydrate_as_dates
+  def test_model_date_columns_build_as_dates
     event = Event.find(1)
     assert_equal Date.new(2024, 1, 2), event.happens_on
     assert_equal nil, event.issued_on
@@ -54,7 +54,7 @@ class DateSupportTest < TestBase
 
   # A date is a civil date, so the process zone cannot move it: the same
   # stored text reads as the same date under a negative-offset zone.
-  def test_date_hydration_survives_a_negative_offset_zone
+  def test_date_record_building_survives_a_negative_offset_zone
     Snails.time_zone = "America/New_York"
     event = Event.find(1)
     assert_equal Date.new(2024, 1, 2), event.happens_on
@@ -93,7 +93,7 @@ class DateSupportTest < TestBase
   end
 
   # A declared date column outside the projection is a declaration typo:
-  # hydration raises instead of silently leaving the value raw.
+  # record building raises instead of silently leaving the value raw.
   def test_date_declaration_outside_projection_loud
     begin
       BadDateModel.from_row({ "id" => 1, "title" => "x" })
@@ -107,8 +107,8 @@ end
 
 FixtureRunner.run(DateSupportTest, [
   "test_string_to_date_reads_the_stored_form",
-  "test_model_date_columns_hydrate_as_dates",
-  "test_date_hydration_survives_a_negative_offset_zone",
+  "test_model_date_columns_build_as_dates",
+  "test_date_record_building_survives_a_negative_offset_zone",
   "test_date_roundtrips_through_writes_and_reads",
   "test_date_condition_and_literal_render_the_stored_text",
   "test_date_renders_as_json_text",

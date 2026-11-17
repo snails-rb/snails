@@ -513,7 +513,7 @@ class DatabaseQueueAdapterTest < TestBase
 
   # The shipped DDL template and the hand-written model declarations
   # are two halves of one contract: the template is what generate
-  # stamps into an app, the declarations are what hydrates its rows —
+  # stamps into an app, the declarations are what builds its rows —
   # a column drifting out of either shows up here.
   def test_the_template_and_the_model_declare_the_same_columns
     assert_equal Snails::Queue::Job.only_columns.map { |c| c.to_s }.sort, table_columns("snails_queue_jobs").sort
@@ -528,10 +528,10 @@ class DatabaseQueueAdapterTest < TestBase
     end
   end
 
-  # A full row hydrates through those declarations: the time columns
+  # A full row builds through those declarations: the time columns
   # come back as Time, the payload as its logical JSON value — the
   # codec never surfaces as storage text.
-  def test_a_full_row_hydrates_through_the_declarations
+  def test_a_full_row_builds_through_the_declarations
     ActiveJob.register_executor
     ActiveJob.enqueue(QueueSinkJob, { "n" => 4 })
     row = Snails::Queue::Job.find_by_sql("SELECT * FROM snails_queue_jobs")[0]
@@ -582,6 +582,6 @@ FixtureRunner.run(DatabaseQueueAdapterTest, [
   "test_a_full_batch_keeps_the_next_drain_due",
   "test_concurrent_worker_threads_share_the_queue_without_double_claiming",
   "test_the_template_and_the_model_declare_the_same_columns",
-  "test_a_full_row_hydrates_through_the_declarations",
+  "test_a_full_row_builds_through_the_declarations",
   "test_perform_claimed_is_private"
 ])

@@ -1117,7 +1117,7 @@ module Sqlx
     # statement would diverge exactly when storage class and declaration disagree.
     #
     # Integers read through `sqlite3_column_int` (32-bit), matching `column_int`
-    # and the hydration path; BLOB falls to the text read.
+    # and the record-building path; BLOB falls to the text read.
     def self.column_value(stmt, i)
       t = SQLite3.sqlite3_column_type(stmt, i)
       if t == SQLite3::NULL_TYPE

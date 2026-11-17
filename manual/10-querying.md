@@ -100,7 +100,7 @@ Post.row_by_sql("SELECT id, title FROM posts WHERE id = ?", [ 42 ])
 Post.write("UPDATE posts SET title = ? WHERE id = ? RETURNING id", [ "revised", 42 ])
 ```
 
-`find_by_sql` hydrates each row through the model's `from_row`. `rows_by_sql` and `row_by_sql` return name-keyed hashes with the adapter's native values. `write` returns the rows the statement returned — empty when it returned none; read `Sqlx::Database.exec_write(...)["count"]` when the row count is the answer.
+`find_by_sql` builds a record for each row through the model's `from_row`. `rows_by_sql` and `row_by_sql` return name-keyed hashes with the adapter's native values. `write` returns the rows the statement returned — empty when it returned none; read `Sqlx::Database.exec_write(...)["count"]` when the row count is the answer.
 
 `Post.projection` is the model's quoted column list, so a raw SELECT and the inherited reads share one spelling. Use `Sqlx.quote(value)` only for code-built SQL, and never for a value that arrived from a request.
 

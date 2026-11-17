@@ -760,8 +760,8 @@ module Sqlx
       cell_text(stmt, i).to_f
     end
 
-    # sqlite's `column_text` answers "" for NULL — same shape here, so a hydrating
-    # reader cannot tell the adapters apart.
+    # sqlite's `column_text` answers "" for NULL — same shape here, so a reader
+    # cannot tell the adapters apart.
     def self.column_text(stmt, i)
       ensure_executed(stmt)
       return "" if stmt.row < 0

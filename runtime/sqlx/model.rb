@@ -1,6 +1,6 @@
 module Sqlx
   # The declaration surface a model writes in its class body — the
-  # table/column pair the query layer assembles from, the hydration
+  # table/column pair the query layer assembles from, the record-building
   # factory it walks with, and the enum factory. Extended onto Base
   # so each arrives as a model class method.
   module Model

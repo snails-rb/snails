@@ -18,7 +18,7 @@
 #
 #   demo — the --scaffold (posts/comments) template on the default adapter,
 #          plus a model declared under a namespace (its file is scanned,
-#          generated, and hydrated). The same app carries the runner/dev
+#          generated, and built into records). The same app carries the runner/dev
 #          contracts — pin gate, port guard, test.env port guard, case
 #          selection, sqlite dev DB, pending migrations, --fresh, stale
 #          core — and the legacy-layout guard. The destructive steps
@@ -303,7 +303,7 @@ canary_demo() {
   # inside `module Snails`, so the scan spec must reach the subfolder and
   # the generated attach must reopen that class. Attaching to a fresh
   # top-level class instead is silent — the model just keeps the core
-  # defaults — so both the wiring and the hydration are pinned here.
+  # defaults — so both the wiring and the record building are pinned here.
   # queue_rows enters through a migration, the way any schema change
   # does: `migrate dump` regenerates the schema dump from the files (the
   # step `new --scaffold` leaves to the user), and a fresh scaffold tree
@@ -353,7 +353,7 @@ if Snails::Harness.file_selected?
       assert_equal 6, Snails::QueueRow.only_columns.length
     end
 
-    test "the generated readers hydrate the namespaced model" do
+    test "the generated readers return the namespaced model's columns" do
       Snails::QueueRow.create!({ name: "row one", status: "pending" })
       saved = Snails::QueueRow.find_by({ name: "row one" })
       assert_equal "pending", saved.status
@@ -362,7 +362,7 @@ if Snails::Harness.file_selected?
   end
 end
 RB
-  printf 'ok the generated column metadata reaches the namespaced model\nok the generated readers hydrate the namespaced model\n' \
+  printf "ok the generated column metadata reaches the namespaced model\nok the generated readers return the namespaced model's columns\n" \
     > "$APP/harness/test/queue_row_test.rb.expected"
 
   # The scaffolded bin/test must keep gen/* fresh on its own: drop in a

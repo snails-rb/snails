@@ -11,13 +11,13 @@ module Sqlx
     # per-column read stays in the model's `from_row`, which receives one
     # name-keyed row per statement row — the same shape the raw read
     # (`rows_by_sql`) answers with — so the caller's column order never binds
-    # hydration: a reordered SELECT still lands every value on its own
+    # record building: a reordered SELECT still lands every value on its own
     # attribute.
     #
     # The walk specializes per concrete receiver — the receiver's
     # `from_row` fixes the element — so a caller may declare
     # `-> Array[<Model>]` across classes and the declaration holds.
-    # No per-model hydration wrapper exists for typing.
+    # No per-model record-building wrapper exists for typing.
     #
     # A value enters the statement by binding, the way it enters a
     # write: the values list is the one way in, and a value spliced
@@ -42,7 +42,7 @@ module Sqlx
     # the single-row half of `rows_by_sql`: walk the caller's SELECT and hand
     # back the row it yields first, keyed by column name, or nil when it yields
     # none. It is the raw counterpart of the model-level single-row read
-    # (`find_by_sql(...).first`): the same query, without the hydration: the row
+    # (`find_by_sql(...).first`): the same query, without record building: the row
     # shape is dynamic (a view, an aggregate, a computed column), so no model
     # stands behind it.
     #
@@ -67,7 +67,7 @@ module Sqlx
     end
 
     # the raw-read half of the read family: walk the caller's SELECT and hand
-    # back each row as a name→value Hash, without hydrating a record. It exists
+    # back each row as a name→value Hash, without building a record. It exists
     # for the statements no model can stand behind — a view, an aggregate, a
     # computed column — where the row shape is genuinely dynamic and a model
     # would be a lie. `find_by_sql` is the same walk with a model in front of
@@ -540,7 +540,7 @@ module Sqlx
     # uses the same keyset walk, but yields each batch's records as an Array, so
     # a caller that applies one bulk operation per batch (`update_all!`,
     # `upsert_all!`, a batch API) pays one block call and one write per batch
-    # instead of one per record. It still hydrates the batch — there is no
+    # instead of one per record. It still builds the batch's records — there is no
     # Relation to hand a bulk statement to — so the memory bound is the batch
     # size, not the table.
     #
@@ -685,7 +685,7 @@ module Sqlx
     end
 
     # whether a matching row exists, answered from `SELECT 1 ... LIMIT 1`
-    # without hydrating a record. Four input forms, one per question: no
+    # without building a record. Four input forms, one per question: no
     # argument (or an empty hash) asks whether the table has any row at all — an
     # empty question here is well-defined, unlike `find_by({})`'s "which row?";
     # a conditions hash is the `find_by` conditions contract through the
@@ -1064,7 +1064,7 @@ module Sqlx
     end
 
     # the single-row half of `find_by_sql`: walk the caller's SELECT and hand
-    # back the row it yields first, hydrated from the same name-keyed shape, or
+    # back the row it yields first, built from the same name-keyed shape, or
     # nil when it yields none. `find_by` assembles its `... LIMIT 1` statement
     # on this walk, so the single-row read shares one path with `find_by_sql`
     # instead of a second cursor. The statement is read fully, so a caller that
@@ -1087,7 +1087,7 @@ module Sqlx
     end
 
     # the existence half: walk the caller's SELECT and answer whether any row
-    # arrived, without hydrating a record. `exists?` assembles its
+    # arrived, without building a record. `exists?` assembles its
     # `SELECT 1 ... LIMIT 1` statement on this walk, so the public entry owns
     # the model-side question and this half owns the walk. The values list is
     # checked against the statement's `?` placeholders the way `rows_by_sql`
