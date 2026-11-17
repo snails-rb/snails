@@ -6,6 +6,8 @@ module ActiveJob
     LAST_DRAIN_AT: Array[Integer]
     LAST_DRAIN_WAS_FULL: Array[bool]
     DRAIN_FLAGS_LOCK: Mutex
+    HANDLER_NOT_FOUND_MAX_ATTEMPTS: Integer
+    HANDLER_NOT_FOUND_RETRY_SECONDS: Integer
 
     def self.enqueue: (String job_name, ^() -> void work, untyped? payload) -> void
     def self.enqueue_at: (String job_name, ^() -> void work, untyped? payload, Time scheduled_at) -> void

@@ -36,6 +36,20 @@ module ActiveJob
     # lock covers the flags only, never a drain's job time.
     DRAIN_FLAGS_LOCK = Mutex.new
 
+    # How many attempts a stored name gets while the running binary cannot
+    # resolve it. An unresolvable name is version skew, not a bad job: a
+    # new row can arrive while this process is the container being replaced,
+    # and another process that carries the handler can still run it. Only a
+    # name that is unresolved after this many attempts becomes a failed row.
+    HANDLER_NOT_FOUND_MAX_ATTEMPTS = 5
+
+    # How long the first retry of an unresolved name waits; each later
+    # retry doubles it. The first delay is short enough to hand a row to a
+    # newly deployed process quickly, and the doubling keeps a slow rolling
+    # deploy from spending the whole attempt budget before the new binary
+    # is up.
+    HANDLER_NOT_FOUND_RETRY_SECONDS = 30
+
     # hand off a job due now: write one pending row and return. The body does
     # not travel — the row carries the name and the payload, and a drain (this
     # process or another) resolves them when the row is claimed.
@@ -141,12 +155,14 @@ module ActiveJob
 
     # Run one claimed row and record the outcome on it: the stored name
     # resolves to a class (`Object.const_get`) whose class-side
-    # `perform` receives the decoded payload (nil when none). A failure —
-    # a name no class carries, or a body raising anything the boundary
-    # does not re-raise — becomes a `job.failed` record and lands on the
-    # row as `failed` with the exception's class and message; there are no
-    # retries, so the recorded row is the whole story. Control and fatal
-    # exceptions leave the boundary and are not recorded as job failures.
+    # `perform` receives the decoded payload (nil when none).
+    #
+    # A name this binary does not carry is version skew, not a bad job —
+    # see `defer_unresolved_handler`. A resolving name whose body raises
+    # becomes a `job.failed` record and lands on the row as `failed` with
+    # the exception's class and message; job bodies have no retries, so
+    # the recorded row is the whole story. Control and fatal exceptions
+    # leave the boundary and are not recorded as job failures.
     #
     # The job's `snails.db_ms` is the DB time between `begin_job` and the
     # record; it includes the queue's own mark SQL and any DB work the body
@@ -158,7 +174,13 @@ module ActiveJob
       started = Time.now
       begin
         Snails.logger.debug("job " + name + " started", event: "job.started")
-        Object.const_get(name).perform(job.payload)
+        begin
+          handler = Object.const_get(name)
+        rescue NameError => failure
+          defer_unresolved_handler(job, failure, started)
+          return
+        end
+        handler.perform(job.payload)
         Snails::Queue::Job.mark_succeeded!(job.id, Time.now.utc)
         log_job_finished(name, started)
       rescue Exception => failure
@@ -170,6 +192,37 @@ module ActiveJob
         end
       ensure
         Snails::Logger::Context.end_job
+      end
+    end
+
+    # A stored name the running binary cannot resolve is version skew: the
+    # row was written by a process that carries the handler, and this
+    # process may be the container being replaced. The row goes back to
+    # pending with a later run time so a process that carries the handler
+    # can claim it; each wait doubles the previous one. `attempts` already
+    # counted this claim, so the attempt count is the retry count too. A
+    # name still unresolved after `HANDLER_NOT_FOUND_MAX_ATTEMPTS` attempts
+    # is a failed row with the reason — the dead letter that says the
+    # handler is gone for good.
+    def self.defer_unresolved_handler(job, failure, started)
+      now = Time.now.utc
+      error = "handler_not_found: " + job.name
+      if job.attempts >= HANDLER_NOT_FOUND_MAX_ATTEMPTS
+        Snails::Queue::Job.mark_failed!(job.id, error, now)
+        log_job_failed(job.name, started, failure)
+      else
+        wait = HANDLER_NOT_FOUND_RETRY_SECONDS * (2 ** (job.attempts - 1))
+        Snails::Queue::Job.mark_retry!(job.id, now + wait, error, now)
+        Snails.logger.warn(
+          "job " + job.name + " deferred: handler not found",
+          event: "job.retry",
+          fields: {
+            "snails.job.status" => "pending",
+            "snails.duration_ms" => elapsed_ms(started),
+            "snails.db_ms" => Snails::Logger::Context.db_us / 1000.0
+          },
+          exception: failure
+        )
       end
     end
 
@@ -207,6 +260,6 @@ module ActiveJob
 
     # private on purpose: the drain is this class's own unit — outside
     # callers reach queued jobs through `drain`, never row by row.
-    private_class_method :perform_claimed, :log_job_finished, :log_job_failed, :elapsed_ms
+    private_class_method :perform_claimed, :defer_unresolved_handler, :log_job_finished, :log_job_failed, :elapsed_ms
   end
 end

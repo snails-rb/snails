@@ -95,6 +95,21 @@ module Snails
         update!(id, { status: "succeeded", finished_at: now, updated_at: now })
       end
 
+      # return a claimed row to pending with a later run time: the row is not
+      # finished, it is waiting for a process that can run it. `started_at` is
+      # cleared so a pending row never looks like a run in progress, and the
+      # reason stays on `last_error` while it waits.
+      #
+      # @param id [Integer] the row's id
+      # @param scheduled_at [Time] when the row becomes claimable again
+      # @param error [String] why the run was deferred
+      # @param now [Time] the updated stamp
+      # @return [void]
+      def self.mark_retry!(id, scheduled_at, error, now)
+        update!(id, { status: "pending", started_at: nil,
+                      scheduled_at: scheduled_at, last_error: error, updated_at: now })
+      end
+
       # record a failed run on its row, with the error message: an unresolvable
       # name and a raising body both land here, so a failure never passes
       # silently.
