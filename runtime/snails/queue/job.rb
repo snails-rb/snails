@@ -47,19 +47,22 @@ module Snails
                   scheduled_at: scheduled_at, created_at: now, updated_at: now })
       end
 
-      # atomically claim the oldest pending row whose time has come: the pick and
-      # the state change are one UPDATE (with RETURNING), so two workers can never
-      # carry the same row, and a row scheduled for later stays untouched. The
-      # outer `status = 'pending'` guard is what makes the claim atomic under READ
-      # COMMITTED: a second claim that waited on the row lock re-evaluates the
-      # outer condition and sees `running` instead of claiming again. The returned
-      # instance carries the projected id, name, payload, and attempts — what a
-      # drain needs to run the job and name that run in its log.
+      # atomically claim the oldest pending row whose time has come and return
+      # the raw name-keyed row: the pick and the state change are one UPDATE
+      # (with RETURNING), so two workers can never carry the same row, and a
+      # row scheduled for later stays untouched. The outer `status = 'pending'`
+      # guard is what makes the claim atomic under READ COMMITTED: a second
+      # claim that waited on the row lock re-evaluates the outer condition and
+      # sees `running` instead of claiming again.
+      #
+      # The raw shape exists so a caller can still record a row whose payload
+      # cannot be decoded: hydration raises before a record exists, but the
+      # claimed id, name, and attempts are already in hand.
       #
       # @param now [Time] the claim clock — rows scheduled after it stay
-      # @return [Snails::Queue::Job, nil] the claimed row, nil when nothing
-      #   is due
-      def self.claim_due(now)
+      # @return [Hash{String => Object}, nil] the claimed row's projected
+      #   columns (`id`, `name`, `payload`, `attempts`), nil when nothing is due
+      def self.claim_due_row(now)
         rows = Sqlx::Base.write("UPDATE " + table_name +
                                 " SET status = 'running', started_at = ?" +
                                 ", attempts = attempts + 1, updated_at = ?" +
@@ -70,7 +73,19 @@ module Snails
                                 " RETURNING id, name, payload, attempts",
                                 [ now, now, now ])
         return nil if rows.length == 0
-        from_row(rows[0])
+        rows[0]
+      end
+
+      # claim the oldest due row and hydrate it: the convenience shape for
+      # callers that can treat a payload decode failure as an error.
+      #
+      # @param now [Time] the claim clock
+      # @return [Snails::Queue::Job, nil] the claimed record, nil when nothing
+      #   is due
+      def self.claim_due(now)
+        row = claim_due_row(now)
+        return nil if row.nil?
+        from_row(row)
       end
 
       # return rows claimed by a dead process to pending: a claim older than the
@@ -85,6 +100,10 @@ module Snails
                     { status: "pending", updated_at: now })
       end
 
+      # The marks write by id and do not re-read the row: the caller does not
+      # use a record, and a delivery failure's payload may not be decodable —
+      # a re-read would fail on the very row the mark is recording.
+
       # record a finished run on its row: the status and the finish stamp make the
       # row the execution history.
       #
@@ -92,7 +111,7 @@ module Snails
       # @param now [Time] the finish stamp
       # @return [void]
       def self.mark_succeeded!(id, now)
-        update!(id, { status: "succeeded", finished_at: now, updated_at: now })
+        update_all!({ id: id }, { status: "succeeded", finished_at: now, updated_at: now })
       end
 
       # return a claimed row to pending with a later run time: the row is not
@@ -106,12 +125,12 @@ module Snails
       # @param now [Time] the updated stamp
       # @return [void]
       def self.mark_retry!(id, scheduled_at, error, now)
-        update!(id, { status: "pending", started_at: nil,
-                      scheduled_at: scheduled_at, last_error: error, updated_at: now })
+        update_all!({ id: id }, { status: "pending", started_at: nil,
+                                  scheduled_at: scheduled_at, last_error: error, updated_at: now })
       end
 
-      # record a failed run on its row, with the error message: an unresolvable
-      # name and a raising body both land here, so a failure never passes
+      # record a failed run on its row, with the error message: a delivery dead
+      # letter and a raising body both land here, so a failure never passes
       # silently.
       #
       # @param id [Integer] the row's id
@@ -119,7 +138,7 @@ module Snails
       # @param now [Time] the finish stamp
       # @return [void]
       def self.mark_failed!(id, error, now)
-        update!(id, { status: "failed", finished_at: now, updated_at: now, last_error: error })
+        update_all!({ id: id }, { status: "failed", finished_at: now, updated_at: now, last_error: error })
       end
 
       # retention delete in bounded batches: finished rows (`succeeded`/`failed`)

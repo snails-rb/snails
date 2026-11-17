@@ -16,6 +16,7 @@ module Snails
       attr_reader updated_at: Time?
 
       def self.enqueue!: (String name, untyped? payload, Time scheduled_at, Time now) -> void
+      def self.claim_due_row: (Time now) -> Hash[String, untyped]?
       def self.claim_due: (Time now) -> Snails::Queue::Job?
       def self.release_orphaned!: (Time started_before, Time now) -> Integer
       def self.mark_succeeded!: (untyped id, Time now) -> void

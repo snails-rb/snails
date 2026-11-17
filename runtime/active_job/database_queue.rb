@@ -36,19 +36,21 @@ module ActiveJob
     # lock covers the flags only, never a drain's job time.
     DRAIN_FLAGS_LOCK = Mutex.new
 
-    # How many attempts a stored name gets while the running binary cannot
-    # resolve it. An unresolvable name is version skew, not a bad job: a
-    # new row can arrive while this process is the container being replaced,
-    # and another process that carries the handler can still run it. Only a
-    # name that is unresolved after this many attempts becomes a failed row.
-    HANDLER_NOT_FOUND_MAX_ATTEMPTS = 5
+    # The most claims a delivery failure gets before it becomes a failed row.
+    # A delivery failure means this binary could not execute the row: the
+    # stored name has no class here, or the payload JSON cannot be decoded.
+    # That is version skew or bad stored data, not a job body failure, and a
+    # process that can execute the row may still claim it.
+    DELIVERY_MAX_ATTEMPTS = 10
 
-    # How long the first retry of an unresolved name waits; each later
-    # retry doubles it. The first delay is short enough to hand a row to a
-    # newly deployed process quickly, and the doubling keeps a slow rolling
-    # deploy from spending the whole attempt budget before the new binary
-    # is up.
-    HANDLER_NOT_FOUND_RETRY_SECONDS = 30
+    # The first delivery retry waits this long; each later retry doubles it.
+    # The first delay is short enough to hand a row to a newly deployed
+    # process quickly.
+    DELIVERY_RETRY_SECONDS = 30
+
+    # The longest delivery retry delay — the doubling stops here so a slow
+    # rolling deploy still retries at a bounded pace.
+    DELIVERY_MAX_DELAY_SECONDS = 600
 
     # hand off a job due now: write one pending row and return. The body does
     # not travel — the row carries the name and the payload, and a drain (this
@@ -124,18 +126,19 @@ module ActiveJob
     end
 
     # release orphaned claims, then run up to `BATCH_SIZE` due rows oldest
-    # first, and answer how many ran. An unresolvable name or a raising body is
-    # recorded on its row and the drain moves on — one bad job never costs the
-    # queue the rest. A worker thread calls this under its own database lease,
-    # and several worker threads may call it at once: the claim is a single
-    # atomic UPDATE, so the rows are split between them and never duplicated (a
-    # claim that lost the race answers nil and the drain ends). The drain flags
-    # are mutex-guarded; a full batch sets `LAST_DRAIN_WAS_FULL` so the next
-    # drain is due at once, a shorter drain — even an empty one — clears it and
-    # the idle interval takes over. With N worker threads, N rows run at once
-    # (one per worker thread) and a drain processes up to `BATCH_SIZE` rows per
-    # worker thread; a row abandoned by a dead process returns to pending after
-    # `ORPHANED_AFTER_SECONDS`.
+    # first, and answer how many ran. A delivery failure (no handler here, or
+    # an unreadable payload) returns its row to pending; a raising body is
+    # recorded as failed; the drain moves on either way — one bad job never
+    # costs the queue the rest. A worker thread calls this under its own
+    # database lease, and several worker threads may call it at once: the
+    # claim is a single atomic UPDATE, so the rows are split between them and
+    # never duplicated (a claim that lost the race answers nil and the drain
+    # ends). The drain flags are mutex-guarded; a full batch sets
+    # `LAST_DRAIN_WAS_FULL` so the next drain is due at once, a shorter drain —
+    # even an empty one — clears it and the idle interval takes over. With N
+    # worker threads, N rows run at once (one per worker thread) and a drain
+    # processes up to `BATCH_SIZE` rows per worker thread; a row abandoned by a
+    # dead process returns to pending after `ORPHANED_AFTER_SECONDS`.
     #
     # @return [Integer] the number of rows this drain ran
     def self.drain
@@ -144,9 +147,10 @@ module ActiveJob
       Snails::Queue::Job.release_orphaned!(now - ORPHANED_AFTER_SECONDS, now)
       processed = 0
       while processed < BATCH_SIZE
-        job = Snails::Queue::Job.claim_due(now)
-        break if job.nil?
-        perform_claimed(job)
+        row = Snails::Queue::Job.claim_due_row(now)
+        break if row.nil?
+        job = hydrate_claimed_row(row)
+        perform_claimed(job) unless job.nil?
         processed = processed + 1
       end
       DRAIN_FLAGS_LOCK.synchronize { LAST_DRAIN_WAS_FULL[0] = processed >= BATCH_SIZE }
@@ -157,12 +161,16 @@ module ActiveJob
     # resolves to a class (`Object.const_get`) whose class-side
     # `perform` receives the decoded payload (nil when none).
     #
-    # A name this binary does not carry is version skew, not a bad job —
-    # see `defer_unresolved_handler`. A resolving name whose body raises
-    # becomes a `job.failed` record and lands on the row as `failed` with
-    # the exception's class and message; job bodies have no retries, so
-    # the recorded row is the whole story. Control and fatal exceptions
-    # leave the boundary and are not recorded as job failures.
+    # A delivery failure — the name has no class here, or the payload JSON
+    # could not be decoded — is not a job failure. A name with no class is
+    # version skew: the row was written by a process that carries the
+    # handler, and this process may be the container being replaced. The
+    # row goes back to pending with a growing delay so a process that can
+    # execute it claims it; the reason stays on the row. A resolving name
+    # whose body raises becomes a `job.failed` record and lands on the row
+    # as `failed` with the exception's class and message; job bodies have no
+    # retries, so the recorded row is the whole story. Control and fatal
+    # exceptions leave the boundary and are not recorded as job failures.
     #
     # The job's `snails.db_ms` is the DB time between `begin_job` and the
     # record; it includes the queue's own mark SQL and any DB work the body
@@ -173,13 +181,14 @@ module ActiveJob
       Snails::Logger::Context.begin_job(name, job.id, job.attempts)
       started = Time.now
       begin
-        Snails.logger.debug("job " + name + " started", event: "job.started")
         begin
           handler = Object.const_get(name)
         rescue NameError => failure
-          defer_unresolved_handler(job, failure, started)
+          record_delivery_failure(job.id, name, job.attempts,
+                                  handler_not_found_error(name), started, failure)
           return
         end
+        Snails.logger.debug("job " + name + " started", event: "job.started")
         handler.perform(job.payload)
         Snails::Queue::Job.mark_succeeded!(job.id, Time.now.utc)
         log_job_finished(name, started)
@@ -195,40 +204,67 @@ module ActiveJob
       end
     end
 
-    # A stored name the running binary cannot resolve is version skew: the
-    # row was written by a process that carries the handler, and this
-    # process may be the container being replaced. The row goes back to
-    # pending with a later run time so a process that carries the handler
-    # can claim it; each wait doubles the previous one. `attempts` already
-    # counted this claim, so the attempt count is the retry count too. A
-    # name still unresolved after `HANDLER_NOT_FOUND_MAX_ATTEMPTS` attempts
-    # is a failed row with the reason — the dead letter that says the
-    # handler is gone for good.
-    def self.defer_unresolved_handler(job, failure, started)
+    # Hydrate one claimed raw row. A payload JSON that cannot be decoded is a
+    # delivery failure: the row is running, the body never ran, and the id,
+    # name, and attempts are still in hand. The row returns to pending (or
+    # becomes the dead letter at the attempt limit) with the reason. A
+    # hydration error other than a payload decode failure — for example a
+    # model declaration error — is a framework bug and stays loud: it leaves
+    # this method and the drain boundary records it.
+    def self.hydrate_claimed_row(row)
+      payload = row["payload"]
+      begin
+        Sqlx::Json.decode(payload.to_s) unless payload.nil?
+      rescue ArgumentError => failure
+        name = row["name"].to_s
+        Snails::Logger::Context.begin_job(name, row["id"], row["attempts"])
+        begin
+          record_delivery_failure(row["id"], name, row["attempts"],
+                                  payload_unreadable_error(failure), Time.now, failure)
+        ensure
+          Snails::Logger::Context.end_job
+        end
+        return nil
+      end
+      Snails::Queue::Job.from_row(row)
+    end
+
+    # A delivery failure is not the job's failure. The row goes back to
+    # pending with a growing delay so a process that can execute it claims it.
+    # `attempts` already counted this claim, so the attempt limit is the claim
+    # limit too. A row still failing at the limit becomes a failed row with
+    # the reason — the dead letter.
+    def self.record_delivery_failure(id, name, attempts, error, started, failure)
       now = Time.now.utc
-      error = "handler_not_found: " + job.name
-      if job.attempts >= HANDLER_NOT_FOUND_MAX_ATTEMPTS
-        Snails::Queue::Job.mark_failed!(job.id, error, now)
-        log_job_failed(job.name, started, failure)
+      if attempts >= DELIVERY_MAX_ATTEMPTS
+        Snails::Queue::Job.mark_failed!(id, error, now)
+        log_job_failed(name, started, failure)
       else
-        wait = HANDLER_NOT_FOUND_RETRY_SECONDS * (2 ** (job.attempts - 1))
-        Snails::Queue::Job.mark_retry!(job.id, now + wait, error, now)
-        Snails.logger.warn(
-          "job " + job.name + " deferred: handler not found",
-          event: "job.retry",
-          fields: {
-            "snails.job.status" => "pending",
-            "snails.duration_ms" => elapsed_ms(started),
-            "snails.db_ms" => Snails::Logger::Context.db_us / 1000.0
-          },
-          exception: failure
-        )
+        Snails::Queue::Job.mark_retry!(id, now + delivery_delay(attempts, id), error, now)
+        log_job_deferred(name, started, failure, error)
       end
     end
 
-    # The finished/failed records carry the job's context fields, the run's
-    # duration, and the DB time accumulated while serving the job — queue
-    # bookkeeping included.
+    # The wait before the next delivery attempt: 30 seconds doubling, capped
+    # at 10 minutes, plus a deterministic jitter derived from the row id so
+    # old workers do not all retry at the same instant.
+    def self.delivery_delay(attempts, id)
+      wait = DELIVERY_RETRY_SECONDS * (2 ** (attempts - 1))
+      wait = DELIVERY_MAX_DELAY_SECONDS if wait > DELIVERY_MAX_DELAY_SECONDS
+      wait + (id % 10)
+    end
+
+    def self.handler_not_found_error(name)
+      "handler_not_found: " + name
+    end
+
+    def self.payload_unreadable_error(failure)
+      "payload_unreadable: " + failure.class.to_s + ": " + failure.message
+    end
+
+    # The finished/failed/deferred records carry the job's context fields, the
+    # run's duration, and the DB time accumulated while serving the job —
+    # queue bookkeeping included.
     def self.log_job_finished(name, started)
       Snails.logger.info(
         "job " + name + " succeeded",
@@ -254,12 +290,30 @@ module ActiveJob
       )
     end
 
+    # The delivery retry record: the row waits in pending for a process that
+    # can execute it. The body never started, so this is not `job.started`;
+    # the reason is in the row's last_error and in the message.
+    def self.log_job_deferred(name, started, failure, error)
+      Snails.logger.warn(
+        "job " + name + " deferred: " + error,
+        event: "job.deferred",
+        fields: {
+          "snails.job.status" => "pending",
+          "snails.duration_ms" => elapsed_ms(started),
+          "snails.db_ms" => Snails::Logger::Context.db_us / 1000.0
+        },
+        exception: failure
+      )
+    end
+
     def self.elapsed_ms(started)
       (Time.now - started) * 1000.0
     end
 
     # private on purpose: the drain is this class's own unit — outside
     # callers reach queued jobs through `drain`, never row by row.
-    private_class_method :perform_claimed, :defer_unresolved_handler, :log_job_finished, :log_job_failed, :elapsed_ms
+    private_class_method :perform_claimed, :hydrate_claimed_row, :record_delivery_failure, :delivery_delay,
+                         :handler_not_found_error, :payload_unreadable_error,
+                         :log_job_finished, :log_job_failed, :log_job_deferred, :elapsed_ms
   end
 end

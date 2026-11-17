@@ -42,9 +42,10 @@ end
 # nothing; a drain claims a row (one atomic UPDATE), resolves the stored
 # name back to a class (`Object.const_get`), runs it with the decoded
 # payload, and records the outcome on the same row; failures land on the
-# row instead of vanishing, and an unresolvable name waits there until its
-# attempt limit turns it into a failed row; a claim from a dead process is
-# returned to the queue (at-least-once); a recurring
+# row instead of vanishing, and a delivery failure (no handler here, or an
+# unreadable payload) waits there until its attempt limit turns it into a
+# failed row; a claim from a dead process is returned to the queue
+# (at-least-once); a recurring
 # beat queues once per interval start through the ledger, while a
 # one-off schedule keeps every distinct payload. The setup rebuilds the
 # queue tables from the shipped DDL template each case — the template
@@ -85,6 +86,15 @@ class DatabaseQueueAdapterTest < TestBase
   # attempt count without waiting out the retry delay.
   def make_queue_rows_due_now
     Sqlx::Base.write("UPDATE snails_queue_jobs SET scheduled_at = ?", [ Time.now.utc - 1 ])
+  end
+
+  # A pending row whose payload is not valid JSON. The name resolves, so
+  # the delivery failure is the payload read, not the handler.
+  def insert_unreadable_payload_row
+    now = Time.now.utc
+    Sqlx::Base.write("INSERT INTO snails_queue_jobs (name, payload, status, scheduled_at, attempts, created_at, updated_at) " +
+                     "VALUES (?, ?, 'pending', ?, 0, ?, ?)",
+                     [ "QueueSinkJob", "{not-json", now, now, now ])
   end
 
   def table_columns(table)
@@ -172,12 +182,12 @@ class DatabaseQueueAdapterTest < TestBase
 
   # A name that stays unresolved becomes a failed row after the attempt
   # limit: the row is then the dead letter, and its error says the handler
-  # is missing. `attempts` counts claims, so the limit is the fifth claim,
+  # is missing. `attempts` counts claims, so the limit is the last claim,
   # not a second counter.
   def test_a_permanently_unknown_name_fails_after_the_attempt_cap
     ActiveJob.register_executor
     ActiveJob::DatabaseQueue.enqueue("GhostJob", -> { QueueJobSink::RAN << 0 }, nil)
-    limit = ActiveJob::DatabaseQueue::HANDLER_NOT_FOUND_MAX_ATTEMPTS
+    limit = ActiveJob::DatabaseQueue::DELIVERY_MAX_ATTEMPTS
 
     limit.times do
       make_queue_rows_due_now
@@ -209,8 +219,8 @@ class DatabaseQueueAdapterTest < TestBase
   end
 
   # A NameError raised by the body is a job failure, not version skew: it
-  # fails at once and is never retried — the retry path covers only the
-  # stored name's resolution.
+  # fails at once and is never retried — the delivery path covers only the
+  # claimed row's resolution, not the body.
   def test_a_name_error_from_the_job_body_fails_at_once
     ActiveJob.register_executor
     ActiveJob.enqueue(QueueBodyNameErrorJob)
@@ -221,6 +231,46 @@ class DatabaseQueueAdapterTest < TestBase
     assert_equal "NameError: uninitialized constant QueueBodyNameErrorJob::QueueMissingConstantInBody",
                  scalar("SELECT last_error FROM snails_queue_jobs")
     assert_equal false, scalar("SELECT finished_at FROM snails_queue_jobs").nil?
+  end
+
+  # A payload that is not valid JSON is a delivery failure too: the name
+  # resolves but the row cannot be executed, so the body never runs. The
+  # row waits in pending with the payload reason and no started/finished
+  # stamp.
+  def test_a_payload_that_cannot_be_decoded_is_deferred
+    ActiveJob.register_executor
+    insert_unreadable_payload_row
+
+    assert_equal 1, ActiveJob::DatabaseQueue.drain
+    assert_equal "pending", scalar("SELECT status FROM snails_queue_jobs")
+    assert_equal 1, scalar("SELECT attempts FROM snails_queue_jobs")
+    assert_equal true, scalar("SELECT last_error FROM snails_queue_jobs").include?("payload_unreadable: ArgumentError:")
+    assert_equal true, scalar("SELECT started_at FROM snails_queue_jobs").nil?
+    assert_equal true, scalar("SELECT finished_at FROM snails_queue_jobs").nil?
+    assert_equal 0, QueueJobSink::RAN.length
+
+    assert_equal 0, ActiveJob::DatabaseQueue.drain
+    assert_equal "pending", scalar("SELECT status FROM snails_queue_jobs")
+    assert_equal 1, scalar("SELECT attempts FROM snails_queue_jobs")
+  end
+
+  # An unreadable payload that stays unreadable dead-letters at the same
+  # attempt limit as an unresolved name, with the payload reason on the row.
+  def test_a_permanently_unreadable_payload_fails_after_the_attempt_cap
+    ActiveJob.register_executor
+    insert_unreadable_payload_row
+    limit = ActiveJob::DatabaseQueue::DELIVERY_MAX_ATTEMPTS
+
+    limit.times do
+      make_queue_rows_due_now
+      ActiveJob::DatabaseQueue.drain
+    end
+
+    assert_equal "failed", scalar("SELECT status FROM snails_queue_jobs")
+    assert_equal limit, scalar("SELECT attempts FROM snails_queue_jobs")
+    assert_equal true, scalar("SELECT last_error FROM snails_queue_jobs").include?("payload_unreadable: ArgumentError:")
+    assert_equal false, scalar("SELECT finished_at FROM snails_queue_jobs").nil?
+    assert_equal 0, QueueJobSink::RAN.length
   end
 
   # The base `perform` spec raises NotImplementedError (a ScriptError).
@@ -505,6 +555,8 @@ FixtureRunner.run(DatabaseQueueAdapterTest, [
   "test_a_permanently_unknown_name_fails_after_the_attempt_cap",
   "test_a_deferred_row_runs_once_its_handler_is_available",
   "test_a_name_error_from_the_job_body_fails_at_once",
+  "test_a_payload_that_cannot_be_decoded_is_deferred",
+  "test_a_permanently_unreadable_payload_fails_after_the_attempt_cap",
   "test_a_job_without_perform_is_recorded_and_the_drain_moves_on",
   "test_a_stale_running_row_is_reclaimed",
   "test_without_an_executor_the_call_site_runs_the_job",

@@ -67,7 +67,7 @@ There is no `rescue_from`. Registration is a plain method override, which keeps 
 
 ## Failures in the background
 
-A job that raises is recorded by the job stack and does not stop the worker loop. The DB-backed queue writes the exception class and message to the queue row; job bodies have no retry. A stored job name the running binary cannot resolve is retried with a growing delay before it becomes a failed row. A periodic callback that raises becomes a `scheduler.callback_failed` record and does not stop the other callbacks. [Background Jobs](15-background-jobs.md) covers the queue lifecycle.
+A job that raises is recorded by the job stack and does not stop the worker loop. The DB-backed queue writes the exception class and message to the queue row; job bodies are not retried. A row the running binary cannot execute — the job name has no class in this binary, or its payload is not valid JSON — is a delivery failure: the queue returns it to pending with a growing delay and dead-letters it after the attempt limit. A periodic callback that raises becomes a `scheduler.callback_failed` record and does not stop the other callbacks. [Background Jobs](15-background-jobs.md) covers the queue lifecycle.
 
 A failed request keeps its server log. `bin/test` names the kept log path on a failed load; `bin/dev` streams to `tmp/development.log` and appends. `snails doctor` checks the setup before you go looking for an exception.
 

@@ -65,6 +65,6 @@ Remote delivery is off until a transport is set. A delivery failure is reported 
 
 ## Job and scheduler events
 
-Jobs write `job.started`, `job.finished`, `job.retry`, and `job.failed` with the job name, run id, attempt count, and duration. `job.retry` is a warning for a row whose job name the running binary cannot resolve; the row waits in pending for another process to claim it. The worker and scheduler loops write `worker.drain_failed`, `worker.loop_stopped`, `scheduler.callback_failed`, `scheduler.run_failed`, and `scheduler.loop_stopped` when their units fail. Those events carry the pid and the exception, so a bad job or callback is visible without a request.
+Jobs write `job.started`, `job.finished`, `job.deferred`, and `job.failed` with the job name, run id, attempt count, and duration. `job.deferred` is a warning for a row the running binary cannot execute; the row waits in pending for another process to claim it. The worker and scheduler loops write `worker.drain_failed`, `worker.loop_stopped`, `scheduler.callback_failed`, `scheduler.run_failed`, and `scheduler.loop_stopped` when their units fail. Those events carry the pid and the exception, so a bad job or callback is visible without a request.
 
 [Local Development](22-local-development.md) covers the run loop; [Error Handling](20-error-handling.md) covers which failures become a 500.
