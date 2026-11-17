@@ -26,6 +26,13 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # The scripts expand the short spinel pin through the commits API; without a
+  # token the shared runner IP's 60/hour budget answers 403 and the resolver
+  # falls back (a PATH install here, a source build elsewhere). A fork's
+  # pull request gets a read-only token, which is all this needs.
+  SNAILS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   contracts:
     name: linux amd64 (contracts)
