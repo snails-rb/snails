@@ -6,12 +6,17 @@
 
 module ActiveJob
   class DatabaseQueue
-    # A row still running after this long is treated as abandoned: its owner
-    # may be dead, and the framework has no liveness signal to tell. The drain
-    # records it failed and never runs it again — a longer run is the app's
-    # decision, and retrying an execution that may still be running is worse
-    # than leaving it failed (Solid Queue prunes a dead process the same way).
-    ORPHANED_AFTER_SECONDS = 3600
+    # A job still marked `running` after this long is treated as orphaned: the
+    # process that claimed it may be dead, and nothing here can tell that apart
+    # from a run that simply takes long. The drain records the row failed and
+    # leaves it out of the queue — how long a job may run is the app's decision,
+    # and a second run could duplicate work the first one is still doing (Solid
+    # Queue records a dead process's job the same way).
+    ORPHANED_AFTER = 1.hour
+
+    # What a row's `last_error` says when the window fires. It names the window
+    # above, so an operator reading the row sees the rule that applied.
+    ORPHANED_ERROR = "orphaned run: no completion within 1 hour"
 
     # The most rows one drain runs — the rest waits for the next
     # drain, so one slow queue never holds the worker loop.
@@ -122,17 +127,14 @@ module ActiveJob
     # drain is due at once, a shorter drain — even an empty one — clears it and
     # the idle interval takes over. With N worker threads, N rows run at once
     # (one per worker thread) and a drain processes up to `BATCH_SIZE` rows per
-    # worker thread; a row still running after `ORPHANED_AFTER_SECONDS` is
-    # recorded failed, never returned to the queue.
+    # worker thread; a job still marked `running` after `ORPHANED_AFTER` is
+    # recorded failed and never returned to the queue.
     #
     # @return [Integer] the number of rows this drain ran
     def self.drain
       DRAIN_FLAGS_LOCK.synchronize { LAST_DRAIN_AT[0] = Time.now.to_i }
       now = Time.now.utc
-      Snails::Queue::Job.release_orphaned!(
-        now - ORPHANED_AFTER_SECONDS, now,
-        "orphaned run: no completion within " + ORPHANED_AFTER_SECONDS.to_s + "s"
-      )
+      Snails::Queue::Job.release_orphaned!(now - ORPHANED_AFTER.to_i, now, ORPHANED_ERROR)
       processed = 0
       while processed < BATCH_SIZE
         job = Snails::Queue::Job.claim_due(now)

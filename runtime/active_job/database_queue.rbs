@@ -1,6 +1,7 @@
 module ActiveJob
   class DatabaseQueue
-    ORPHANED_AFTER_SECONDS: Integer
+    ORPHANED_AFTER: Snails::Duration
+    ORPHANED_ERROR: String
     BATCH_SIZE: Integer
     DRAIN_INTERVAL_SECONDS: Integer
     LAST_DRAIN_AT: Array[Integer]

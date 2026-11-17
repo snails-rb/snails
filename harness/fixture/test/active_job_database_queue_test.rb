@@ -160,14 +160,14 @@ class DatabaseQueueAdapterTest < TestBase
     assert_equal "succeeded", scalar("SELECT status FROM snails_queue_jobs WHERE name = 'QueueSinkJob'")
   end
 
-  # A claim older than the orphan window is recorded failed and is never run
-  # again: the framework has no liveness signal, so it cannot tell a dead owner
-  # from a long run, and retrying an execution that may still be running would
-  # duplicate its work. A fresh claim stays untouched.
+  # A claim older than the orphan window becomes failed and is never run
+  # again: there is no liveness signal, so a dead owner and a long run look the
+  # same, and retrying a run that may still be alive would duplicate its work.
+  # A fresh claim stays untouched.
   def test_a_stale_running_row_is_recorded_as_failed
     ActiveJob.register_executor
-    stale = Time.now.utc - 7200
-    fresh = Time.now.utc - 60
+    stale = 2.hours.ago
+    fresh = 1.minute.ago
     Sqlx::Base.write("INSERT INTO snails_queue_jobs (name, payload, status, scheduled_at, started_at, attempts, created_at, updated_at) " +
                      "VALUES (?, ?, 'running', ?, ?, 1, ?, ?)",
                      [ "QueueSinkJob", "{\"n\":5}", stale, stale, stale, stale ])
@@ -178,7 +178,7 @@ class DatabaseQueueAdapterTest < TestBase
     assert_equal 0, ran
     assert_equal 0, QueueJobSink::RAN.length
     assert_equal "failed", scalar("SELECT status FROM snails_queue_jobs WHERE payload = '{\"n\":5}'")
-    assert_equal "orphaned run: no completion within 3600s", scalar("SELECT last_error FROM snails_queue_jobs WHERE payload = '{\"n\":5}'")
+    assert_equal "orphaned run: no completion within 1 hour", scalar("SELECT last_error FROM snails_queue_jobs WHERE payload = '{\"n\":5}'")
     assert_equal 1, scalar("SELECT attempts FROM snails_queue_jobs WHERE payload = '{\"n\":5}'")
     assert_equal "running", scalar("SELECT status FROM snails_queue_jobs WHERE payload = '{\"n\":6}'")
   end

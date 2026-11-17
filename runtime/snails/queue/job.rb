@@ -73,13 +73,12 @@ module Snails
         from_row(rows[0])
       end
 
-      # record rows whose owner never finished as failed, and answer how many
-      # were recorded. The claim's age is the only evidence the framework has
-      # (there is no process liveness signal yet), so the row becomes
-      # `failed` with `error` — it is never returned to `pending`, because the
-      # original run may still be alive and a second execution would duplicate
-      # its work. A run that finishes after the cutoff overwrites the row with
-      # its own outcome.
+      # record claims older than the cutoff as failed, and answer how many rows
+      # changed. The claim's age is the only evidence there is (no liveness
+      # signal yet), so the row becomes `failed` with `error` instead of going
+      # back to `pending`: the original run may still be alive, and a second
+      # execution would duplicate its work. A run that finishes after the
+      # cutoff overwrites the row with its own outcome.
       #
       # @param started_before [Time] the claim-age cutoff
       # @param now [Time] the finish stamp for the recorded rows
