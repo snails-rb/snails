@@ -88,22 +88,6 @@ module Snails
         from_row(row)
       end
 
-      # record claims older than the cutoff as failed, and answer how many rows
-      # changed. The claim's age is the only evidence there is (no liveness
-      # signal yet), so the row becomes `failed` with `error` instead of going
-      # back to `pending`: the original run may still be alive, and a second
-      # execution would duplicate its work. A run that finishes after the
-      # cutoff overwrites the row with its own outcome.
-      #
-      # @param started_before [Time] the claim-age cutoff
-      # @param now [Time] the finish stamp for the recorded rows
-      # @param error [String] the `last_error` the rows carry
-      # @return [Integer] the number of rows recorded as failed
-      def self.release_orphaned!(started_before, now, error)
-        update_all!({ status: "running", started_at: { lt: started_before } },
-                    { status: "failed", finished_at: now, last_error: error, updated_at: now })
-      end
-
       # The status updates write by id and do not re-read the row: the caller
       # does not use a record, and a delivery failure's payload may not be
       # decodable — a re-read would fail on the very row being updated.

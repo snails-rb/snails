@@ -1,7 +1,8 @@
 # The DB-backed queue adapter: jobs and occurrences travel as rows in the
 # queue tables, so queued work survives a restart and every process sees it.
 #
-# Row transitions belong to `Snails::Queue::Job`; retention is an opt-in
+# Per-row transitions belong to `Snails::Queue::Job`; this adapter owns the
+# queue policy (the orphan window and delivery retry). Retention is an opt-in
 # `Snails::Queue::PruneJob`.
 
 module ActiveJob
@@ -152,7 +153,7 @@ module ActiveJob
     def self.drain
       DRAIN_FLAGS_LOCK.synchronize { LAST_DRAIN_AT[0] = Time.now.to_i }
       now = Time.now.utc
-      Snails::Queue::Job.release_orphaned!(now - ORPHANED_AFTER.to_i, now, ORPHANED_ERROR)
+      release_orphaned!(now)
       processed = 0
       while processed < BATCH_SIZE
         row = Snails::Queue::Job.claim_due_row(now)
@@ -319,10 +320,29 @@ module ActiveJob
       (Time.now - started) * 1000.0
     end
 
+    # Record claims older than the orphan window as failed. The window and
+    # the message are adapter policy; the model's `update_all!` performs the
+    # status transition. A row is never returned to pending: the original run
+    # may still be alive, and a second execution would duplicate its work.
+    #
+    # @param now [Time] the finish stamp for the recorded rows
+    # @return [Integer] the number of rows recorded as failed
+    def self.release_orphaned!(now)
+      Snails::Queue::Job.update_all!(
+        { status: "running", started_at: { lt: now - ORPHANED_AFTER.to_i } },
+        { status: "failed", finished_at: now, last_error: ORPHANED_ERROR, updated_at: now }
+      )
+    end
+
     # private on purpose: the drain is this class's own unit — outside
     # callers reach queued jobs through `drain`, never row by row.
-    private_class_method :perform_claimed, :job_from_claimed_row, :record_delivery_failure, :delivery_delay,
+    private_class_method :release_orphaned!,
+                         :perform_claimed, :job_from_claimed_row, :record_delivery_failure, :delivery_delay,
                          :handler_not_found_error, :payload_unreadable_error,
                          :log_job_finished, :log_job_failed, :log_job_deferred, :elapsed_ms
+
+    # Advisory on this runtime: spinel accepts `private_constant` but does not
+    # block an outside read. It marks these as core-internal, not app API.
+    private_constant :ORPHANED_AFTER, :ORPHANED_ERROR
   end
 end
