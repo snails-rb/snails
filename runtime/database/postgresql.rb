@@ -40,13 +40,18 @@ module Sqlx
       # header, the five-character SQLSTATE of a failed result.
       ffi_const :PG_DIAG_SQLSTATE, 67
 
-      ffi_func :PQconnectdb,          [ :str ],             :ptr
+      # Calls that wait on the server leave the world (`blocking: true`): a
+      # slow statement or a connection setup holds this worker with no
+      # safepoint, so a collector raised meanwhile would wait for it and park
+      # every other worker at the barrier. Result reads below are local and
+      # stay plain.
+      ffi_func :PQconnectdb,          [ :str ],             :ptr, blocking: true
       ffi_func :PQstatus,             [ :ptr ],             :int
       ffi_func :PQerrorMessage,       [ :ptr ],             :str
       # PQfinish / PQclear are `void` in C, declared :int with the return dropped:
       # this FFI type set has no :void.
       ffi_func :PQfinish,             [ :ptr ],             :int
-      ffi_func :PQexec,               [ :ptr, :str ],       :ptr
+      ffi_func :PQexec,               [ :ptr, :str ],       :ptr, blocking: true
       ffi_func :PQresultStatus,       [ :ptr ],             :int
       ffi_func :PQresultErrorMessage, [ :ptr ],             :str
       ffi_func :PQresultErrorField,   [ :ptr, :int ],       :str

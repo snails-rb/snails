@@ -14,6 +14,13 @@ module Sqlx
     module SQLite3
       ffi_lib "sqlite3"
 
+      # Calls that run a statement or copy pages leave the world
+      # (`blocking: true`). A scan or an aggregate runs inside one such call,
+      # for seconds and with no safepoint, so a collector raised meanwhile
+      # would wait for this worker and park every other worker at the barrier
+      # with it. The worker is still held for the call — this bounds the blast
+      # radius, it does not make the call concurrent.
+
       ffi_const :OK,   0
       ffi_const :BUSY, 5
       ffi_const :LOCKED, 6
@@ -43,9 +50,9 @@ module Sqlx
       # used to seed an in-memory database from a file. `step(-1)` copies all
       # remaining pages in one call, which is what a boot-time seed wants.
       ffi_func :sqlite3_backup_init,       [:ptr, :str, :ptr, :str],              :ptr
-      ffi_func :sqlite3_backup_step,       [:ptr, :int],                          :int
+      ffi_func :sqlite3_backup_step,       [:ptr, :int],                          :int, blocking: true
       ffi_func :sqlite3_backup_finish,     [:ptr],                                :int
-      ffi_func :sqlite3_exec,              [:ptr, :str, :ptr, :ptr, :ptr],        :int
+      ffi_func :sqlite3_exec,              [:ptr, :str, :ptr, :ptr, :ptr],        :int, blocking: true
       # Fair lock waiting. `sqlite3_busy_handler` installs a Ruby callback that
       # replaces the default busy handler behind `PRAGMA busy_timeout` — a
       # back-off ladder that lets a waiter sleep through the short gaps between
@@ -53,7 +60,7 @@ module Sqlx
       ffi_callback :busy,                  [:ptr, :int],                          :int
       ffi_func :sqlite3_busy_handler,      [:ptr, :busy, :ptr],                   :int
       ffi_func :sqlite3_prepare_v2,        [:ptr, :str, :int, :ptr, :ptr],        :int
-      ffi_func :sqlite3_step,              [:ptr],                                :int
+      ffi_func :sqlite3_step,              [:ptr],                                :int, blocking: true
       ffi_func :sqlite3_finalize,          [:ptr],                                :int
       # Prepared-statement reuse: `reset` rewinds a stepped stmt so it can be
       # re-stepped, and `clear_bindings` drops any bound params. Cached stmts are
