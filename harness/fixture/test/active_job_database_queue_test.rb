@@ -183,8 +183,8 @@ class DatabaseQueueAdapterTest < TestBase
 
   # A name that stays unresolved becomes a failed row after the attempt
   # limit: the row is then the dead letter, and its error says the handler
-  # is missing. `attempts` counts claims, so the limit is the last claim,
-  # not a second counter.
+  # is missing. `attempts` increments on every claim, so the limit is the
+  # last attempt, not a second counter.
   def test_a_permanently_unknown_name_fails_after_the_attempt_cap
     ActiveJob.register_executor
     ActiveJob::DatabaseQueue.enqueue("GhostJob", -> { QueueJobSink::RAN << 0 }, nil)

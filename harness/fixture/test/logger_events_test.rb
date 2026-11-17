@@ -210,7 +210,7 @@ class LoggerEventsTest < TestBase
     assert_equal "boom", failed.exception_message
   end
 
-  # A delivery deferral must not claim the job started: the body never ran.
+  # A delivery deferral must not record `job.started`: the body never ran.
   # The row waits in pending, and the only job record is the deferred warning.
   def test_a_delivery_deferral_does_not_record_job_started
     TestDatabase.configure!("logger_events")
