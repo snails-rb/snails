@@ -152,17 +152,62 @@ else
   consumer_pin="$rev_full"
 fi
 
-# newer_version <a> <b> — true when the SemVer tag <a> is greater than <b>.
-# Both are stable vX.Y.Z forms; each component is compared as a number.
-newer_version() {
-  local a="${1#v}" b="${2#v}" a1 a2 a3 b1 b2 b3
-  IFS=. read -r a1 a2 a3 <<< "$a"
-  IFS=. read -r b1 b2 b3 <<< "$b"
-  if ((a1 > b1)); then return 0; fi
-  if ((a1 < b1)); then return 1; fi
-  if ((a2 > b2)); then return 0; fi
-  if ((a2 < b2)); then return 1; fi
-  ((a3 > b3))
+# semver_newer <a> <b> — true when the v-prefixed version <a> outranks <b>
+# under SemVer precedence. Git's v:refname sort puts a release's candidates
+# after it, so tag order cannot decide which version is newer. The numeric core
+# is compared first; a release outranks its candidates; prerelease identifiers
+# follow SemVer rules, where a numeric identifier compares as a number and
+# outranks a non-numeric one.
+semver_newer() {
+  local a="${1#v}" b="${2#v}" a_core b_core a_pre="" b_pre=""
+  if [[ $a == *-* ]]; then
+    a_core="${a%%-*}"
+    a_pre="${a#*-}"
+  else
+    a_core="$a"
+  fi
+  if [[ $b == *-* ]]; then
+    b_core="${b%%-*}"
+    b_pre="${b#*-}"
+  else
+    b_core="$b"
+  fi
+
+  local a1 a2 a3 b1 b2 b3
+  IFS=. read -r a1 a2 a3 <<< "$a_core"
+  IFS=. read -r b1 b2 b3 <<< "$b_core"
+  if ((10#$a1 > 10#$b1)); then return 0; fi
+  if ((10#$a1 < 10#$b1)); then return 1; fi
+  if ((10#$a2 > 10#$b2)); then return 0; fi
+  if ((10#$a2 < 10#$b2)); then return 1; fi
+  if ((10#$a3 > 10#$b3)); then return 0; fi
+  if ((10#$a3 < 10#$b3)); then return 1; fi
+
+  if [[ -z $a_pre && -z $b_pre ]]; then return 1; fi
+  if [[ -z $a_pre ]]; then return 0; fi
+  if [[ -z $b_pre ]]; then return 1; fi
+
+  local -a a_ids b_ids
+  IFS=. read -r -a a_ids <<< "$a_pre"
+  IFS=. read -r -a b_ids <<< "$b_pre"
+  local i x y
+  local LC_ALL=C
+  for ((i = 0; i < ${#a_ids[@]} && i < ${#b_ids[@]}; i++)); do
+    x="${a_ids[i]}"
+    y="${b_ids[i]}"
+    if [[ $x =~ ^[0-9]+$ && $y =~ ^[0-9]+$ ]]; then
+      if ((10#$x > 10#$y)); then return 0; fi
+      if ((10#$x < 10#$y)); then return 1; fi
+    elif [[ $x =~ ^[0-9]+$ ]]; then
+      return 1
+    elif [[ $y =~ ^[0-9]+$ ]]; then
+      return 0
+    elif [[ $x != "$y" ]]; then
+      if [[ $x > $y ]]; then return 0; else return 1; fi
+    fi
+  done
+  if ((${#a_ids[@]} > ${#b_ids[@]})); then return 0; fi
+  return 1
 }
 
 # newest_other_stable_tag <exclude> — the greatest local stable version tag
@@ -175,7 +220,7 @@ newest_other_stable_tag() {
   while read -r tag; do
     [[ $tag == "$exclude" ]] && continue
     [[ $tag == *-* ]] && continue
-    if [[ -z $best ]] || newer_version "$tag" "$best"; then
+    if [[ -z $best ]] || semver_newer "$tag" "$best"; then
       best="$tag"
     fi
   done < <(git -C "$ROOT" tag --list 'v[0-9]*')
@@ -183,12 +228,12 @@ newest_other_stable_tag() {
 }
 
 # previous_version_tag <rev> <version> <skip_same_base> — the newest v* tag
-# reachable from <rev> that is not the version being published. A stable body
-# sets skip_same_base=1 to skip every candidate of the same base and list
-# changes across the whole version; a prerelease skips only itself, so each
-# candidate lists changes since the previous one. With no version (an
-# unversioned release) any version tag anchors the list. Prints nothing when
-# no version tag is reachable.
+# reachable from <rev> under SemVer precedence, not counting the version being
+# published. A stable body sets skip_same_base=1 to skip every candidate of
+# the same base and list changes across the whole version; a prerelease skips
+# only itself, so each candidate lists changes since the previous one. With no
+# version (an unversioned release) any version tag anchors the list. Prints
+# nothing when no version tag is reachable.
 previous_version_tag() {
   local rev="$1" version="$2" skip_same_base="$3" base tag best=""
   base="${version%%-*}"
@@ -200,9 +245,11 @@ previous_version_tag() {
       continue
     fi
     if git -C "$ROOT" merge-base --is-ancestor "$tag" "$rev" 2>/dev/null; then
-      best="$tag"
+      if [[ -z $best ]] || semver_newer "$tag" "$best"; then
+        best="$tag"
+      fi
     fi
-  done < <(git -C "$ROOT" tag --list 'v[0-9]*' --sort=v:refname)
+  done < <(git -C "$ROOT" tag --list 'v[0-9]*')
   printf '%s' "$best"
 }
 
@@ -216,7 +263,7 @@ tag="rev-${rev_full}"
 # (no --version) instead.
 if [[ $channel == stable ]]; then
   newer="$(newest_other_stable_tag "$version")"
-  if [[ -n $newer ]] && newer_version "$newer" "$version"; then
+  if [[ -n $newer ]] && semver_newer "$newer" "$version"; then
     echo "[publish-dist] $version is older than the published $newer — a stable release takes Latest and would move the recommended install backwards; drop --version for an unversioned release, or publish the newer number" >&2
     exit 1
   fi
@@ -337,7 +384,8 @@ else
     prev="$(previous_version_tag "$rev_full" "$version" "$skip_same_base")"
     printf '\n## Changes\n\n'
     if [[ -n $prev ]]; then
-      printf 'Since `%s` (`%s`):\n\n' "$prev" "${rev_full:0:12}"
+      prev_rev="$(git -C "$ROOT" rev-parse --verify "${prev}^{commit}")"
+      printf 'Since `%s` (`%s`):\n\n' "$prev" "${prev_rev:0:12}"
       git -C "$ROOT" log --no-merges --format='- %s' "$prev..$rev_full"
     else
       printf 'No version tag is reachable — run `git fetch --tags` to anchor this list. Until then the list covers the whole history.\n\n'

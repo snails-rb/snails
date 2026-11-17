@@ -234,9 +234,12 @@ cmp -s notes.md notes-out/release-notes.md
 chk "the hand-written body is used unchanged" $? 0
 
 # 3d. the change list spans the version, not the candidates. A synthetic
-#     repo carries v0.1.0, then v0.2.0-rc.1 and v0.2.0-rc.2, then one more
-#     commit: a v0.2.0 body starts at v0.1.0 while v0.2.0-rc.3 starts at
-#     v0.2.0-rc.2.
+#     repo carries a candidate and a stable release of the previous version
+#     (v0.1.0-rc.1, v0.1.0), then v0.2.0-rc.1 and v0.2.0-rc.2: a v0.2.0 body
+#     starts at v0.1.0, a v0.2.0-rc.1 body also starts at v0.1.0 (a candidate
+#     does not outrank the stable release), and v0.2.0-rc.3 starts at
+#     v0.2.0-rc.2. The Since line names the anchor's commit, not the rev being
+#     published.
 mkdir -p tagsrepo
 cp -R dist/. tagsrepo/
 mkdir -p tagsrepo/scripts
@@ -245,17 +248,28 @@ git -C tagsrepo init -q
 git -C tagsrepo add -A
 git -C tagsrepo -c user.name=snails -c user.email=snails@test \
   -c commit.gpgsign=false commit -q --no-verify -m "start"
-git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.1.0
+git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.1.0-rc.1
 git -C tagsrepo -c user.name=snails -c user.email=snails@test \
   -c commit.gpgsign=false commit -q --no-verify --allow-empty -m "second"
-git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.2.0-rc.1
+git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.1.0
+v010_rev="$(git -C tagsrepo rev-parse --short=12 'v0.1.0^{commit}')"
 git -C tagsrepo -c user.name=snails -c user.email=snails@test \
   -c commit.gpgsign=false commit -q --no-verify --allow-empty -m "third"
+git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.2.0-rc.1
+rc1_rev="$(git -C tagsrepo rev-parse HEAD)"
+git -C tagsrepo -c user.name=snails -c user.email=snails@test \
+  -c commit.gpgsign=false commit -q --no-verify --allow-empty -m "fourth"
 git -C tagsrepo -c user.name=snails -c user.email=snails@test -c commit.gpgsign=false tag v0.2.0-rc.2
 bash tagsrepo/scripts/publish-dist.sh HEAD --version v0.2.0 --dry-run --out tags-stable > tags-stable.out 2>&1
 chk "a stable body builds in a tagged repo" $? 0
 grep -q 'Since `v0.1.0`' tags-stable/release-notes.md
 chk "a stable body starts at the previous version" $? 0
+grep -q "Since \`v0.1.0\` (\`$v010_rev\`)" tags-stable/release-notes.md
+chk "the Since line names the anchor's commit" $? 0
+bash tagsrepo/scripts/publish-dist.sh "$rc1_rev" --version v0.2.0-rc.1 --dry-run --out tags-rc-first > tags-rc-first.out 2>&1
+chk "a candidate body builds from its rev" $? 0
+grep -q 'Since `v0.1.0`' tags-rc-first/release-notes.md
+chk "a candidate starts at the previous stable release" $? 0
 bash tagsrepo/scripts/publish-dist.sh HEAD --version v0.2.0-rc.3 --dry-run --out tags-rc > tags-rc.out 2>&1
 chk "a prerelease body builds in a tagged repo" $? 0
 grep -q 'Since `v0.2.0-rc.2`' tags-rc/release-notes.md
