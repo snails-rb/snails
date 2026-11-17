@@ -48,16 +48,16 @@ module Snails
       end
 
       # atomically claim the oldest pending row whose time has come and return
-      # the raw name-keyed row: the pick and the state change are one UPDATE
-      # (with RETURNING), so two workers can never carry the same row, and a
-      # row scheduled for later stays untouched. The outer `status = 'pending'`
-      # guard is what makes the claim atomic under READ COMMITTED: a second
-      # claim that waited on the row lock re-evaluates the outer condition and
-      # sees `running` instead of claiming again.
+      # the row as the database returned it: the pick and the state change are
+      # one UPDATE (with RETURNING), so two workers can never carry the same
+      # row, and a row scheduled for later stays untouched. The outer
+      # `status = 'pending'` guard is what makes the claim atomic under READ
+      # COMMITTED: a second claim that waited on the row lock re-evaluates the
+      # outer condition and sees `running` instead of claiming again.
       #
-      # The raw shape exists so a caller can still record a row whose payload
-      # cannot be decoded: hydration raises before a record exists, but the
-      # claimed id, name, and attempts are already in hand.
+      # The row shape lets a caller record a delivery failure whose payload
+      # cannot be decoded: building the Job record raises before a record
+      # exists, but the claimed id, name, and attempts are already in hand.
       #
       # @param now [Time] the claim clock — rows scheduled after it stay
       # @return [Hash{String => Object}, nil] the claimed row's projected
@@ -76,8 +76,8 @@ module Snails
         rows[0]
       end
 
-      # claim the oldest due row and hydrate it: the convenience shape for
-      # callers that can treat a payload decode failure as an error.
+      # claim the oldest due row and build its Job record: the convenience
+      # form for callers that treat a payload decode failure as an error.
       #
       # @param now [Time] the claim clock
       # @return [Snails::Queue::Job, nil] the claimed record, nil when nothing
@@ -100,9 +100,9 @@ module Snails
                     { status: "pending", updated_at: now })
       end
 
-      # The marks write by id and do not re-read the row: the caller does not
-      # use a record, and a delivery failure's payload may not be decodable —
-      # a re-read would fail on the very row the mark is recording.
+      # The status updates write by id and do not re-read the row: the caller
+      # does not use a record, and a delivery failure's payload may not be
+      # decodable — a re-read would fail on the very row being updated.
 
       # record a finished run on its row: the status and the finish stamp make the
       # row the execution history.
@@ -124,7 +124,7 @@ module Snails
       # @param error [String] why the run was deferred
       # @param now [Time] the updated stamp
       # @return [void]
-      def self.mark_retry!(id, scheduled_at, error, now)
+      def self.mark_deferred!(id, scheduled_at, error, now)
         update_all!({ id: id }, { status: "pending", started_at: nil,
                                   scheduled_at: scheduled_at, last_error: error, updated_at: now })
       end

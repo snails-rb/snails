@@ -36,11 +36,11 @@ module ActiveJob
     # lock covers the flags only, never a drain's job time.
     DRAIN_FLAGS_LOCK = Mutex.new
 
-    # The most claims a delivery failure gets before it becomes a failed row.
-    # A delivery failure means this binary could not execute the row: the
-    # stored name has no class here, or the payload JSON cannot be decoded.
-    # That is version skew or bad stored data, not a job body failure, and a
-    # process that can execute the row may still claim it.
+    # The most attempts a delivery failure gets before it becomes a failed
+    # row. A delivery failure means this binary could not execute the row:
+    # the stored name has no class here, or the payload JSON cannot be
+    # decoded. That is a mixed-version deploy or bad stored data, not a job
+    # body failure, and a process that can execute the row may still claim it.
     DELIVERY_MAX_ATTEMPTS = 10
 
     # The first delivery retry waits this long; each later retry doubles it.
@@ -149,7 +149,7 @@ module ActiveJob
       while processed < BATCH_SIZE
         row = Snails::Queue::Job.claim_due_row(now)
         break if row.nil?
-        job = hydrate_claimed_row(row)
+        job = job_from_claimed_row(row)
         perform_claimed(job) unless job.nil?
         processed = processed + 1
       end
@@ -162,15 +162,16 @@ module ActiveJob
     # `perform` receives the decoded payload (nil when none).
     #
     # A delivery failure — the name has no class here, or the payload JSON
-    # could not be decoded — is not a job failure. A name with no class is
-    # version skew: the row was written by a process that carries the
-    # handler, and this process may be the container being replaced. The
-    # row goes back to pending with a growing delay so a process that can
-    # execute it claims it; the reason stays on the row. A resolving name
-    # whose body raises becomes a `job.failed` record and lands on the row
-    # as `failed` with the exception's class and message; job bodies have no
-    # retries, so the recorded row is the whole story. Control and fatal
-    # exceptions leave the boundary and are not recorded as job failures.
+    # could not be decoded — is not a job failure. A name with no class means
+    # the row came from a release this binary does not carry: the row was
+    # written by a process that has the handler, and this process may be the
+    # container being replaced. The row goes back to pending with a growing
+    # delay so a process that can execute it claims it; the reason stays on
+    # the row. A resolving name whose body raises becomes a `job.failed`
+    # record and lands on the row as `failed` with the exception's class and
+    # message; job bodies have no retries, so the recorded row is the whole
+    # story. Control and fatal exceptions leave the boundary and are not
+    # recorded as job failures.
     #
     # The job's `snails.db_ms` is the DB time between `begin_job` and the
     # record; it includes the queue's own mark SQL and any DB work the body
@@ -204,14 +205,14 @@ module ActiveJob
       end
     end
 
-    # Hydrate one claimed raw row. A payload JSON that cannot be decoded is a
-    # delivery failure: the row is running, the body never ran, and the id,
-    # name, and attempts are still in hand. The row returns to pending (or
-    # becomes the dead letter at the attempt limit) with the reason. A
-    # hydration error other than a payload decode failure — for example a
-    # model declaration error — is a framework bug and stays loud: it leaves
-    # this method and the drain boundary records it.
-    def self.hydrate_claimed_row(row)
+    # Build the Job record from one claimed row. A payload JSON that cannot be
+    # decoded is a delivery failure: the row is running, the body never ran,
+    # and the id, name, and attempts are still in hand. The row returns to
+    # pending (or becomes the dead letter at the attempt limit) with the
+    # reason. A row load error other than a payload decode failure — for
+    # example a model declaration error — is a framework bug and stays loud:
+    # it leaves this method and the drain boundary records it.
+    def self.job_from_claimed_row(row)
       payload = row["payload"]
       begin
         Sqlx::Json.decode(payload.to_s) unless payload.nil?
@@ -231,23 +232,23 @@ module ActiveJob
 
     # A delivery failure is not the job's failure. The row goes back to
     # pending with a growing delay so a process that can execute it claims it.
-    # `attempts` already counted this claim, so the attempt limit is the claim
-    # limit too. A row still failing at the limit becomes a failed row with
-    # the reason — the dead letter.
+    # `attempts` already includes this claim, so the same count is the attempt
+    # limit. A row still failing at the limit becomes a failed row with the
+    # reason — the dead letter.
     def self.record_delivery_failure(id, name, attempts, error, started, failure)
       now = Time.now.utc
       if attempts >= DELIVERY_MAX_ATTEMPTS
         Snails::Queue::Job.mark_failed!(id, error, now)
         log_job_failed(name, started, failure)
       else
-        Snails::Queue::Job.mark_retry!(id, now + delivery_delay(attempts, id), error, now)
+        Snails::Queue::Job.mark_deferred!(id, now + delivery_delay(attempts, id), error, now)
         log_job_deferred(name, started, failure, error)
       end
     end
 
     # The wait before the next delivery attempt: 30 seconds doubling, capped
-    # at 10 minutes, plus a deterministic jitter derived from the row id so
-    # old workers do not all retry at the same instant.
+    # at 10 minutes, plus a small deterministic offset (jitter) derived from
+    # the row id so old workers do not all retry at the same instant.
     def self.delivery_delay(attempts, id)
       wait = DELIVERY_RETRY_SECONDS * (2 ** (attempts - 1))
       wait = DELIVERY_MAX_DELAY_SECONDS if wait > DELIVERY_MAX_DELAY_SECONDS
@@ -290,9 +291,9 @@ module ActiveJob
       )
     end
 
-    # The delivery retry record: the row waits in pending for a process that
-    # can execute it. The body never started, so this is not `job.started`;
-    # the reason is in the row's last_error and in the message.
+    # The delivery deferral record: the row waits in pending for a process
+    # that can execute it. The body never started, so this is not
+    # `job.started`; the reason is in the row's last_error and in the message.
     def self.log_job_deferred(name, started, failure, error)
       Snails.logger.warn(
         "job " + name + " deferred: " + error,
@@ -312,7 +313,7 @@ module ActiveJob
 
     # private on purpose: the drain is this class's own unit — outside
     # callers reach queued jobs through `drain`, never row by row.
-    private_class_method :perform_claimed, :hydrate_claimed_row, :record_delivery_failure, :delivery_delay,
+    private_class_method :perform_claimed, :job_from_claimed_row, :record_delivery_failure, :delivery_delay,
                          :handler_not_found_error, :payload_unreadable_error,
                          :log_job_finished, :log_job_failed, :log_job_deferred, :elapsed_ms
   end

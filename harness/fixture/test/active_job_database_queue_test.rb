@@ -29,8 +29,9 @@ end
 class QueueUnimplementedJob < ActiveJob::Base
 end
 
-# A body that raises NameError: version skew inside the body is still a
-# job failure — only the stored name's resolution is retried.
+# A body that raises NameError: a NameError inside the body is a job
+# failure, not a delivery failure — only the claimed row's resolution and
+# payload read are deferred and retried.
 class QueueBodyNameErrorJob < ActiveJob::Base
   def self.perform(data)
     QueueMissingConstantInBody.perform
@@ -159,11 +160,11 @@ class DatabaseQueueAdapterTest < TestBase
     assert_equal "succeeded", scalar("SELECT status FROM snails_queue_jobs WHERE name = 'QueueSinkJob'")
   end
 
-  # A name this binary does not carry is version skew, not a bad job: the
-  # new row came from a process that knows the handler, and this one may
-  # be the container being replaced. The row goes back to pending with a
-  # later run time, keeps its claim count, and records why it waits — a
-  # second drain cannot claim it before the delay.
+  # A name this binary does not carry is a mixed-version deploy, not a bad
+  # job: the new row came from a process that has the handler, and this one
+  # may be the container being replaced. The row goes back to pending with
+  # a later run time, keeps its attempt count, and records why it waits —
+  # a second drain cannot claim it before the delay.
   def test_an_unknown_name_is_deferred_instead_of_failed
     ActiveJob.register_executor
     ActiveJob::DatabaseQueue.enqueue("GhostJob", -> { QueueJobSink::RAN << 0 }, nil)
@@ -218,9 +219,9 @@ class DatabaseQueueAdapterTest < TestBase
     assert_equal 2, scalar("SELECT attempts FROM snails_queue_jobs")
   end
 
-  # A NameError raised by the body is a job failure, not version skew: it
-  # fails at once and is never retried — the delivery path covers only the
-  # claimed row's resolution, not the body.
+  # A NameError raised by the body is a job failure, not a delivery failure:
+  # it fails at once and is never retried — the delivery path covers only
+  # the claimed row's resolution and payload read, not the body.
   def test_a_name_error_from_the_job_body_fails_at_once
     ActiveJob.register_executor
     ActiveJob.enqueue(QueueBodyNameErrorJob)
