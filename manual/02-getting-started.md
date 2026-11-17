@@ -128,7 +128,7 @@ The first run compiles the app into a single native binary. Later runs reuse tha
 [snails] serving myapp on http://127.0.0.1:3000
 [snails] log: tmp/development.log (append)
 myapp (spinel) listening on http://0.0.0.0:3000, pid 212514
-  one green thread per connection; OS workers: one per core (SPINEL_WORKERS=N to cap); processes: 1
+  one green thread per connection; OS workers: main + one per core (SPINEL_WORKERS=N sets the total); processes: 1
 ```
 
 Open http://localhost:3000/up and you get `{"status":"ok"}`. Every Snails app answers `/up`; deployment platforms use it to check that the app is healthy.

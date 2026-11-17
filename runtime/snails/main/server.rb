@@ -31,7 +31,7 @@ module Snails
           puts "  -w, --workers N  prefork N processes (default 1; WORKERS env)"
           puts "  -h, --help       show this help and exit"
           puts ""
-          puts "  OS workers per process: one per core; SPINEL_WORKERS=N caps it"
+          puts "  OS workers per process: main + one per core; SPINEL_WORKERS=N sets the total"
           exit(0)
         elsif (arg == "--port" || arg == "-p") && i + 1 < ARGV.length
           port = ARGV[i + 1].to_i
