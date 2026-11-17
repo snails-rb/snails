@@ -59,4 +59,11 @@ Set `SNALS_REV` back to the version you came from, restore the matching `SPINEL_
 
 `SNALS_SOURCE="checkout"` follows the working tree rather than a release. To move a checkout project back to a published release, set `SNALS_SOURCE="pin"` and the release's `SNALS_REV` before syncing.
 
+## What changed in 1.1
+
+Two queue behaviors changed in 1.1. A row the running binary cannot execute — the stored job name has no class in this binary, or the payload is not valid JSON — is now a delivery failure: the row returns to pending with a growing delay (30 seconds, doubling to 10 minutes) and becomes failed after ten attempts. It is not failed on the first attempt any more. A row still marked running after an hour is recorded failed and is not queued again; a process that dies mid-run leaves a failed row to inspect rather than a row another worker silently starts over. Job bodies still have no automatic retry.
+
+[Background Jobs](15-background-jobs.md) describes both paths.
+
+
 [Deploying](25-deploying.md) covers the image rebuild that follows a pin change; [Troubleshooting](27-troubleshooting.md) covers a sync that refuses the declaration.
