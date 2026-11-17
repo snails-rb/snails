@@ -33,6 +33,10 @@ permissions:
 env:
   HOMEBREW_NO_AUTO_UPDATE: "1"
   HOMEBREW_NO_INSTALL_CLEANUP: "1"
+  # The scripts expand the short spinel pin through the commits API; without a
+  # token the shared runner IP's 60/hour budget answers 403 and the resolver
+  # falls back (a PATH install here, a source build elsewhere).
+  SNAILS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   linux-arm64:
