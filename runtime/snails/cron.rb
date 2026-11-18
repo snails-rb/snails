@@ -10,10 +10,10 @@
 # When both day fields are restricted they are ORed: `30 4 1,15 * 5` runs on
 # the 1st, the 15th, and every Friday.
 #
-# Everything else a cron dialect accepts is rejected instead of reinterpreted:
-# a seconds field, a time zone, natural language, `L`/`#`/`%`/`&`/`~`,
-# `@reboot`, `@noon`, full names, and hour 24 all fail at parse, with the field
-# and expression named in the message.
+# Everything else a cron dialect accepts fails at parse — for example a
+# seconds field, a time zone, natural language, `L`/`#`/`%`/`&`/`~`, `@reboot`,
+# `@noon`, full names, and hour 24. Each message names the field and the whole
+# expression.
 #
 # Time is UTC epoch seconds. A day is one 86400-second step, and the hour and
 # minute values are precomputed, so a search costs one check per day it scans.

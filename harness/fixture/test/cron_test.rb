@@ -41,7 +41,7 @@ class CronTest < TestBase
     assert_equal timestamp(utc(2026, 11, 19, 6, 0)), timestamp(cron.occurrence_after(utc(2026, 11, 18, 6, 0)))
   end
 
-  # Stepped minutes move one occurrence by the step inside the hour.
+  # A stepped minute field advances the occurrence by the step inside the hour.
   def test_stepped_minutes
     cron = Snails::Cron.parse("*/15 * * * *")
     assert_equal timestamp(utc(2026, 11, 18, 5, 0)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 18, 5, 7)))
