@@ -3,7 +3,8 @@ module ActiveJob
     POLL_INTERVAL: Float
     PERIODIC: Array[Hash[String, untyped]]
 
-    def self.register_periodic: (Integer seconds, ^() -> void work) -> void
+    def self.register_interval: (Integer seconds, ^(Integer occurrence) -> void work) -> void
+    def self.register_cron: (Snails::Cron cron, ^(Integer occurrence) -> void work) -> void
     def self.run_periodic: (?Integer now) -> void
     def self.run: () -> void
   end

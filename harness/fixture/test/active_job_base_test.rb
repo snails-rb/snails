@@ -89,7 +89,7 @@ class JobBaseTest < TestBase
   def test_missing_perform_fails_loud
     ActiveJob.recurring(NoBodyJob, 300)
     begin
-      ActiveJob::Scheduler::PERIODIC[0]["work"].call
+      ActiveJob::Scheduler::PERIODIC[0]["work"].call(Time.now.to_i)
     rescue NotImplementedError => e
       assert_equal "perform: subclasses must override", e.message
       return

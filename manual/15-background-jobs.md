@@ -38,13 +38,18 @@ ActiveJob.schedule(CommentDigestJob, Time.now + 900, { "since" => 0 })
 
 `schedule` needs a worker loop. Without one it raises rather than silently ignoring the delay.
 
-For work that should happen again and again, register a recurring job:
+For work that should happen again and again, register a recurring job with an interval in seconds or a cron expression:
 
 ```ruby
-ActiveJob.recurring(CommentDigestJob, 300)
+ActiveJob.recurring(CommentDigestJob, 300)                  # every 5 minutes
+ActiveJob.recurring(PruneRollupJob, schedule: "0 6 * * *")  # 06:00 UTC every day
 ```
 
-The job runs once per interval window — each window is aligned to a fixed clock boundary, so two processes enqueuing inside the same window compute the same start time. The current window is caught up on the first pass; windows that passed while no process was alive are not backfilled. Each run enqueues the job, and the worker loop executes it like any other job.
+Exactly one form is required; passing both or neither raises when the schedule is declared.
+
+The interval form runs once per interval window — each window is aligned to a fixed clock boundary, so two processes enqueuing inside the same window compute the same start time. The cron form runs at the expression's scheduled times, in UTC. Cron expressions use the five-field `man 5 crontab` grammar (minute hour day-of-month month day-of-week) with lists, ranges, steps, three-letter month and weekday names, and the `@daily`-family aliases; a seconds field, a time zone, and natural language are rejected when the schedule is declared.
+
+Both forms catch up the occurrence that covers the first pass: a process that starts after the scheduled time still runs that occurrence once, and windows before the current one are not backfilled. Each run enqueues the job, and the worker loop executes it like any other job. With the DB adapter, the ledger keeps each occurrence to one enqueue across processes and restarts.
 
 ## Choose a queue adapter
 
@@ -63,7 +68,7 @@ Generate the table and the wiring with:
 snails generate job_queue
 ```
 
-The generator writes `db/migrate/<UTC>_create_snails_queue.sql` and refreshes `db/schema.sql`, then prints the adapter line and a commented retention registration. With the DB adapter, queued work survives a restart, any process with the same database can drain it, and a recurring occurrence is deduplicated across processes by a small table that records which interval already ran. A finished row is the run's history: status, attempts, start and finish time, and the last error.
+The generator writes `db/migrate/<UTC>_create_snails_queue.sql` and refreshes `db/schema.sql`, then prints the adapter line and a commented retention registration. With the DB adapter, queued work survives a restart, any process with the same database can drain it, and a recurring occurrence is deduplicated across processes by a small table that records which occurrence already ran. A finished row is the run's history: status, attempts, start and finish time, and the last error.
 
 Retention is off until the app puts the prune job on the clock:
 
