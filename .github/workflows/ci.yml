@@ -36,11 +36,11 @@ env:
 jobs:
   contracts:
     name: linux amd64 (contracts)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - name: Checkout snails
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - uses: ./.github/actions/linux-build-deps
       - uses: ./.github/actions/spinel-toolchain
       - name: Pins format gate
@@ -66,11 +66,11 @@ jobs:
 
   runtime:
     name: linux amd64 (core harness)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - name: Checkout snails
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - uses: ./.github/actions/linux-build-deps
       - uses: ./.github/actions/spinel-toolchain
       - name: Small harness (core spinel compile + contracts)
@@ -78,11 +78,11 @@ jobs:
 
   e2e:
     name: linux amd64 (scaffolder e2e)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 40
     steps:
       - name: Checkout snails
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - uses: ./.github/actions/linux-build-deps
       - uses: ./.github/actions/spinel-toolchain
       # Generates the --scaffold app, compiles it, boots it, and runs its

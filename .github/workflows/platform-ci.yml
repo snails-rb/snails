@@ -41,13 +41,13 @@ env:
 jobs:
   linux-arm64:
     name: linux arm64 (sqlite)
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 30
     steps:
       - name: Checkout snails
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Load tool pin
@@ -61,12 +61,12 @@ jobs:
             build-essential clang libclang-dev pkg-config \
             libssl-dev libffi-dev sqlite3 libsqlite3-dev libpq-dev libjemalloc-dev
       - name: Cache the pinned spinel install
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local
           key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
       - name: Cache spinel native package objects
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/spin
           key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
@@ -94,7 +94,7 @@ jobs:
 
   linux-pg:
     name: linux pg (PG_URL)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     services:
       postgres:
@@ -112,9 +112,9 @@ jobs:
           --health-retries 12
     steps:
       - name: Checkout snails
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Load tool pin
@@ -141,12 +141,12 @@ jobs:
           sudo apt-get install -y postgresql-client-18
           echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
       - name: Cache the pinned spinel install
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local
           key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
       - name: Cache spinel native package objects
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/spin
           key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
@@ -195,9 +195,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout snails
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Load tool pin
@@ -220,12 +220,12 @@ jobs:
           "$pgbin/pg_ctl" -D "$RUNNER_TEMP/pgdata" -l "$RUNNER_TEMP/pg.log" -o "-p 5432 -k $RUNNER_TEMP" start
           "$pgbin/createdb" -h 127.0.0.1 -p 5432 -U postgres snails_test
       - name: Cache the pinned spinel install
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local
           key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
       - name: Cache spinel native package objects
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/spin
           key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
@@ -293,15 +293,15 @@ jobs:
   # publishing; this copy covers pushes that do not publish.
   image-preflight:
     name: pin image published
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       published: ${{ steps.probe.outputs.published }}
     steps:
       - name: Checkout snails
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Load tool pin

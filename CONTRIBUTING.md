@@ -21,6 +21,8 @@ bash scripts/test-migrate.sh
 
 The scripts materialize the pinned spinel toolchain themselves; a global `spinel` install is not required. The CI workflow in `.github/workflows/ci.yml` is the authoritative gate. Platform and PostgreSQL coverage run in `platform-ci.yml` after merge.
 
+Ubuntu runner labels are pinned to the current LTS (`ubuntu-26.04`, `ubuntu-26.04-arm`) instead of `ubuntu-latest`. The `-latest` label moves to a new OS on GitHub's schedule, so a runner migration here is a deliberate PR.
+
 For a change to the manual only, keep the examples and links valid and run any command a chapter tells the reader to run. Do not invent output.
 
 ## Pull requests

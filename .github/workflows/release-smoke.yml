@@ -54,11 +54,11 @@ env:
 jobs:
   linux:
     name: linux (install path)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Checkout snails
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       # The manual's Linux list: build-essential, the OpenSSL/SQLite/jemalloc
       # headers the app links, the sqlite3 client, tzdata, and curl/tar for the
       # installer. Nothing else — see the trigger comment above.
@@ -109,7 +109,7 @@ jobs:
             arch: amd64
     steps:
       - name: Checkout snails
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       # The manual's macOS list. Xcode Command Line Tools are on the runner
       # image; the Homebrew packages are what a reader installs. libpq is the
       # client-only PostgreSQL package for the pg link check. Do not add
