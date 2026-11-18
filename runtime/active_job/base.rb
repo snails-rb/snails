@@ -129,56 +129,82 @@ module ActiveJob
   # the registry is what boot-time introspection and the contract tests read.
   RECURRING = []
 
-  # one call declares a job that runs once per `interval` seconds. The class
+  # one call declares a job that runs on a recurrence: an interval in seconds,
+  # or a cron expression passed as `schedule:`. Exactly one of the two is
+  # required; both or neither raise when the schedule is declared. The class
   # carries the job contract (`Base`) — `job_name` (the key) and a class-side
   # `perform` — and the registration wires the periodic callback (the
-  # scheduler's registry; each run enqueues once per interval — the interval's
-  # start (`scheduled_at_for`) goes to `enqueue_once`, where a second enqueue
-  # for the same (name, scheduled_at) must be a no-op, so several server
-  # processes running the same callback still run the job once). There is no
-  # handler catalog: a cross-process drain resolves the stored name itself —
-  # `Object.const_get` — so the registration's class is what must be compiled
-  # in. The callback's work proc takes no argument (a process-local adapter
-  # runs it as the job). Call it after the adapter is selected.
+  # scheduler's registry). Each run enqueues the job with the occurrence time as
+  # `scheduled_at`; `enqueue_once` must treat a second enqueue for the same
+  # (name, scheduled_at) as a no-op, so several server processes running the
+  # same callback still run the job once. There is no handler catalog: a
+  # cross-process drain resolves the stored name itself — `Object.const_get` —
+  # so the registration's class is what must be compiled in. The job body runs
+  # as a zero-argument proc (a process-local adapter runs it as the job). Call
+  # it after the adapter is selected. Times are UTC: the interval grid is based
+  # on epoch seconds, and a cron expression is evaluated in UTC. A new
+  # registration starts at the next occurrence: an occurrence that passed while
+  # no process was alive is not caught up.
   #
   # @param job_class [Class] the job class — `job_name` + class-side `perform`
-  # @param interval [Integer] seconds between runs
+  # @param interval [Integer, Snails::Duration, nil] seconds between runs, or nil
+  #   when `schedule:` is given
+  # @param schedule [String, nil] a five-field cron expression in UTC, or nil
+  #   when `interval` is given
   # @return [void]
+  # @raise [ArgumentError] both forms or neither, a non-positive interval, or an
+  #   expression the cron grammar rejects
   # @example
-  #   ActiveJob.recurring(CleanupJob, 300)
-  def self.recurring(job_class, interval)
+  #   ActiveJob.recurring(CleanupJob, 5.minutes)
+  #   ActiveJob.recurring(PruneRollupJob, schedule: "0 6 * * *")
+  def self.recurring(job_class, interval = nil, schedule: nil)
+    if interval != nil && schedule != nil
+      raise ArgumentError, "recurring takes an interval in seconds or a schedule: cron expression, not both"
+    end
+    if interval == nil && schedule == nil
+      raise ArgumentError, "recurring needs an interval in seconds or a schedule: cron expression"
+    end
+    if interval.is_a?(Snails::Duration)
+      interval = interval.to_i
+    end
     name = job_class.job_name
-    entry = { "name" => name, "interval" => interval, "work" => -> { job_class.perform(nil) } }
-    # Register the callback first: a rejected interval (register_periodic
-    # validates) must not leave a half-registered RECURRING entry.
-    Scheduler.register_periodic(interval, -> { enqueue_recurring(entry) })
+    entry = { "name" => name, "interval" => nil, "cron" => nil, "work" => -> { job_class.perform(nil) } }
+    # Register the callback first: a rejected recurrence must not leave a
+    # half-registered RECURRING entry.
+    if schedule != nil
+      cron = Snails::Cron.parse(schedule)
+      entry["cron"] = cron
+      Scheduler.register_cron(cron, ->(occurrence) { enqueue_recurring(entry, occurrence) })
+    else
+      entry["interval"] = interval
+      Scheduler.register_interval(interval, ->(occurrence) { enqueue_recurring(entry, occurrence) })
+    end
     RECURRING << entry
   end
 
-  # the key a recurring run enqueues with: the interval's start (`now`
-  # floored to the interval) as a Time, so every process running inside the same
-  # interval computes the same value and the adapter's unique key drops the
-  # repeats.
+  # the occurrence time of the interval form: `now` floored to the interval, as
+  # a Time. Every process computing it inside the same interval window agrees,
+  # which is what lets the adapter's unique key drop repeated enqueues.
   #
   # @param interval [Integer] seconds per interval
   # @param now [Time] the clock to floor
-  # @return [Time] the interval's start
+  # @return [Time] the interval window's start
   def self.scheduled_at_for(interval, now = Time.now.utc)
     stamp = now.to_i
     Time.at(stamp - (stamp % interval)).utc
   end
 
   # one run of a recurring job: with an executor registered the enqueue goes
-  # through the adapter once per interval (`enqueue_once` with the interval's
-  # start from `scheduled_at_for`); with none the body runs at the call site,
-  # the `enqueue` rule (a queue nobody drains is a silent loss). `now` is
-  # injectable so the contract is testable without sleeping.
+  # through the adapter with the occurrence the scheduler fired for; with none
+  # the body runs at the call site, the `enqueue` rule (a queue nobody drains is
+  # a silent loss). The occurrence is the value the scheduler's gate used, so
+  # the enqueue key and the gate cannot disagree, even on an injected clock.
   #
   # Private on purpose: `recurring` is the public declaration; this run
   # helper is free to change without notice.
-  def self.enqueue_recurring(entry, now = Time.now.utc)
+  def self.enqueue_recurring(entry, occurrence)
     if executor_registered
-      queue_adapter.enqueue_once(entry["name"], entry["work"], nil, scheduled_at_for(entry["interval"], now))
+      queue_adapter.enqueue_once(entry["name"], entry["work"], nil, Time.at(occurrence).utc)
     else
       entry["work"].call
     end

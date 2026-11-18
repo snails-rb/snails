@@ -125,7 +125,7 @@ module Snails
         return if @flush_registered
 
         @flush_registered = true
-        ActiveJob::Scheduler.register_periodic(FLUSH_INTERVAL_SECONDS, -> { Snails.logger.flush })
+        ActiveJob::Scheduler.register_interval(FLUSH_INTERVAL_SECONDS, ->(_occurrence) { Snails.logger.flush })
       end
 
       # append one record to the buffer and hand the batch off when it is full.
