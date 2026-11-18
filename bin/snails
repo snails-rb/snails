@@ -996,9 +996,11 @@ dist_repo() {
   printf '%s' "snails-rb/snails"
 }
 
-# dist_base — the download base for the direct URL layout
-# (`rev-<rev>/snails-dist-<rev>.tar.gz` + `.sha256`). Overridable so a
-# mirror — or a test — can serve the same layout.
+# dist_base — the download base for the direct URL layout:
+# `<version>/snails-dist-<version>.tar.gz` for a version release and
+# `rev-<rev>/snails-dist-<rev>.tar.gz` for an edge release, each with its
+# `.sha256` sidecar. Overridable so a mirror — or a test — can serve the
+# same layout.
 dist_base() {
   printf '%s' "${SNAILS_DIST_BASE_URL:-https://github.com/$(dist_repo)/releases/download}"
 }
@@ -1087,10 +1089,39 @@ dist_version_rev() {
   printf '%s' "$rev"
 }
 
-# dist_cache_dir <rev> — the per-revision distribution cache (evictable
-# state, like the spinel toolchain cache next to it).
+# dist_cache_dir <key> — the distribution cache for one pin identity
+# (evictable state, like the spinel toolchain cache next to it). A version
+# pin caches under its version and a rev pin under its revision, so two
+# versions published from the same revision never share an entry.
 dist_cache_dir() {
   printf '%s' "${XDG_CACHE_HOME:-$HOME/.cache}/snails/dist/$1"
+}
+
+# dist_cache_key <pin> <rev> — the cache identity of a pin. A version pin
+# is the version (an rc and its stable can name the same revision); a rev
+# pin is the revision.
+dist_cache_key() {
+  if pins_rev_is_version "$1"; then
+    printf '%s' "$1"
+  else
+    printf '%s' "$2"
+  fi
+}
+
+# dist_cache_matches <key> <pin> <rev> — true when the cache entry is the
+# artifact this pin names: the revision must match, and a version pin must
+# also carry its own version in the packaged metadata. The second check
+# keeps a mis-stamped asset from serving another version's pin.
+dist_cache_matches() {
+  local key="$1" pin="$2" rev="$3" dir file
+  dir="$(dist_cache_dir "$key")"
+  [[ -f $dir/REV && $(<"$dir/REV") == "$rev" ]] || return 1
+  if pins_rev_is_version "$pin"; then
+    file="$dir/runtime/snails/version.rb"
+    [[ -f $file ]] || return 1
+    [[ "$(sed -n 's/^  VERSION = "\(.*\)"/\1/p' "$file" | head -n1)" == "$pin" ]] || return 1
+  fi
+  return 0
 }
 
 # sha256_check <dir> <file> — verify a sha256sum-format sidecar in <dir>
@@ -1101,103 +1132,174 @@ sha256_check() {
   snails_sha256_check "$dir" "$file"
 }
 
-# fetch_dist <rev> — download, verify, and cache the published distribution
-# for a revision. The revision must be the full 40-character hexadecimal
-# form: the release tag and asset name derive from it, so an abbreviated pin
-# cannot be resolved without a checkout. The write is atomic: a failed
-# download or a checksum mismatch never leaves a cache entry behind.
-# Progress goes to stderr; the resolved cache path goes to stdout only from
-# resolve_dist, because callers capture it.
+# fetch_dist <pin> <rev> — download, verify, and cache the published
+# distribution for a declared pin. A version pin first asks its
+# version-tagged release, then the legacy `rev-<rev>` release that a
+# version published before version-keyed releases names. A rev pin asks
+# only the rev release. The write is atomic: a failed download or a checksum
+# mismatch never leaves a cache entry behind. Progress goes to stderr; the
+# resolved cache path goes to stdout only from resolve_dist, because
+# callers capture it.
 fetch_dist() {
-  local rev="$1" dest tmp
-  if [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then
-    echo "[snails] SNALS_REV=$rev is not a full 40-hex rev — dist mode cannot resolve an abbreviated pin (bump it or use a checkout)" >&2
+  local pin="$1" rev="$2" key dest tmp tag asset downloaded_version
+  if ! pins_rev_is_version "$pin" && ! pins_rev_is_full "$pin"; then
+    echo "[snails] SNALS_REV=$pin is not a full 40-hex rev or a vX.Y.Z version — record the full value (run 'git rev-parse $pin' in the snails checkout)" >&2
     return 1
   fi
-  dest="$(dist_cache_dir "$rev")"
+  if [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then
+    echo "[snails] SNALS_REV=$pin resolved to '$rev', not a full 40-hex rev — check the release tag" >&2
+    return 1
+  fi
+  key="$(dist_cache_key "$pin" "$rev")"
+  dest="$(dist_cache_dir "$key")"
   tmp="${dest}.tmp.$$"
   rm -rf "$tmp"
   mkdir -p "$tmp"
-  echo "[snails] fetching dist $rev" >&2
-  if ! dist_download "rev-$rev" "snails-dist-$rev.tar.gz" "$tmp/snails-dist-$rev.tar.gz"; then
+  echo "[snails] fetching dist $pin" >&2
+  # A version pin prefers its own release tag. A version released before
+  # version-keyed releases has no such release, so the rev release that
+  # carries its artifact is the second address. Both tags are immutable,
+  # so the first hit is the answer.
+  if pins_rev_is_version "$pin" &&
+     dist_download "$pin" "snails-dist-$pin.tar.gz" "$tmp/snails-dist-$pin.tar.gz" 2>/dev/null; then
+    tag="$pin"
+    asset="snails-dist-$pin.tar.gz"
+  elif dist_download "rev-$rev" "snails-dist-$rev.tar.gz" "$tmp/snails-dist-$rev.tar.gz" 2>/dev/null; then
+    tag="rev-$rev"
+    asset="snails-dist-$rev.tar.gz"
+  else
     rm -rf "$tmp"
-    echo "[snails] could not download the dist for $rev — check the release tag and your network, then retry" >&2
+    if pins_rev_is_version "$pin"; then
+      echo "[snails] could not download the dist for $pin — neither release $pin nor legacy release rev-$rev is reachable; check the release and your network" >&2
+    else
+      echo "[snails] could not download the dist for $rev — release rev-$rev is not reachable; check the release and your network" >&2
+    fi
     return 1
   fi
-  if ! dist_download "rev-$rev" "snails-dist-$rev.tar.gz.sha256" "$tmp/snails-dist-$rev.tar.gz.sha256"; then
+  if ! dist_download "$tag" "$asset.sha256" "$tmp/$asset.sha256"; then
     rm -rf "$tmp"
-    echo "[snails] could not download the checksum for $rev — check the release assets, then retry" >&2
+    echo "[snails] could not download the checksum for $pin — release $tag has no $asset.sha256 asset" >&2
     return 1
   fi
-  if ! sha256_check "$tmp" "snails-dist-$rev.tar.gz.sha256" >/dev/null; then
+  if ! sha256_check "$tmp" "$asset.sha256" >/dev/null; then
     rm -rf "$tmp"
-    echo "[snails] checksum mismatch for $rev — delete the cached dist and retry; if it repeats, the release is corrupt" >&2
+    echo "[snails] checksum mismatch for $pin (release $tag) — delete the cached dist and retry; if it repeats, the release is corrupt" >&2
     return 1
   fi
-  tar -xzf "$tmp/snails-dist-$rev.tar.gz" -C "$tmp"
-  rm -f "$tmp/snails-dist-$rev.tar.gz" "$tmp/snails-dist-$rev.tar.gz.sha256"
+  tar -xzf "$tmp/$asset" -C "$tmp"
+  rm -f "$tmp/$asset" "$tmp/$asset.sha256"
   if [[ ! -f $tmp/REV || $(<"$tmp/REV") != "$rev" ]]; then
     rm -rf "$tmp"
-    echo "[snails] the downloaded dist is for another revision — delete the cached dist and retry" >&2
+    echo "[snails] the downloaded dist for $pin is not revision $rev — delete the cached dist and retry" >&2
     return 1
+  fi
+  if pins_rev_is_version "$pin"; then
+    downloaded_version="$(sed -n 's/^  VERSION = "\(.*\)"/\1/p' "$tmp/runtime/snails/version.rb" 2>/dev/null | head -n1)"
+    if [[ $downloaded_version != "$pin" ]]; then
+      rm -rf "$tmp"
+      echo "[snails] the downloaded dist for $pin names version '${downloaded_version:-unknown}' — the release asset is mis-stamped; delete the cached dist and retry" >&2
+      return 1
+    fi
   fi
   rm -rf "$dest"
   mv "$tmp" "$dest"
   # fetch_dist runs inside cmd_sync (bash's dynamic scope), where the
   # caller's --verbose decides the detail: the cache path is internal,
-  # so the default report only says the rev is cached.
+  # so the default report only says the pin is cached.
   if (( ${verbose:-0} )); then
-    echo "[snails] dist $rev -> $dest (cache)" >&2
+    echo "[snails] dist $pin -> $dest (cache)" >&2
   else
-    echo "[snails] dist $rev cached" >&2
+    echo "[snails] dist $pin cached" >&2
   fi
 }
 
-# resolve_dist <rev> — the engine tree for a pin in distribution mode: this
-# distribution itself when the pin is its own revision, the cache when
-# present, otherwise a fresh verified download. Only the path goes to
+# dist_release_tag <pin> <rev> — the release tag that carries the pin's
+# assets. A version pin prefers its version-tagged release; a version
+# published before version-keyed releases falls back to the `rev-<rev>`
+# release that names the same artifact. A rev pin has only the rev release.
+# The checksum sidecar proves the release exists; nothing is downloaded.
+dist_release_tag() {
+  local pin="$1" rev="$2"
+  if pins_rev_is_version "$pin"; then
+    if dist_download "$pin" "snails-dist-$pin.tar.gz.sha256" /dev/null 2>/dev/null; then
+      printf '%s' "$pin"
+      return 0
+    fi
+    if [[ $rev =~ ^[0-9a-f]{40}$ ]] &&
+       dist_download "rev-$rev" "snails-dist-$rev.tar.gz.sha256" /dev/null 2>/dev/null; then
+      printf '%s' "rev-$rev"
+      return 0
+    fi
+    return 1
+  fi
+  if [[ $rev =~ ^[0-9a-f]{40}$ ]] &&
+     dist_download "rev-$rev" "snails-dist-$rev.tar.gz.sha256" /dev/null 2>/dev/null; then
+    printf '%s' "rev-$rev"
+    return 0
+  fi
+  return 1
+}
+
+# resolve_dist <pin> <rev> — the engine tree for a pin in distribution
+# mode: this distribution itself when the pin is the one it carries, the
+# cache when present, otherwise a fresh verified download. A version pin
+# matches by version, a rev pin by revision: two versions can share a
+# revision, so the revision alone is not the pin. Only the path goes to
 # stdout.
 resolve_dist() {
-  local rev="$1" own="" dest
-  [[ -f $SNAILS_ROOT/REV ]] && own="$(<"$SNAILS_ROOT/REV")"
-  if [[ -n $own && $rev == "$own" ]]; then
+  local pin="$1" rev="$2" key dest
+  if pins_rev_is_version "$pin"; then
+    if [[ -n "$(dist_own_version)" && $pin == "$(dist_own_version)" ]]; then
+      printf '%s' "$SNAILS_ROOT"
+      return 0
+    fi
+  elif [[ -n "$(dist_own_rev)" && $rev == "$(dist_own_rev)" ]]; then
     printf '%s' "$SNAILS_ROOT"
     return 0
   fi
-  dest="$(dist_cache_dir "$rev")"
-  if [[ -f $dest/REV && $(<"$dest/REV") == "$rev" ]]; then
+  key="$(dist_cache_key "$pin" "$rev")"
+  dest="$(dist_cache_dir "$key")"
+  if dist_cache_matches "$key" "$pin" "$rev"; then
     printf '%s' "$dest"
     return 0
   fi
-  fetch_dist "$rev" || return 1
+  fetch_dist "$pin" "$rev" || return 1
   printf '%s' "$dest"
 }
 
-# verify_pin_dist <rev> — distribution-mode pin check: the revision
-# resolves through a published release (the distribution's own revision
-# always does). The presence of the checksum sidecar proves publication;
-# nothing is downloaded.
+# verify_pin_dist <pin> <rev> — distribution-mode pin check: the pin
+# resolves through a published release (the distribution's own pin always
+# does). A version pin names a version-tagged release, with the legacy
+# rev-release fallback; a rev pin names the rev release.
 verify_pin_dist() {
-  local rev="$1" own=""
-  [[ -f $SNAILS_ROOT/REV ]] && own="$(<"$SNAILS_ROOT/REV")"
-  if [[ -n $own && $rev == "$own" ]]; then
-    echo "[snails] SNALS_REV($rev) is this dist's own rev — usable"
+  local pin="$1" rev="$2" tag
+  if pins_rev_is_version "$pin"; then
+    if [[ -n "$(dist_own_version)" && $pin == "$(dist_own_version)" ]]; then
+      echo "[snails] SNALS_REV($pin) is this dist's own version — usable"
+      return 0
+    fi
+  elif [[ -n "$(dist_own_rev)" && $rev == "$(dist_own_rev)" ]]; then
+    echo "[snails] SNALS_REV($pin) is this dist's own rev — usable"
     return 0
   fi
-  if [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then
-    echo "[snails] SNALS_REV=$rev is not a full 40-hex rev — dist mode cannot resolve an abbreviated pin (bump it or use a checkout)" >&2
+  if pins_rev_is_version "$pin" && [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then
+    echo "[snails] SNALS_REV($pin) resolved to '$rev', not a full 40-hex rev — check the release tag" >&2
     return 1
   fi
-  if dist_download "rev-$rev" "snails-dist-$rev.tar.gz.sha256" /dev/null; then
-    echo "[snails] SNALS_REV($rev) is published — usable (release rev-$rev)"
+  if tag="$(dist_release_tag "$pin" "$rev")"; then
+    echo "[snails] SNALS_REV($pin) is published — usable (release $tag)"
+    return 0
+  fi
+  if pins_rev_is_version "$pin"; then
+    echo "[snails] SNALS_REV($pin) is not published — no reachable release $pin and no legacy release rev-$rev; publish the release, or check the version" >&2
   else
     # An unpublished full revision is an edge pin: it names content that
     # no release carries yet. The refusal explains the channel split; the
     # pin itself is not broken.
     echo "[snails] SNALS_REV($rev) is not published — no reachable release rev-$rev" >&2
     echo "[snails] this is an edge pin: use a snails checkout (SNAILS_DIR) for it, or pin a released vX.Y.Z version" >&2
-    return 1
   fi
+  return 1
 }
 
 # declared_spinel_checkout <rev> — the spinel rev declared by the pins
@@ -1215,14 +1317,14 @@ declared_spinel_checkout() {
   printf '%s' "$value"
 }
 
-# declared_spinel_dist <rev> — the spinel revision declared at <rev> in
-# distribution mode: this distribution's own pin when <rev> is its own REV,
-# the per-revision distribution cache next (a previous sync fetched that
-# tree), the release's pins.toml asset last. Return 0 with the value
-# printed; 1 = reached but declares none; 2 = not reachable (reported by the
-# caller).
+# declared_spinel_dist <pin> <rev> — the spinel revision declared by the
+# pin in distribution mode: this distribution's own pins file when the rev
+# is its own REV, the pin's distribution cache next (a previous sync
+# fetched that tree), the release's pins.toml asset last. Return 0 with the
+# value printed; 1 = reached but declares none; 2 = not reachable (reported
+# by the caller).
 declared_spinel_dist() {
-  local rev="$1" own="" dir value tmp
+  local pin="$1" rev="$2" own="" key dir value tmp tag
   [[ -f $SNAILS_ROOT/REV ]] && own="$(<"$SNAILS_ROOT/REV")"
   if [[ -n $own && $rev == "$own" ]]; then
     value="$(pins_declared_spinel "$SNAILS_ROOT/pins.toml")"
@@ -1230,7 +1332,8 @@ declared_spinel_dist() {
     printf '%s' "$value"
     return 0
   fi
-  dir="$(dist_cache_dir "$rev")"
+  key="$(dist_cache_key "$pin" "$rev")"
+  dir="$(dist_cache_dir "$key")"
   if [[ -f $dir/pins.toml ]]; then
     value="$(pins_declared_spinel "$dir/pins.toml")"
     if [[ -n $value ]]; then
@@ -1238,9 +1341,10 @@ declared_spinel_dist() {
       return 0
     fi
   fi
+  tag="$(dist_release_tag "$pin" "$rev")" || return 2
   tmp="$(mktemp)"
   TMPDIRS+=("$tmp")
-  dist_download "rev-$rev" "pins.toml" "$tmp" 2>/dev/null || return 2
+  dist_download "$tag" "pins.toml" "$tmp" 2>/dev/null || return 2
   value="$(pins_declared_spinel "$tmp")"
   [[ -n $value ]] || return 1
   printf '%s' "$value"
@@ -1404,9 +1508,9 @@ cmd_sync() {
   if [[ -n $rev && $from_checkout -eq 0 ]]; then
     if ((DIST_MODE)); then
       # There is no git here: the pin resolves through the distribution's
-      # own revision, the per-revision cache, then a verified download.
-      # Every failure is reported.
-      engine="$(resolve_dist "$rev")" || exit 1
+      # own version (or revision), the pin's cache entry, then a verified
+      # download. Every failure is reported.
+      engine="$(resolve_dist "$pin_declared" "$rev")" || exit 1
     else
       bash "$SNAILS_ROOT/cli/verify-pin.sh" "$rev" >&2
       engine="$(mktemp -d)"
@@ -1812,16 +1916,18 @@ cmd_verify_pin() {
     fi
   fi
   [[ -n $arg ]] || { echo "[snails] usage: snails verify-pin [rev|pins.toml] [--verbose]" >&2; exit 2; }
-  local rev="$arg"
+  local pin="$arg" rev="$arg"
   if [[ -f $arg ]]; then
-    rev="$(pins_rev "$arg")"
-    [[ -n $rev ]] || { echo "[snails] SNALS_REV unset in $arg" >&2; exit 1; }
+    pin="$(pins_rev "$arg")"
+    [[ -n $pin ]] || { echo "[snails] SNALS_REV unset in $arg" >&2; exit 1; }
     # A declared pin (full rev or vX.Y.Z version) resolves to its full
-    # rev — the same read rule sync and verify-pins apply.
-    rev="$(resolve_pin_rev "$rev" "$arg")" || exit 1
+    # rev — the same read rule sync and verify-pins apply. The declared
+    # value stays beside it: a version pin's assets live under its own
+    # release tag, and two versions can name the same rev.
+    rev="$(resolve_pin_rev "$pin" "$arg")" || exit 1
   fi
   if ((DIST_MODE)); then
-    verify_pin_dist "$rev"
+    verify_pin_dist "$pin" "$rev"
   elif ((verbose)); then
     bash "$SNAILS_ROOT/cli/verify-pin.sh" "$rev" --verbose
   else
@@ -1915,7 +2021,7 @@ cmd_verify_pins() {
   elif ! snals_resolved="$(resolve_pin_rev "$snals_rev" "$pins" 2>&1)"; then
     errors+=("$(printf '%s' "$snals_resolved" | tail -n1 | sed 's/^\[snails\] //')")
   elif ((DIST_MODE)); then
-    if out="$(verify_pin_dist "$snals_resolved" 2>&1)"; then
+    if out="$(verify_pin_dist "$snals_rev" "$snals_resolved" 2>&1)"; then
       snals_ok=1
     else
       errors+=("SNALS_REV($snals_rev): $(printf '%s' "$out" | tail -n1)")
@@ -1943,7 +2049,7 @@ cmd_verify_pins() {
     errors+=("SPINEL_REV is not declared")
   elif ((snals_ok)); then
     if ((DIST_MODE)); then
-      declared="$(declared_spinel_dist "$snals_resolved")" || rc=$?
+      declared="$(declared_spinel_dist "$snals_rev" "$snals_resolved")" || rc=$?
     else
       declared="$(declared_spinel_checkout "$snals_resolved")" || rc=$?
     fi
