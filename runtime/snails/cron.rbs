@@ -1,0 +1,17 @@
+module Snails
+  class Cron
+    @spec: String
+    @minutes: Array[Integer]
+    @hours: Array[Integer]
+    @days: Array[Integer]
+    @months: Array[Integer]
+    @wdays: Array[Integer]
+    @days_restricted: bool
+    @wdays_restricted: bool
+
+    def self.parse: (String spec) -> Cron
+
+    def bucket_start_at: (Integer epoch) -> Integer
+    def next_bucket_start_at: (Integer epoch) -> Integer
+  end
+end
