@@ -15,11 +15,11 @@
 # `@reboot`, `@noon`, full names, and hour 24 all fail at parse, with the field
 # and expression named in the message.
 #
-# Time is UTC epoch seconds. A day is one 86400-second step and the clock
-# fields are explicit sets, so a search costs one check per day it scans. The
-# longest gap between two occurrences is eight years (Feb 29 across a century
-# year that is not a leap year, such as 2100), so nine years is the search
-# limit: a schedule with no occurrence inside that span can never run.
+# Time is UTC epoch seconds. A day is one 86400-second step, and the hour and
+# minute values are precomputed, so a search costs one check per day it scans.
+# The longest gap between two occurrences is eight years (Feb 29 across a
+# century year that is not a leap year, such as 2100), so nine years is the
+# search limit: a schedule with no occurrence inside that span can never run.
 module Snails
   class Cron
     # Three-letter names, the only spelling `man 5 crontab` defines.
@@ -46,9 +46,10 @@ module Snails
     private_constant :MONTH_NAMES, :WEEKDAY_NAMES, :ALIASES, :MAX_SEARCH_DAYS
 
     # Parse one cron expression. Every check runs here — the grammar, the field
-    # ranges, and reachability — so a bad schedule fails where it is declared,
-    # not on the scheduler's first pass. A schedule with no reachable
-    # occurrence is rejected instead of becoming a job that silently never runs.
+    # ranges, and whether the schedule can ever run — so a bad schedule fails
+    # where it is declared, not on the scheduler's first pass. A schedule with
+    # no possible occurrence is rejected instead of becoming a job that
+    # silently never runs.
     #
     # @param expression [String] the five-field expression, or an `@...` alias
     # @return [Cron] the parsed expression
@@ -91,8 +92,8 @@ module Snails
     end
 
     # The values one field selects, ascending. Each comma part is `*`, a value,
-    # a range, or a step over either; a name is resolved before a number. The
-    # weekday field folds 7 into 0, so both Sunday spellings give one value.
+    # a range, or a step on one of them; a name is resolved before a number.
+    # The weekday field folds 7 into 0, so both Sunday spellings give one value.
     def self.field_values(expression, text, low, high, names, label)
       ranges = []
       text.split(",").each do |part|
