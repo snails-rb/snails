@@ -190,8 +190,8 @@ module ActiveJob
   # @param now [Time] the clock to floor
   # @return [Time] the interval window's start
   def self.scheduled_at_for(interval, now = Time.now.utc)
-    stamp = now.to_i
-    Time.at(stamp - (stamp % interval)).utc
+    now_seconds = now.to_i
+    Time.at(now_seconds - (now_seconds % interval)).utc
   end
 
   # one run of a recurring job: with an executor registered the enqueue goes
