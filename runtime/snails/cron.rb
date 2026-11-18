@@ -19,7 +19,7 @@
 # fields are explicit sets, so a search costs one check per day it scans. The
 # longest gap between two occurrences is eight years (Feb 29 across a century
 # year that is not a leap year, such as 2100), so nine years is the search
-# limit: a schedule with no occurrence inside that span can never fire.
+# limit: a schedule with no occurrence inside that span can never run.
 module Snails
   class Cron
     # Three-letter names, the only spelling `man 5 crontab` defines.
@@ -40,7 +40,7 @@ module Snails
 
     # The search limit in days. Feb 29 skipped at a non-leap century year is
     # the longest gap a schedule can have, so nine years covers every schedule
-    # that can fire at all.
+    # that can run at all.
     MAX_SEARCH_DAYS = 366 * 9
 
     private_constant :MONTH_NAMES, :WEEKDAY_NAMES, :ALIASES, :MAX_SEARCH_DAYS
@@ -84,7 +84,7 @@ module Snails
       schedule = new(text, minutes, hours, days, months, wdays,
                      days.length < 31, wdays.length < 7)
       # A schedule whose day and month fields never meet (Feb 30) would never
-      # fire. Resolving the first occurrence here makes that a registration
+      # run. Resolving the first occurrence here makes that a registration
       # failure instead of a silent no-op.
       schedule.occurrence_after(0)
       schedule
