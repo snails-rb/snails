@@ -2,7 +2,7 @@
 # `ActiveJob::Launcher.start` spawns one per worker thread, alongside the
 # scheduler loop.
 #
-# A recurring beat only enqueues the job; this loop executes it like any other.
+# A recurring callback only enqueues the job; this loop executes it like any other.
 
 module ActiveJob
   module Worker

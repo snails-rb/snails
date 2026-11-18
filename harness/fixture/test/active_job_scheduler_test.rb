@@ -3,8 +3,8 @@ require_relative "harness_runner"
 require_relative "test_database"
 
 # ActiveJob::Scheduler (core) — the periodic registry and loop. Pinned here:
-# a registered callback fires once per calendar bucket on the shared grid; a
-# fresh registration catches up the bucket it was registered in, so a restart
+# a registered callback runs once per interval window on the shared grid; a
+# fresh registration catches up the window it was registered in, so a restart
 # more frequent than the interval never starves it; the callback runs with its
 # own Sqlx::Database lease; and the clock is injectable so timing is testable
 # without sleeping. `ActiveJob::Launcher.start` runs the loop.
@@ -51,7 +51,7 @@ class JobSchedulerTest < TestBase
     assert_equal true, blocked
   end
 
-  # A non-positive interval would divide by zero in the bucket arithmetic,
+  # A non-positive interval would divide by zero in the window arithmetic,
   # so registration rejects it immediately instead of killing the loop on
   # the first run.
   def test_register_periodic_rejects_non_positive_seconds
@@ -73,12 +73,12 @@ class JobSchedulerTest < TestBase
     assert_equal 0, ActiveJob::Scheduler::PERIODIC.length
   end
 
-  # Due-ness is a calendar bucket — the same grid the recurring key
-  # stamps: a fresh registration fires the CURRENT bucket on its first
-  # run, then exactly once per new bucket, and buckets no run lived
-  # through are skipped rather than backfilled (one fire covers the
+  # Due-ness is an interval window — the same grid the recurring key
+  # uses: a fresh registration runs the CURRENT window on its first
+  # pass, then exactly once per new window, and windows no run lived
+  # through are skipped rather than backfilled (one run covers the
   # jump).
-  def test_bucket_change_gates_and_fires_once_per_bucket
+  def test_window_change_gates_and_runs_once_per_window
     boundary = Time.utc(2026, 10, 26, 0, 0, 0).to_i
     ActiveJob::Scheduler.register_periodic(300, -> { mark })
 
@@ -98,12 +98,12 @@ class JobSchedulerTest < TestBase
     assert_equal 3, marks
   end
 
-  # A restart inside a bucket cannot starve the beat: the fresh
-  # registration carries no bucket, so its first run claims the current
+  # A restart inside a window cannot starve the callback: the fresh
+  # registration carries no window, so its first run claims the current
   # one — a process alive at any moment of a long interval covers that
-  # interval's bucket (the store adapter's unique key drops the repeats
+  # interval's window (the store adapter's unique key drops the repeats
   # across processes and restarts).
-  def test_a_fresh_registration_catches_up_the_current_bucket
+  def test_a_fresh_registration_catches_up_the_current_window
     boundary = Time.utc(2026, 10, 26, 0, 0, 0).to_i
     ActiveJob::Scheduler.register_periodic(86_400, -> { mark })
 
@@ -162,8 +162,8 @@ end
 FixtureRunner.run(JobSchedulerTest, [
   "test_fire_due_callbacks_is_private",
   "test_register_periodic_rejects_non_positive_seconds",
-  "test_bucket_change_gates_and_fires_once_per_bucket",
-  "test_a_fresh_registration_catches_up_the_current_bucket",
+  "test_window_change_gates_and_runs_once_per_window",
+  "test_a_fresh_registration_catches_up_the_current_window",
   "test_raising_callback_does_not_stop_the_others",
   "test_loop_stopped_is_recorded",
   "test_run_failed_is_recorded"

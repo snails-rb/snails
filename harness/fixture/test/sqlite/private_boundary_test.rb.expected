@@ -1,4 +1,4 @@
-ok test_active_job_recurring_fire_is_private
+ok test_active_job_enqueue_recurring_is_private
 ok test_json_render_helpers_are_private
 ok test_router_helpers_are_private
 ok test_date_time_helpers_are_private

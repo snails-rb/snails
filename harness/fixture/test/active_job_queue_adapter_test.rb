@@ -215,7 +215,7 @@ class JobQueueAdapterTest < TestBase
     assert_equal 2, @capture.messages.length
   end
 
-  # `enqueue_once` (the recurring half) forwards the refusal so a beat does
+  # `enqueue_once` (the recurring half) forwards the refusal so a callback does
   # not claim a run that was dropped.
   def test_enqueue_once_answers_false_when_the_queue_is_full
     fill_process_queue(ActiveJob::ProcessQueue::MAX_PENDING)

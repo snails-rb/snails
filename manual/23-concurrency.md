@@ -57,10 +57,10 @@ That still leaves one gap: a connection pinned to the busy worker waits for the 
 | `Snails.cache` | No — one store per process |
 | `ActiveJob::ProcessQueue` | No — jobs live in the process that enqueued them |
 | `ActiveJob::DatabaseQueue` rows | Yes — any process with the same database can drain them |
-| `ActiveJob::Scheduler` recurring beats | No — each process runs its own beat; the DB queue's interval record deduplicates the enqueue |
+| `ActiveJob::Scheduler` periodic callbacks | No — each process runs its own callback; the DB queue's interval record deduplicates the enqueue |
 | Open database connections | No — one pool per process |
 
-If a value must be visible to another process, put it in the database. If work must survive a restart, use the DB queue. If a recurring job must fire once across processes, `ActiveJob.recurring` with the DB queue is the one that deduplicates recurring runs by interval window.
+If a value must be visible to another process, put it in the database. If work must survive a restart, use the DB queue. If a recurring job must run once across processes, `ActiveJob.recurring` with the DB queue is the one that deduplicates recurring runs by interval window.
 
 ## The request boundary
 

@@ -12,9 +12,9 @@ class PrivateBoundaryTest < TestBase
     raise "expected #{label}##{name} to be private"
   end
 
-  # The recurring fire helper is internal: `recurring` is the public
-  # declaration, so an app calling the fire helper is refused.
-  def test_active_job_recurring_fire_is_private
+  # The recurring enqueue helper is internal: `recurring` is the public
+  # declaration, so an app calling `enqueue_recurring` is refused.
+  def test_active_job_enqueue_recurring_is_private
     begin
       ActiveJob.enqueue_recurring(JSON.parse("{}"))
     rescue NoMethodError
@@ -180,7 +180,7 @@ class PrivateBoundaryTest < TestBase
 end
 
 FixtureRunner.run(PrivateBoundaryTest, [
-  "test_active_job_recurring_fire_is_private",
+  "test_active_job_enqueue_recurring_is_private",
   "test_json_render_helpers_are_private",
   "test_router_helpers_are_private",
   "test_date_time_helpers_are_private",
