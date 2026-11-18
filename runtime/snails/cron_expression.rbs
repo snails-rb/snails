@@ -1,5 +1,5 @@
 module Snails
-  class Cron
+  class CronExpression
     @expression: String
     @minutes: Array[Integer]
     @hours: Array[Integer]
@@ -9,7 +9,7 @@ module Snails
     @days_restricted: bool
     @wdays_restricted: bool
 
-    def self.parse: (String expression) -> Cron
+    def self.parse: (String expression) -> CronExpression
 
     def occurrence_at_or_before: (Integer now) -> Integer
     def occurrence_after: (Integer now) -> Integer

@@ -12,4 +12,4 @@ ok test_parse_rejects_nil
 ok test_impossible_day_is_rejected
 ok test_field_helpers_are_private
 ok test_day_steps_are_private
-CronTest: 14 tests passed
+CronExpressionTest: 14 tests passed
