@@ -8,12 +8,13 @@
 # Snails
 
 [![ci](https://github.com/snails-rb/snails/actions/workflows/ci.yml/badge.svg)](https://github.com/snails-rb/snails/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/snails-rb/snails?display_name=release&label=version)](https://github.com/snails-rb/snails/releases/latest)
 
 Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions, drops the Ruby runtime, and compiles the app into one native binary. One process uses every core, with about 3× the throughput and 10× lower peak memory under load than Rails in cluster mode.
 
 The repo is split into the framework (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). An app vendors `runtime/` as `snails-core/` and pins the revision in `pins.toml`.
 
-Status: 1.0. The public API is stable.
+Status: 1.x. The public API is stable.
 
 ## Why Snails
 
