@@ -15,8 +15,8 @@ module ActiveJob
     # Queue records a dead process's job the same way).
     ORPHANED_AFTER = 1.hour
 
-    # What a row's `last_error` says when the window fires. It names the window
-    # above, so an operator reading the row sees the rule that applied.
+    # What a row's `last_error` says when the orphan window passes. It names the
+    # window above, so an operator reading the row sees the rule that applied.
     ORPHANED_ERROR = "orphaned run: no completion within 1 hour"
 
     # The most rows one drain runs — the rest waits for the next
@@ -92,17 +92,17 @@ module ActiveJob
     end
 
     # the recurring half: one row per (name, interval start), so several
-    # processes firing the same beat still queue the occurrence once. The ledger
-    # insert and the queue row are one transaction — a ledger collision (another
-    # process won) answers false with no row written, so the ledger can never
-    # keep an occurrence whose row was lost. A one-off `enqueue_at` never comes
-    # through here.
+    # processes running the same callback still queue the occurrence once. The
+    # ledger insert and the queue row are one transaction — a ledger collision
+    # (another process won) answers false with no row written, so the ledger can
+    # never keep an occurrence whose row was lost. A one-off `enqueue_at` never
+    # comes through here.
     #
     # @param name [String] the job's name — the stored constant path
     # @param work [Proc] the job, closed over its arguments (unused here)
     # @param payload [Object, nil] the serializable arguments (unused —
-    #   a recurring beat carries none)
-    # @param scheduled_at [Time] the interval's start, as the beat
+    #   a recurring job carries none)
+    # @param scheduled_at [Time] the interval's start, as the callback
     #   computed it (`ActiveJob.scheduled_at_for`)
     # @return [Boolean] true when this call queued the occurrence
     def self.enqueue_once(name, work, payload, scheduled_at)
@@ -325,7 +325,7 @@ module ActiveJob
     # status transition. A row is never returned to pending: the original run
     # may still be alive, and a second execution would duplicate its work.
     #
-    # @param now [Time] the finish stamp for the recorded rows
+    # @param now [Time] the finish time for the recorded rows
     # @return [Integer] the number of rows recorded as failed
     def self.release_orphaned!(now)
       Snails::Queue::Job.update_all!(

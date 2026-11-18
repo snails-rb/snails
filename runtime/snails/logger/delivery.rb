@@ -114,11 +114,11 @@ module Snails
         end
       end
 
-      # put the periodic flush beat on this process's scheduler.
+      # put the periodic flush callback on this process's scheduler.
       # `ActiveJob::Launcher.start` calls it once, before it spawns the loops,
       # so the registry is never written while the scheduler iterates it. The
-      # flag makes a second call a no-op: a forked child inherits the beat and
-      # the flag together, or neither.
+      # flag makes a second call a no-op: a forked child inherits the callback
+      # and the flag together, or neither.
       #
       # @return [void]
       def register_flush

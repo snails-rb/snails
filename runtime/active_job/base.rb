@@ -125,21 +125,21 @@ module ActiveJob
   end
 
   # The recurring registrations, one Hash per entry (the `PERIODIC` shape) —
-  # `recurring` appends here and the wired beat carries the entry, so the
-  # registry is what boot-time introspection and the contract tests read.
+  # `recurring` appends here and the periodic callback carries the entry, so
+  # the registry is what boot-time introspection and the contract tests read.
   RECURRING = []
 
   # one call declares a job that runs once per `interval` seconds. The class
   # carries the job contract (`Base`) — `job_name` (the key) and a class-side
-  # `perform` — and the registration wires the beat (the scheduler's periodic
-  # registry; each fire enqueues once per interval — the interval's start
-  # (`scheduled_at_for`) goes to `enqueue_once`, where a second enqueue for the
-  # same (name, scheduled_at) must be a no-op, so several server processes
-  # firing the same beat still run the job once). There is no handler catalog: a
-  # cross-process drain resolves the stored name itself — `Object.const_get` —
-  # so the registration's class is what must be compiled in. The beat's run proc
-  # takes no argument (a process-local adapter runs it as the job). Call it
-  # after the adapter is selected.
+  # `perform` — and the registration wires the periodic callback (the
+  # scheduler's registry; each run enqueues once per interval — the interval's
+  # start (`scheduled_at_for`) goes to `enqueue_once`, where a second enqueue
+  # for the same (name, scheduled_at) must be a no-op, so several server
+  # processes running the same callback still run the job once). There is no
+  # handler catalog: a cross-process drain resolves the stored name itself —
+  # `Object.const_get` — so the registration's class is what must be compiled
+  # in. The callback's work proc takes no argument (a process-local adapter
+  # runs it as the job). Call it after the adapter is selected.
   #
   # @param job_class [Class] the job class — `job_name` + class-side `perform`
   # @param interval [Integer] seconds between runs
@@ -149,14 +149,14 @@ module ActiveJob
   def self.recurring(job_class, interval)
     name = job_class.job_name
     entry = { "name" => name, "interval" => interval, "work" => -> { job_class.perform(nil) } }
-    # Register the beat first: a rejected interval (register_periodic
+    # Register the callback first: a rejected interval (register_periodic
     # validates) must not leave a half-registered RECURRING entry.
     Scheduler.register_periodic(interval, -> { enqueue_recurring(entry) })
     RECURRING << entry
   end
 
-  # the run key a recurring fire enqueues with: the interval's start (`now`
-  # floored to the interval) as a Time, so every process firing inside the same
+  # the key a recurring run enqueues with: the interval's start (`now`
+  # floored to the interval) as a Time, so every process running inside the same
   # interval computes the same value and the adapter's unique key drops the
   # repeats.
   #
@@ -168,13 +168,13 @@ module ActiveJob
     Time.at(stamp - (stamp % interval)).utc
   end
 
-  # one fire of a recurring job: with an executor registered the enqueue goes
+  # one run of a recurring job: with an executor registered the enqueue goes
   # through the adapter once per interval (`enqueue_once` with the interval's
   # start from `scheduled_at_for`); with none the body runs at the call site,
   # the `enqueue` rule (a queue nobody drains is a silent loss). `now` is
   # injectable so the contract is testable without sleeping.
   #
-  # Private on purpose: `recurring` is the public declaration; this fire
+  # Private on purpose: `recurring` is the public declaration; this run
   # helper is free to change without notice.
   def self.enqueue_recurring(entry, now = Time.now.utc)
     if executor_registered
@@ -194,11 +194,11 @@ module ActiveJob
   # the method bodies stay raising stubs (the `Sqlx::Base` pattern). A job that
   # forgot a body raises with the contract named, wherever it was driven from.
   class Base
-    # the key the job registers and is dispatched under: the recurring beat's
-    # name, the adapter's handler catalog entry, and the name a store-backed
-    # drain resolves back to the class all use it. The base derives it from the
-    # class name (`name`); a job overrides this method when the key must differ
-    # — for cross-process dispatch the key must stay a constant path
+    # the key the job registers and is dispatched under: the recurring
+    # registration's name, the adapter's handler catalog entry, and the name a
+    # store-backed drain resolves back to the class all use it. The base derives
+    # it from the class name (`name`); a job overrides this method when the key
+    # must differ — for cross-process dispatch the key must stay a constant path
     # (`Object.const_get` resolves it on the store-backed drain).
     #
     # @return [String] the job's name — the class name by default; not
@@ -215,11 +215,11 @@ module ActiveJob
 
     # the job body, a class method: every runtime-driven path calls it with one
     # argument — `data` is the decoded payload, nil for a payload-less job — so
-    # one call shape covers both (`recurring`'s beat, `enqueue`, a store-backed
+    # one call shape covers both (`recurring`'s callback, `enqueue`, a store-backed
     # drain); a job that takes no arguments still declares the parameter and
     # ignores it. The runtime never instantiates a job. The base raises so a job
     # that forgot the body raises with the contract named instead of a bare
-    # `NoMethodError` at its first fire.
+    # `NoMethodError` at its first run.
     #
     # @param data [Object, nil] the decoded payload, nil for a payload-less job
     # @return [void] the body's result is not used

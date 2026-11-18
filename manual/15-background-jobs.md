@@ -44,7 +44,7 @@ For work that should happen again and again, register a recurring job:
 ActiveJob.recurring(CommentDigestJob, 300)
 ```
 
-The beat fires once per interval window — each interval is aligned to a fixed clock boundary, so two processes firing inside the same window compute the same start time. The current window is caught up on the first pass; windows that passed while no process was alive are not backfilled. Each fire enqueues the job; the worker loop executes it like any other job.
+The job runs once per interval window — each window is aligned to a fixed clock boundary, so two processes enqueuing inside the same window compute the same start time. The current window is caught up on the first pass; windows that passed while no process was alive are not backfilled. Each run enqueues the job, and the worker loop executes it like any other job.
 
 ## Choose a queue adapter
 

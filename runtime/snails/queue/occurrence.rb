@@ -1,6 +1,6 @@
 # The recurring-occurrence ledger (`snails_queue_occurrences`) has one row per
-# (job_name, interval start); its unique key ensures a recurring beat is
-# enqueued once when several processes fire it.
+# (job_name, interval start); its unique key ensures a recurring callback
+# enqueues its job once when several processes run it.
 #
 # `enqueue_once` writes both rows in one transaction; `enqueue_at` writes no ledger.
 module Snails
@@ -8,14 +8,14 @@ module Snails
     class Occurrence < Sqlx::Base
       def self.table_name = "snails_queue_occurrences"
 
-      # The projected columns — the ledger's identity and its write stamp,
+      # The projected columns — the ledger's identity and its creation time,
       # with a reader generated for each (the hash-backed accessor loop:
       # one list, `only_columns` derives from it).
       COLUMNS = %w[job_name scheduled_at created_at].each { |column| define_method(column) { read_attribute(column) } }
 
       def self.only_columns = COLUMNS.map { |c| c.to_sym }
 
-      # Time columns: identity (`scheduled_at`) and stamp (`created_at`)
+      # Time columns: identity (`scheduled_at`) and creation time (`created_at`)
       # come back as `Time`; the list replaces the default pair.
       def self.datetime_columns = %w[scheduled_at created_at]
 
@@ -27,7 +27,7 @@ module Snails
       #
       # @param job_name [String] the job's name — the stored constant path
       # @param scheduled_at [Time] the interval's start
-      # @param now [Time] the created stamp
+      # @param now [Time] the creation time
       # @return [void]
       # @raise [Sqlx::RecordNotUnique] this occurrence is already on the
       #   ledger

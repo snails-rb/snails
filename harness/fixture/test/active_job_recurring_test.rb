@@ -16,9 +16,9 @@ class RecurringSink
 end
 
 # ActiveJob recurring (core) — the one-call declaration: `recurring`
-# takes the job class and wires the worker-loop beat, and each beat fire
+# takes the job class and wires the periodic callback, and each run
 # enqueues the job once per interval (`scheduled_at` — the interval's
-# start). Pinned here: the registration record and the beat; the
+# start). Pinned here: the registration record and the callback; the
 # once-per-interval enqueue through the selected adapter; a drain-less
 # context still runs at the call site; and the default adapter carries
 # the recurring half (ProcessQueue delegates to its own enqueue).
@@ -37,9 +37,9 @@ class JobRecurringTest < TestBase
     raise(msg || "expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual
   end
 
-  # One call records the registration and wires exactly one worker-loop
-  # beat carrying the interval.
-  def test_recurring_registers_the_beat
+  # One call records the registration and wires exactly one periodic callback
+  # carrying the interval.
+  def test_recurring_registers_the_callback
     ActiveJob.queue_adapter = UniqueQueueAdapter
     ActiveJob.recurring(RecurringTickJob, 300)
     assert_equal 1, ActiveJob::RECURRING.length
@@ -49,7 +49,7 @@ class JobRecurringTest < TestBase
   end
 
   # A rejected interval registers nothing: no half-recorded RECURRING
-  # entry and no worker-loop beat.
+  # entry and no registered callback.
   def test_a_non_positive_interval_registers_nothing
     zero = false
     begin
@@ -72,10 +72,10 @@ class JobRecurringTest < TestBase
     assert_equal 0, ActiveJob::Scheduler::PERIODIC.length
   end
 
-  # Driving the beat enqueues the job with the interval's `scheduled_at`
-  # through the selected adapter; a second fire in the same interval is a
+  # Driving the callback enqueues the job with the interval's `scheduled_at`
+  # through the selected adapter; a second run in the same interval is a
   # no-op (the adapter's unique key), so nothing runs at enqueue time.
-  def test_beat_enqueues_once_per_interval
+  def test_callback_enqueues_once_per_interval
     ActiveJob.queue_adapter = UniqueQueueAdapter
     ActiveJob.recurring(RecurringTickJob, 300)
     ActiveJob.register_executor
@@ -145,9 +145,9 @@ class UniqueQueueAdapter
 end
 
 FixtureRunner.run(JobRecurringTest, [
-  "test_recurring_registers_the_beat",
+  "test_recurring_registers_the_callback",
   "test_a_non_positive_interval_registers_nothing",
-  "test_beat_enqueues_once_per_interval",
+  "test_callback_enqueues_once_per_interval",
   "test_no_executor_runs_at_the_call_site",
   "test_process_queue_carries_enqueue_once",
   "test_enqueue_once_answers_whether_it_enqueued"

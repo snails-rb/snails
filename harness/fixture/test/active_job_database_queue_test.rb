@@ -46,7 +46,7 @@ end
 # row instead of vanishing, and a delivery failure (no handler here, or an
 # unreadable payload) waits there until its attempt limit turns it into a
 # failed row; a claim from a dead process is recorded failed after the
-# window and never re-queued; a recurring beat queues once per interval
+# window and never re-queued; a recurring callback queues once per interval
 # start through the ledger, while a one-off schedule keeps every distinct
 # payload. The setup rebuilds the queue tables from the shipped DDL
 # template each case — the template and the model declarations are one
@@ -237,7 +237,7 @@ class DatabaseQueueAdapterTest < TestBase
   # A payload that is not valid JSON is a delivery failure too: the name
   # resolves but the row cannot be executed, so the body never runs. The
   # row waits in pending with the payload reason and no started/finished
-  # stamp.
+  # time.
   def test_a_payload_that_cannot_be_decoded_is_deferred
     ActiveJob.register_executor
     insert_unreadable_payload_row
@@ -324,7 +324,7 @@ class DatabaseQueueAdapterTest < TestBase
 
   # The recurring hand-off is idempotent per interval start: the
   # ledger's (job name, interval start) key drops the second call, so
-  # several processes firing the same beat still queue one row — the
+  # several processes running the same callback still queue one row — the
   # first caller answers true, the duplicate false.
   def test_enqueue_once_is_idempotent_per_interval_start
     slot = Time.now.utc
@@ -337,7 +337,7 @@ class DatabaseQueueAdapterTest < TestBase
   end
 
   # The occurrence lands on the ledger in the same transaction as the
-  # queue row — one ledger row per beat, stored as a time value.
+  # queue row — one ledger row per callback, stored as a time value.
   def test_enqueue_once_records_the_occurrence
     slot = Time.now.utc
     ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, slot)
@@ -347,7 +347,7 @@ class DatabaseQueueAdapterTest < TestBase
     assert_time_column(table)
   end
 
-  # The interval start the beat computed travels as a Time and lands
+  # The interval start the callback computed travels as a Time and lands
   # as a time value — an integer epoch would store as a number and the
   # time columns would no longer read as times.
   def test_enqueue_once_stores_the_interval_start_as_a_time

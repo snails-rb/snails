@@ -16,10 +16,10 @@ module Snails
 
       # one prune run: both tables share the window, so a queue and its ledger
       # never disagree about what is old. Each table repeats its bounded delete
-      # until a short batch says the backlog is gone. Carries no payload (the beat
-      # passes nil).
+      # until a short batch says the backlog is gone. Carries no payload (the
+      # callback passes nil).
       #
-      # @param data [Object, nil] unused — a recurring beat carries none
+      # @param data [Object, nil] unused — a recurring job carries none
       # @return [void]
       def self.perform(data)
         before = RETENTION.ago

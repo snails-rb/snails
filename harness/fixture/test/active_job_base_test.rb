@@ -85,7 +85,7 @@ class JobBaseTest < TestBase
   end
 
   # Missing body: registration succeeds (the name derives), and the
-  # beat's fire raises the spec's message when it runs the job.
+  # callback's run raises the spec's message when it runs the job.
   def test_missing_perform_fails_loud
     ActiveJob.recurring(NoBodyJob, 300)
     begin
