@@ -1,0 +1,15 @@
+ok test_daily_occurrence
+ok test_stepped_minutes
+ok test_multiple_hours
+ok test_weekday_range
+ok test_month_names
+ok test_day_or_weekday
+ok test_leap_day
+ok test_aliases
+ok test_name_and_whitespace_forms
+ok test_parse_rejections
+ok test_parse_rejects_nil
+ok test_impossible_day_is_rejected
+ok test_field_helpers_are_private
+ok test_day_steps_are_private
+CronTest: 14 tests passed
