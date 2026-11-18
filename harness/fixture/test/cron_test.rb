@@ -123,6 +123,7 @@ class CronTest < TestBase
     assert_equal true, rejects("0 24 * * *")
     assert_equal true, rejects("*/0 * * * *")
     assert_equal true, rejects("*/x * * * *")
+    assert_equal true, rejects("5/10 * * * *")
     assert_equal true, rejects("0 6 * * 5-1")
     assert_equal true, rejects("0 6 * FOO *")
     assert_equal true, rejects("0 0 * * SUNDAY")

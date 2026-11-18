@@ -128,9 +128,12 @@ module Snails
             end
             ranges << [ first, last, step ]
           else
+            if slash.length == 2
+              raise ArgumentError, field_error_message(expression, label, part,
+                                                       "a step needs '*' or a range (a-b/step)")
+            end
             value = field_value(expression, label, stem, low, high, names)
-            last = slash.length == 2 ? high : value
-            ranges << [ value, last, step ]
+            ranges << [ value, value, 1 ]
           end
         end
       end
