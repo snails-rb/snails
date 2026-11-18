@@ -155,6 +155,29 @@ class CronTest < TestBase
     assert_equal true, rejects("0 0 30 2 *")
     assert_equal true, rejects("0 0 31 4 *")
   end
+
+  # The field helpers are private: `parse` is the only way in, and an outside
+  # call is refused instead of quietly answering.
+  def test_field_helpers_are_private
+    begin
+      Snails::Cron.field_values("0 6 * * *", "0", 0, 59, [], "minute")
+    rescue NoMethodError
+      return
+    end
+    raise "expected Snails::Cron.field_values to be private"
+  end
+
+  # The day steps are private too; an app reaches the schedule through the two
+  # occurrence queries.
+  def test_day_steps_are_private
+    cron = Snails::Cron.parse("0 6 * * *")
+    begin
+      cron.day_matches?(0)
+    rescue NoMethodError
+      return
+    end
+    raise "expected Snails::Cron#day_matches? to be private"
+  end
 end
 
 FixtureRunner.run(CronTest, [
@@ -169,5 +192,7 @@ FixtureRunner.run(CronTest, [
   "test_name_and_whitespace_forms",
   "test_parse_rejections",
   "test_parse_rejects_nil",
-  "test_impossible_day_is_rejected"
+  "test_impossible_day_is_rejected",
+  "test_field_helpers_are_private",
+  "test_day_steps_are_private"
 ])

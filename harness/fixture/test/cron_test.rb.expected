@@ -10,4 +10,6 @@ ok test_name_and_whitespace_forms
 ok test_parse_rejections
 ok test_parse_rejects_nil
 ok test_impossible_day_is_rejected
-CronTest: 12 tests passed
+ok test_field_helpers_are_private
+ok test_day_steps_are_private
+CronTest: 14 tests passed

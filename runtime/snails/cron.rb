@@ -91,6 +91,92 @@ module Snails
       schedule
     end
 
+    # `parse` is the entry point; the constructor takes the validated fields,
+    # so an instance holds the parsed schedule and nothing else.
+    def initialize(expression, minutes, hours, days, months, wdays,
+                   days_restricted, wdays_restricted)
+      @expression = expression
+      @minutes = minutes
+      @hours = hours
+      @days = days
+      @months = months
+      @wdays = wdays
+      @days_restricted = days_restricted
+      @wdays_restricted = wdays_restricted
+    end
+
+    # The latest occurrence at or before `now`, as epoch seconds. A process
+    # that starts after an occurrence's time still runs it once, and the unique
+    # (job_name, scheduled_at) key keeps another process from enqueueing it
+    # again.
+    #
+    # @param now [Integer] the instant to look back from, as epoch seconds
+    # @return [Integer] the occurrence's time, as epoch seconds
+    # @raise [ArgumentError] no occurrence falls within the search limit
+    # @example
+    #   cron = Snails::Cron.parse("0 6 * * *")
+    #   cron.occurrence_at_or_before(Time.utc(2026, 11, 18, 7, 0).to_i)
+    #   # => the epoch second of 2026-11-18 06:00 UTC
+    def occurrence_at_or_before(now)
+      day = start_of_day(now)
+      index = 0
+      found = -1
+      while found < 0 && index <= MAX_SEARCH_DAYS
+        if day_matches?(day)
+          @hours.each do |hour|
+            @minutes.each do |minute|
+              candidate = day + hour * 3600 + minute * 60
+              if candidate <= now
+                found = candidate
+              end
+            end
+          end
+        end
+        day = day - 86400
+        index = index + 1
+      end
+      if found < 0
+        raise ArgumentError, "cron schedule " + @expression.inspect +
+                             " has no occurrence within " + MAX_SEARCH_DAYS.to_s + " days"
+      end
+      found
+    end
+
+    # The first occurrence strictly after `now`, as epoch seconds. The
+    # scheduler advances its next due time with this.
+    #
+    # @param now [Integer] the instant to look forward from, as epoch seconds
+    # @return [Integer] the occurrence's time, as epoch seconds
+    # @raise [ArgumentError] no occurrence falls within the search limit
+    # @example
+    #   cron = Snails::Cron.parse("0 6 * * *")
+    #   cron.occurrence_after(Time.utc(2026, 11, 18, 6, 0).to_i)
+    #   # => the epoch second of 2026-11-19 06:00 UTC
+    def occurrence_after(now)
+      day = start_of_day(now)
+      index = 0
+      found = -1
+      while found < 0 && index <= MAX_SEARCH_DAYS
+        if day_matches?(day)
+          @hours.each do |hour|
+            @minutes.each do |minute|
+              candidate = day + hour * 3600 + minute * 60
+              if candidate > now && found < 0
+                found = candidate
+              end
+            end
+          end
+        end
+        day = day + 86400
+        index = index + 1
+      end
+      if found < 0
+        raise ArgumentError, "cron schedule " + @expression.inspect +
+                             " has no occurrence within " + MAX_SEARCH_DAYS.to_s + " days"
+      end
+      found
+    end
+
     # The values one field selects, ascending. Each comma part is `*`, a value,
     # or a range, and a step may follow `*` or a range; a name is resolved
     # before a number. The weekday field folds 7 into 0, so both Sunday
@@ -197,95 +283,9 @@ module Snails
       "cron " + label + " field " + token.inspect + " in " + expression.inspect + ": " + reason
     end
 
+    # private on purpose: `parse` is the only entry point, and these field
+    # helpers serve it.
     private_class_method :field_values, :field_value, :digits_only?, :field_error_message
-
-    # `parse` is the entry point; the constructor takes the validated fields,
-    # so an instance holds the parsed schedule and nothing else.
-    def initialize(expression, minutes, hours, days, months, wdays,
-                   days_restricted, wdays_restricted)
-      @expression = expression
-      @minutes = minutes
-      @hours = hours
-      @days = days
-      @months = months
-      @wdays = wdays
-      @days_restricted = days_restricted
-      @wdays_restricted = wdays_restricted
-    end
-
-    # The latest occurrence at or before `now`, as epoch seconds. A process
-    # that starts after an occurrence's time still runs it once, and the unique
-    # (job_name, scheduled_at) key keeps another process from enqueueing it
-    # again.
-    #
-    # @param now [Integer] the instant to look back from, as epoch seconds
-    # @return [Integer] the occurrence's time, as epoch seconds
-    # @raise [ArgumentError] no occurrence falls within the search limit
-    # @example
-    #   cron = Snails::Cron.parse("0 6 * * *")
-    #   cron.occurrence_at_or_before(Time.utc(2026, 11, 18, 7, 0).to_i)
-    #   # => the epoch second of 2026-11-18 06:00 UTC
-    def occurrence_at_or_before(now)
-      day = start_of_day(now)
-      index = 0
-      found = -1
-      while found < 0 && index <= MAX_SEARCH_DAYS
-        if day_matches?(day)
-          @hours.each do |hour|
-            @minutes.each do |minute|
-              candidate = day + hour * 3600 + minute * 60
-              if candidate <= now
-                found = candidate
-              end
-            end
-          end
-        end
-        day = day - 86400
-        index = index + 1
-      end
-      if found < 0
-        raise ArgumentError, "cron schedule " + @expression.inspect +
-                             " has no occurrence within " + MAX_SEARCH_DAYS.to_s + " days"
-      end
-      found
-    end
-
-    # The first occurrence strictly after `now`, as epoch seconds. The
-    # scheduler advances its next due time with this.
-    #
-    # @param now [Integer] the instant to look forward from, as epoch seconds
-    # @return [Integer] the occurrence's time, as epoch seconds
-    # @raise [ArgumentError] no occurrence falls within the search limit
-    # @example
-    #   cron = Snails::Cron.parse("0 6 * * *")
-    #   cron.occurrence_after(Time.utc(2026, 11, 18, 6, 0).to_i)
-    #   # => the epoch second of 2026-11-19 06:00 UTC
-    def occurrence_after(now)
-      day = start_of_day(now)
-      index = 0
-      found = -1
-      while found < 0 && index <= MAX_SEARCH_DAYS
-        if day_matches?(day)
-          @hours.each do |hour|
-            @minutes.each do |minute|
-              candidate = day + hour * 3600 + minute * 60
-              if candidate > now && found < 0
-                found = candidate
-              end
-            end
-          end
-        end
-        day = day + 86400
-        index = index + 1
-      end
-      if found < 0
-        raise ArgumentError, "cron schedule " + @expression.inspect +
-                             " has no occurrence within " + MAX_SEARCH_DAYS.to_s + " days"
-      end
-      found
-    end
-
-    private
 
     # Whether the UTC day starting at `day` matches the month, day-of-month,
     # and day-of-week fields. Crontab's OR rule: when both day fields are
@@ -313,5 +313,9 @@ module Snails
     def start_of_day(now)
       now - (now % 86400)
     end
+
+    # private on purpose: the two occurrence queries are the public surface,
+    # and these day steps serve them.
+    private :day_matches?, :start_of_day
   end
 end
