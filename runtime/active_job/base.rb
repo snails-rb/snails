@@ -142,18 +142,20 @@ module ActiveJob
   # so the registration's class is what must be compiled in. The job body runs
   # as a zero-argument proc (a process-local adapter runs it as the job). Call
   # it after the adapter is selected. Times are UTC: the interval grid is based
-  # on epoch seconds, and a cron expression is evaluated in UTC.
+  # on epoch seconds, and a cron expression is evaluated in UTC. A new
+  # registration starts at the next occurrence: an occurrence that passed while
+  # no process was alive is not caught up.
   #
   # @param job_class [Class] the job class — `job_name` + class-side `perform`
-  # @param interval [Integer, nil] seconds between runs, or nil when `schedule:`
-  #   is given
+  # @param interval [Integer, Snails::Duration, nil] seconds between runs, or nil
+  #   when `schedule:` is given
   # @param schedule [String, nil] a five-field cron expression in UTC, or nil
   #   when `interval` is given
   # @return [void]
   # @raise [ArgumentError] both forms or neither, a non-positive interval, or an
   #   expression the cron grammar rejects
   # @example
-  #   ActiveJob.recurring(CleanupJob, 300)
+  #   ActiveJob.recurring(CleanupJob, 5.minutes)
   #   ActiveJob.recurring(PruneRollupJob, schedule: "0 6 * * *")
   def self.recurring(job_class, interval = nil, schedule: nil)
     if interval != nil && schedule != nil
@@ -161,6 +163,9 @@ module ActiveJob
     end
     if interval == nil && schedule == nil
       raise ArgumentError, "recurring needs an interval in seconds or a schedule: cron expression"
+    end
+    if interval.is_a?(Snails::Duration)
+      interval = interval.to_i
     end
     name = job_class.job_name
     entry = { "name" => name, "interval" => nil, "cron" => nil, "work" => -> { job_class.perform(nil) } }

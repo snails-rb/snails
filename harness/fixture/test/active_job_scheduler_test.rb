@@ -4,11 +4,11 @@ require_relative "test_database"
 
 # ActiveJob::Scheduler (core) — the periodic registry and loop. Pinned here:
 # a registered callback runs once per occurrence — the interval form's window
-# start, or the cron form's scheduled time; a fresh registration catches up the
-# occurrence that covers the first pass, so a restart more frequent than the
-# schedule never starves it; the callback runs with its own Sqlx::Database
-# lease; and the clock is injectable so timing is testable without sleeping.
-# `ActiveJob::Launcher.start` runs the loop.
+# start, or the cron form's scheduled time; a fresh registration adopts the
+# occurrence that covers its first pass without running it, so a late start
+# waits for the next occurrence instead of catching up; the callback runs with
+# its own Sqlx::Database lease; and the clock is injectable so timing is
+# testable without sleeping. `ActiveJob::Launcher.start` runs the loop.
 class JobSchedulerTest < TestBase
   def setup
     TestDatabase.configure!("active_job_scheduler")
@@ -75,92 +75,95 @@ class JobSchedulerTest < TestBase
   end
 
   # Due-ness is an interval window — the same grid the recurring key
-  # uses: a fresh registration runs the CURRENT window on its first
-  # pass, then exactly once per new window, and windows no run lived
-  # through are skipped rather than backfilled (one run covers the
-  # jump).
+  # uses: a fresh registration adopts the CURRENT window on its first
+  # pass without running it, then runs exactly once per new window, and
+  # windows no run lived through are skipped rather than backfilled.
   def test_window_change_gates_and_runs_once_per_window
     boundary = Time.utc(2026, 10, 26, 0, 0, 0).to_i
     ActiveJob::Scheduler.register_interval(300, ->(_occurrence) { mark })
 
     ActiveJob::Scheduler.run_periodic(boundary + 10)
-    assert_equal 1, marks
+    assert_equal 0, marks
 
     ActiveJob::Scheduler.run_periodic(boundary + 200)
-    assert_equal 1, marks
+    assert_equal 0, marks
 
     ActiveJob::Scheduler.run_periodic(boundary + 300)
-    assert_equal 2, marks
+    assert_equal 1, marks
 
     ActiveJob::Scheduler.run_periodic(boundary + 305)
-    assert_equal 2, marks
+    assert_equal 1, marks
 
     ActiveJob::Scheduler.run_periodic(boundary + 900)
-    assert_equal 3, marks
+    assert_equal 2, marks
   end
 
-  # A restart inside a window cannot starve the callback: the fresh
-  # registration carries no window, so its first run claims the current
-  # one — a process alive at any moment of a long interval covers that
-  # interval's window (the store adapter's unique key drops the repeats
-  # across processes and restarts).
-  def test_a_fresh_registration_catches_up_the_current_window
+  # A process that starts mid-window does not run the window it missed: the
+  # first pass adopts it, and the callback waits for the next one.
+  def test_a_fresh_registration_starts_at_the_next_window
     boundary = Time.utc(2026, 10, 26, 0, 0, 0).to_i
     ActiveJob::Scheduler.register_interval(86_400, ->(_occurrence) { mark })
 
     ActiveJob::Scheduler.run_periodic(boundary + 40_000)
-    assert_equal 1, marks
+    assert_equal 0, marks
 
     ActiveJob::Scheduler.run_periodic(boundary + 41_000)
-    assert_equal 1, marks
+    assert_equal 0, marks
 
     ActiveJob::Scheduler.run_periodic(boundary + 86_400)
-    assert_equal 2, marks
+    assert_equal 1, marks
   end
 
   # A cron entry runs the occurrence that covers now: the latest scheduled
-  # time at or before it. A fresh entry catches up that occurrence once, then
-  # runs each next occurrence exactly once.
+  # time at or before it. The first pass adopts the covering occurrence without
+  # running it, then each next occurrence runs exactly once.
   def test_cron_entry_runs_once_per_occurrence
     cron = Snails::Cron.parse("0 6 * * *")
     ActiveJob::Scheduler.register_cron(cron, ->(_occurrence) { mark })
 
-    # 05:00 covers the previous day's 06:00; 06:00 covers its own.
+    # 05:00 adopts the previous day's 06:00; 06:00 is the next occurrence.
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 5, 0, 0).to_i)
-    assert_equal 1, marks
+    assert_equal 0, marks
 
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 5, 30, 0).to_i)
-    assert_equal 1, marks
+    assert_equal 0, marks
 
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 6, 0, 0).to_i)
-    assert_equal 2, marks
+    assert_equal 1, marks
 
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 6, 1, 0).to_i)
-    assert_equal 2, marks
+    assert_equal 1, marks
 
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 19, 6, 0, 0).to_i)
-    assert_equal 3, marks
+    assert_equal 2, marks
   end
 
-  # A restart after the scheduled time still covers that occurrence once; a
-  # later pass in the same window is a no-op.
-  def test_a_fresh_cron_registration_catches_up_the_covering_occurrence
+  # A restart after the scheduled time does not run the occurrence it missed;
+  # the first pass adopts it and the next occurrence runs on schedule.
+  def test_a_fresh_cron_registration_waits_for_the_next_occurrence
     cron = Snails::Cron.parse("0 6 * * *")
     ActiveJob::Scheduler.register_cron(cron, ->(_occurrence) { mark })
 
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 7, 0, 0).to_i)
-    assert_equal 1, marks
+    assert_equal 0, marks
 
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 7, 30, 0).to_i)
+    assert_equal 0, marks
+
+    ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 19, 6, 0, 0).to_i)
     assert_equal 1, marks
   end
 
   # One raising callback is reported and does not stop the others (or
-  # run_periodic itself) — the rule the job drain already follows.
+  # run_periodic itself) — the rule the job drain already follows. The first
+  # pass only adopts the window; the callbacks run on the next one.
   def test_raising_callback_does_not_stop_the_others
     now = Time.now.to_i
     ActiveJob::Scheduler.register_interval(1, ->(_occurrence) { raise "boom" })
     ActiveJob::Scheduler.register_interval(1, ->(_occurrence) { mark })
+
+    ActiveJob::Scheduler.run_periodic(now)
+    assert_equal 0, marks
 
     ActiveJob::Scheduler.run_periodic(now + 1)
     assert_equal 1, marks
@@ -201,9 +204,9 @@ FixtureRunner.run(JobSchedulerTest, [
   "test_run_due_callbacks_is_private",
   "test_register_interval_rejects_non_positive_seconds",
   "test_window_change_gates_and_runs_once_per_window",
-  "test_a_fresh_registration_catches_up_the_current_window",
+  "test_a_fresh_registration_starts_at_the_next_window",
   "test_cron_entry_runs_once_per_occurrence",
-  "test_a_fresh_cron_registration_catches_up_the_covering_occurrence",
+  "test_a_fresh_cron_registration_waits_for_the_next_occurrence",
   "test_raising_callback_does_not_stop_the_others",
   "test_loop_stopped_is_recorded",
   "test_run_failed_is_recorded"

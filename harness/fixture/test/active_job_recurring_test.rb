@@ -18,11 +18,11 @@ end
 # ActiveJob recurring (core) — the one-call declaration: `recurring` takes
 # the job class with either an interval or a cron expression and wires one
 # periodic callback; each run enqueues the job with the occurrence time as
-# `scheduled_at`. Pinned here: both registration forms and their rejection;
-# the once-per-occurrence enqueue through the selected adapter; the covering
-# occurrence at a cron's boundary; a drain-less context still runs at the
-# call site; and the default adapter carries the recurring half (ProcessQueue
-# delegates to its own enqueue).
+# `scheduled_at`. Pinned here: both registration forms and their rejection; the
+# once-per-occurrence enqueue through the selected adapter; the next-occurrence
+# start (a missed occurrence is not caught up); a drain-less context still runs
+# at the call site; and the default adapter carries the recurring half
+# (ProcessQueue delegates to its own enqueue).
 class JobRecurringTest < TestBase
   def setup
     ActiveJob::EXECUTORS.clear
@@ -46,6 +46,14 @@ class JobRecurringTest < TestBase
     assert_equal 1, ActiveJob::RECURRING.length
     assert_equal "RecurringTickJob", ActiveJob::RECURRING[0]["name"]
     assert_equal 1, ActiveJob::Scheduler::PERIODIC.length
+    assert_equal 300, ActiveJob::Scheduler::PERIODIC[0]["interval"]
+  end
+
+  # A duration interval reads the same as seconds: `5.minutes` registers 300.
+  def test_recurring_accepts_a_duration_interval
+    ActiveJob.queue_adapter = UniqueQueueAdapter
+    ActiveJob.recurring(RecurringTickJob, 5.minutes)
+    assert_equal 1, ActiveJob::RECURRING.length
     assert_equal 300, ActiveJob::Scheduler::PERIODIC[0]["interval"]
   end
 
@@ -128,44 +136,55 @@ class JobRecurringTest < TestBase
   end
 
   # Driving the callback enqueues the job with the interval window's start
-  # through the selected adapter; a second pass in the same window is a no-op
-  # (the scheduler's gate and the adapter's unique key), so nothing runs at
-  # enqueue time.
+  # through the selected adapter. The first pass adopts the covering window
+  # without enqueuing; a later pass in the same window is a no-op, and the next
+  # window enqueues once.
   def test_callback_enqueues_once_per_interval
     ActiveJob.queue_adapter = UniqueQueueAdapter
     ActiveJob.recurring(RecurringTickJob, 300)
     ActiveJob.register_executor
     now = Time.utc(2026, 11, 18, 5, 0, 0).to_i
     ActiveJob::Scheduler.run_periodic(now)
-    assert_equal 1, UniqueQueueAdapter::SUBMITTED.length
-    assert_equal ActiveJob.scheduled_at_for(300, Time.at(now)), UniqueQueueAdapter::SUBMITTED[0]["scheduled_at"]
-    assert_equal 0, RecurringSink::RAN.length
+    assert_equal 0, UniqueQueueAdapter::SUBMITTED.length
 
     ActiveJob::Scheduler.run_periodic(now + 10)
-    assert_equal 1, UniqueQueueAdapter::SUBMITTED.length
-    assert_equal 0, RecurringSink::RAN.length
+    assert_equal 0, UniqueQueueAdapter::SUBMITTED.length
 
     ActiveJob::Scheduler.run_periodic(now + 300)
+    assert_equal 1, UniqueQueueAdapter::SUBMITTED.length
+    assert_equal ActiveJob.scheduled_at_for(300, Time.at(now + 300)), UniqueQueueAdapter::SUBMITTED[0]["scheduled_at"]
+    assert_equal 0, RecurringSink::RAN.length
+
+    ActiveJob::Scheduler.run_periodic(now + 305)
+    assert_equal 1, UniqueQueueAdapter::SUBMITTED.length
+
+    ActiveJob::Scheduler.run_periodic(now + 600)
     assert_equal 2, UniqueQueueAdapter::SUBMITTED.length
   end
 
-  # A cron registration enqueues the occurrence that covers the pass: before
-  # 06:00 that is the previous day's occurrence, at 06:00 it is that one.
-  def test_cron_callback_enqueues_the_covering_occurrence
+  # A cron registration starts at the next occurrence: the first pass adopts the
+  # covering one without enqueuing, and 06:00 enqueues that occurrence.
+  def test_cron_callback_enqueues_the_next_occurrence
     ActiveJob.queue_adapter = UniqueQueueAdapter
     ActiveJob.recurring(RecurringTickJob, schedule: "0 6 * * *")
     ActiveJob.register_executor
 
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 5, 0, 0).to_i)
-    assert_equal 1, UniqueQueueAdapter::SUBMITTED.length
-    assert_equal Time.utc(2026, 11, 17, 6, 0, 0), UniqueQueueAdapter::SUBMITTED[0]["scheduled_at"]
+    assert_equal 0, UniqueQueueAdapter::SUBMITTED.length
 
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 5, 30, 0).to_i)
-    assert_equal 1, UniqueQueueAdapter::SUBMITTED.length
+    assert_equal 0, UniqueQueueAdapter::SUBMITTED.length
 
     ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 6, 0, 0).to_i)
+    assert_equal 1, UniqueQueueAdapter::SUBMITTED.length
+    assert_equal Time.utc(2026, 11, 18, 6, 0, 0), UniqueQueueAdapter::SUBMITTED[0]["scheduled_at"]
+
+    ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 18, 6, 1, 0).to_i)
+    assert_equal 1, UniqueQueueAdapter::SUBMITTED.length
+
+    ActiveJob::Scheduler.run_periodic(Time.utc(2026, 11, 19, 6, 0, 0).to_i)
     assert_equal 2, UniqueQueueAdapter::SUBMITTED.length
-    assert_equal Time.utc(2026, 11, 18, 6, 0, 0), UniqueQueueAdapter::SUBMITTED[1]["scheduled_at"]
+    assert_equal Time.utc(2026, 11, 19, 6, 0, 0), UniqueQueueAdapter::SUBMITTED[1]["scheduled_at"]
   end
 
   # With no executor registered the work runs at the call site — the
@@ -225,13 +244,14 @@ end
 
 FixtureRunner.run(JobRecurringTest, [
   "test_recurring_registers_the_callback",
+  "test_recurring_accepts_a_duration_interval",
   "test_a_non_positive_interval_registers_nothing",
   "test_recurring_registers_a_cron_schedule",
   "test_recurring_rejects_both_forms",
   "test_recurring_requires_a_form",
   "test_recurring_rejects_an_unreadable_schedule",
   "test_callback_enqueues_once_per_interval",
-  "test_cron_callback_enqueues_the_covering_occurrence",
+  "test_cron_callback_enqueues_the_next_occurrence",
   "test_no_executor_runs_at_the_call_site",
   "test_process_queue_carries_enqueue_once",
   "test_enqueue_once_answers_whether_it_enqueued"

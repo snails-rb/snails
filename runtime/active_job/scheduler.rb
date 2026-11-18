@@ -2,6 +2,8 @@
 # loop that runs them once per occurrence. An occurrence is one scheduled run:
 # the interval window's start, or the cron expression's scheduled time.
 # `ActiveJob.recurring` registers here; `ActiveJob::Launcher.start` runs the loop.
+# A fresh entry starts at the next occurrence after its first pass; an
+# occurrence that passed while no process was alive is not caught up.
 module ActiveJob
   module Scheduler
     # How often the scheduler loop looks for a due callback, in seconds. A
@@ -16,7 +18,8 @@ module ActiveJob
     #
     # One recurrence form per entry: `interval` (seconds) or `cron` (a parsed
     # `Snails::Cron`), never both. `last_occurrence` is the occurrence the entry
-    # last ran, written before the call.
+    # has handled: the first pass adopts the covering one without running it, and
+    # later passes record each run before the callback.
     #
     # A Hash per entry rather than an array triple: an element write
     # (`entry["last_occurrence"] = …`) is a shape the compiler handles; an index
@@ -27,19 +30,17 @@ module ActiveJob
     # interval, keyed to the interval window: the scheduler runs it when the
     # occurrence (epoch floored to the interval — the same window
     # `ActiveJob.scheduled_at_for` uses for a recurring `scheduled_at`) differs
-    # from the last occurrence this entry ran. A fresh entry carries none, so its
-    # first run covers the current one — a process that restarts more often than
-    # its interval still covers every window it was alive in, instead of waiting
-    # out a full interval from each boot (an uptime-anchored first run starves
-    # retention-class jobs under frequent deploys). Windows that passed while no
-    # process was alive are not backfilled: only the current window is covered.
-    # An app declares periodic work through `ActiveJob.recurring`, which
-    # registers the callback here. The callback runs on the scheduler's thread
-    # with its own `Sqlx::Database` lease, so it may touch models. The proc
-    # argument (not a block) mirrors `ActiveJob.enqueue`: the RBS cannot type a
-    # captured `&block`. A non-positive interval is rejected here — the window
-    # arithmetic below would divide by zero, and registration is the point that
-    # can still name the bad value.
+    # from the last occurrence this entry handled. A fresh entry adopts the
+    # occurrence that covers its first pass without running it, so a process
+    # that starts late waits for the next window instead of catching up; a
+    # window that passed while no process was alive is not backfilled (the rule
+    # Solid Queue's scheduler follows). An app declares periodic work through
+    # `ActiveJob.recurring`, which registers the callback here. The callback runs
+    # on the scheduler's thread with its own `Sqlx::Database` lease, so it may
+    # touch models. The proc argument (not a block) mirrors `ActiveJob.enqueue`:
+    # the RBS cannot type a captured `&block`. A non-positive interval is
+    # rejected here — the window arithmetic below would divide by zero, and
+    # registration is the point that can still name the bad value.
     #
     # @param seconds [Integer] seconds per window
     # @param work [Proc] the callback the scheduler invokes with the occurrence
@@ -57,12 +58,11 @@ module ActiveJob
     # add a periodic callback the scheduler runs at a cron expression's
     # occurrences: the scheduler runs it when the occurrence that covers now —
     # the latest scheduled time at or before it — differs from the last one this
-    # entry ran. A fresh entry carries none, so its first run covers the
-    # occurrence that opened the current window: a process that starts after the
-    # scheduled time still runs that occurrence once, and the store adapter's
-    # unique key keeps it to one run across processes. Occurrences that passed
-    # while no process was alive are not backfilled. A cron expression is
-    # evaluated in UTC.
+    # entry handled. A fresh entry adopts that occurrence without running it, so
+    # a process that starts after the scheduled time waits for the next
+    # occurrence instead of catching up. Occurrences that passed while no
+    # process was alive are not backfilled. A cron expression is evaluated in
+    # UTC.
     #
     # @param cron [Snails::Cron] the parsed expression (`Snails::Cron.parse`)
     # @param work [Proc] the callback the scheduler invokes with the occurrence
@@ -73,10 +73,13 @@ module ActiveJob
     end
 
     # run every callback whose occurrence has advanced since its last run, and
-    # record that occurrence as run. Recording happens before the call, so a
-    # raising callback still counts as its occurrence's attempt — the next run
-    # is the next occurrence, not a retry loop inside this one. The scheduler
-    # calls this each poll; a callback that raises becomes a
+    # record that occurrence as handled. The first pass after registration
+    # adopts the covering occurrence without running it: a process that starts
+    # after the scheduled time waits for the next occurrence instead of
+    # catching up. After that, recording happens before the call, so a raising
+    # callback still counts as its occurrence's attempt — the next run is the
+    # next occurrence, not a retry loop inside this one. The scheduler calls
+    # this each poll; a callback that raises becomes a
     # `scheduler.callback_failed` record and does not stop the others (the job
     # drain's rule) or the loop. Control and fatal exceptions propagate to the
     # scheduler loop. `now` is injectable so the contract is testable without
@@ -87,6 +90,10 @@ module ActiveJob
     def self.run_periodic(now = Time.now.to_i)
       PERIODIC.each do |entry|
         occurrence = occurrence_at_or_before(entry, now)
+        if entry["last_occurrence"] == nil
+          entry["last_occurrence"] = occurrence
+          next
+        end
         next if entry["last_occurrence"] == occurrence
 
         entry["last_occurrence"] = occurrence
@@ -146,7 +153,7 @@ module ActiveJob
     # the occurrence that covers `now` for one entry, as epoch seconds: the
     # interval window's start, or the cron expression's latest scheduled time at
     # or before it. The loop's gate and the enqueue key are this one value — the
-    # entry records it before the callback runs, and the callback reads it.
+    # entry records it, and the callback receives it.
     def self.occurrence_at_or_before(entry, now)
       if entry["cron"] != nil
         entry["cron"].occurrence_at_or_before(now)
