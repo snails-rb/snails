@@ -15,6 +15,26 @@ class RecurringSink
   RAN = []
 end
 
+# A second job for "distinct names register separately"; its body is not used
+# by the registration cases.
+class OtherRecurringJob < ActiveJob::Base
+  def self.job_name = "OtherRecurringJob"
+
+  def self.perform(data)
+    RecurringSink::RAN << 1
+  end
+end
+
+# Shares the first job's dispatch key despite a different class: the duplicate
+# check keys on `job_name`, not on the class object.
+class SameNameRecurringJob < ActiveJob::Base
+  def self.job_name = "RecurringTickJob"
+
+  def self.perform(data)
+    RecurringSink::RAN << 0
+  end
+end
+
 # ActiveJob recurring (core) — the one-call declaration: `recurring` takes
 # the job class with either an interval or a cron expression and wires one
 # periodic callback; each run enqueues the job with the occurrence time as
@@ -135,6 +155,68 @@ class JobRecurringTest < TestBase
     assert_equal 0, ActiveJob::Scheduler::PERIODIC.length
   end
 
+  # A second registration for the same job is refused even with a different
+  # expression: the job name is the dispatch key. The first registration
+  # survives and still fires on its own schedule.
+  def test_recurring_rejects_a_second_registration_for_the_same_job
+    ActiveJob.queue_adapter = UniqueQueueAdapter
+    ActiveJob.recurring(RecurringTickJob, 300)
+    duplicate = false
+    begin
+      ActiveJob.recurring(RecurringTickJob, schedule: "0 6 * * *")
+    rescue ArgumentError
+      duplicate = true
+    end
+    assert_equal true, duplicate
+    assert_equal 1, ActiveJob::RECURRING.length
+    assert_equal 1, ActiveJob::Scheduler::PERIODIC.length
+
+    ActiveJob.register_executor
+    now = Time.utc(2026, 11, 18, 5, 0, 0).to_i
+    ActiveJob::Scheduler.run_periodic(now)
+    assert_equal 0, UniqueQueueAdapter::SUBMITTED.length
+    ActiveJob::Scheduler.run_periodic(now + 300)
+    assert_equal 1, UniqueQueueAdapter::SUBMITTED.length
+  end
+
+  # The check keys on `job_name`, not on the class object: two classes that
+  # share a name share one dispatch key, so the second registration is refused.
+  def test_recurring_rejects_two_classes_that_share_a_job_name
+    ActiveJob.recurring(RecurringTickJob, 300)
+    duplicate = false
+    begin
+      ActiveJob.recurring(SameNameRecurringJob, 600)
+    rescue ArgumentError
+      duplicate = true
+    end
+    assert_equal true, duplicate
+    assert_equal 1, ActiveJob::RECURRING.length
+    assert_equal 1, ActiveJob::Scheduler::PERIODIC.length
+  end
+
+  # Distinct job names are distinct registrations: the check does not limit the
+  # registry to one entry.
+  def test_recurring_accepts_distinct_job_names
+    ActiveJob.recurring(RecurringTickJob, 300)
+    ActiveJob.recurring(OtherRecurringJob, schedule: "0 6 * * *")
+    assert_equal 2, ActiveJob::RECURRING.length
+    assert_equal 2, ActiveJob::Scheduler::PERIODIC.length
+  end
+
+  # The rejection names the job and says what to do instead, so a duplicate
+  # found at boot is traceable to its declaration.
+  def test_the_duplicate_error_names_the_job_and_the_fix
+    ActiveJob.recurring(RecurringTickJob, 300)
+    message = ""
+    begin
+      ActiveJob.recurring(RecurringTickJob, 600)
+    rescue ArgumentError => error
+      message = error.message
+    end
+    assert_equal true, message.include?("RecurringTickJob")
+    assert_equal true, message.include?("one job registers one recurrence")
+  end
+
   # Driving the callback enqueues the job with the interval window's start
   # through the selected adapter. The first pass adopts the covering window
   # without enqueuing; a later pass in the same window is a no-op, and the next
@@ -250,6 +332,10 @@ FixtureRunner.run(JobRecurringTest, [
   "test_recurring_rejects_both_forms",
   "test_recurring_requires_a_form",
   "test_recurring_rejects_an_unreadable_schedule",
+  "test_recurring_rejects_a_second_registration_for_the_same_job",
+  "test_recurring_rejects_two_classes_that_share_a_job_name",
+  "test_recurring_accepts_distinct_job_names",
+  "test_the_duplicate_error_names_the_job_and_the_fix",
   "test_callback_enqueues_once_per_interval",
   "test_cron_callback_enqueues_the_next_occurrence",
   "test_no_executor_runs_at_the_call_site",

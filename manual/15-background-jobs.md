@@ -47,6 +47,8 @@ ActiveJob.recurring(PruneRollupJob, schedule: "0 6 * * *")  # 06:00 UTC every da
 
 The interval takes seconds or a duration such as `5.minutes` or `1.day`. Exactly one form is required; passing both or neither raises when the schedule is declared.
 
+One job registers once: a second `recurring` call for the same job raises when the schedule is declared, even if the expression differs. For several runs a day, put them in one cron expression, such as `0 6,18 * * *`.
+
 The interval form runs once per interval window — each window is aligned to a fixed clock boundary, so two processes enqueuing inside the same window compute the same start time. The cron form runs at the expression's scheduled times, in UTC. Cron expressions use the five-field `man 5 crontab` grammar (minute hour day-of-month month day-of-week) with lists, ranges, steps, three-letter month and weekday names, and the `@daily`-family aliases; a seconds field, a time zone, and natural language are rejected when the schedule is declared.
 
 Both forms start at the next occurrence: a process that starts after the scheduled time waits for the next one, and an occurrence that passed while no process was alive is not caught up. Each run enqueues the job, and the worker loop executes it like any other job. With the DB adapter, the ledger keeps each occurrence to one enqueue across processes and restarts.

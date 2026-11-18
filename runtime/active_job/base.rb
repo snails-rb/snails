@@ -144,7 +144,12 @@ module ActiveJob
   # it after the adapter is selected. Times are UTC: the interval grid is based
   # on epoch seconds, and a cron expression is evaluated in UTC. A new
   # registration starts at the next occurrence: an occurrence that passed while
-  # no process was alive is not caught up.
+  # no process was alive is not caught up. One job name registers once: a second
+  # call for the same `job_name` raises, whatever its expression, because the
+  # name is the key every adapter and the occurrence ledger deduplicate on. For
+  # several runs a day, put them in one cron expression (`0 6,18 * * *`). This
+  # check runs at declaration and therefore applies to every adapter; the
+  # adapter's own occurrence key remains the cross-process guard.
   #
   # @param job_class [Class] the job class — `job_name` + class-side `perform`
   # @param interval [Integer, Snails::Duration, nil] seconds between runs, or nil
@@ -152,8 +157,9 @@ module ActiveJob
   # @param schedule [String, nil] a five-field cron expression in UTC, or nil
   #   when `interval` is given
   # @return [void]
-  # @raise [ArgumentError] both forms or neither, a non-positive interval, or an
-  #   expression the cron grammar rejects
+  # @raise [ArgumentError] both forms or neither, a non-positive interval, an
+  #   expression the cron grammar rejects, or a second registration for the
+  #   same `job_name`
   # @example
   #   ActiveJob.recurring(CleanupJob, 5.minutes)
   #   ActiveJob.recurring(PruneRollupJob, schedule: "0 6 * * *")
@@ -168,6 +174,16 @@ module ActiveJob
       interval = interval.to_i
     end
     name = job_class.job_name
+    # One registration per name: the name is the dispatch key the adapters and
+    # the occurrence ledger deduplicate on, so a second call is a declaration
+    # mistake rather than a second schedule. Check before any registry write so
+    # the rejected call leaves no entry behind.
+    RECURRING.each do |existing|
+      if existing["name"] == name
+        raise ArgumentError, "recurring is already registered for " + name +
+                             "; one job registers one recurrence (use a single cron expression for several times)"
+      end
+    end
     entry = { "name" => name, "interval" => nil, "cron" => nil, "work" => -> { job_class.perform(nil) } }
     # Register the callback first: a rejected recurrence must not leave a
     # half-registered RECURRING entry.
