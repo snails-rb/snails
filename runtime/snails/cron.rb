@@ -38,9 +38,9 @@ module Snails
       "@hourly" => "0 * * * *"
     }
 
-    # The search limit in days. Feb 29 skipped at a non-leap century year is
-    # the longest gap a schedule can have, so nine years covers every schedule
-    # that can run at all.
+    # The search limit in days. Feb 29 in a century year that is not a leap
+    # year (2100) is the longest gap a schedule can have, so nine years covers
+    # every schedule that can run at all.
     MAX_SEARCH_DAYS = 366 * 9
 
     private_constant :MONTH_NAMES, :WEEKDAY_NAMES, :ALIASES, :MAX_SEARCH_DAYS
@@ -92,8 +92,9 @@ module Snails
     end
 
     # The values one field selects, ascending. Each comma part is `*`, a value,
-    # a range, or a step on one of them; a name is resolved before a number.
-    # The weekday field folds 7 into 0, so both Sunday spellings give one value.
+    # or a range, and a step may follow `*` or a range; a name is resolved
+    # before a number. The weekday field folds 7 into 0, so both Sunday
+    # spellings give one value.
     def self.field_values(expression, text, low, high, names, label)
       ranges = []
       text.split(",").each do |part|
@@ -214,7 +215,8 @@ module Snails
 
     # The latest occurrence at or before `now`, as epoch seconds. A process
     # that starts after an occurrence's time still runs it once, and the unique
-    # (job_name, scheduled_at) key keeps another process from running it again.
+    # (job_name, scheduled_at) key keeps another process from enqueueing it
+    # again.
     #
     # @param now [Integer] the instant to look back from, as epoch seconds
     # @return [Integer] the occurrence's time, as epoch seconds
