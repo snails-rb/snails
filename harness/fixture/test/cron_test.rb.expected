@@ -1,4 +1,4 @@
-ok test_daily_bucket
+ok test_daily_occurrence
 ok test_stepped_minutes
 ok test_multiple_hours
 ok test_weekday_range
