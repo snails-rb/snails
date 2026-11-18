@@ -1,12 +1,12 @@
 require_relative "test_helper"
 require_relative "harness_runner"
 
-# Snails::CronExpression (core) — the five-field cron expression behind a
+# Snails::Cron (core) — the five-field cron expression behind a
 # recurring schedule. Pinned here: the path from text to the due occurrence
 # and the next one, the day-of-month/day-of-week OR, leap-day and long-gap
 # searches, aliases, and the rejections that must happen when the schedule is
 # declared.
-class CronExpressionTest < TestBase
+class CronTest < TestBase
   def assert_equal(expected, actual, msg = nil)
     raise(msg || "expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual
   end
@@ -22,7 +22,7 @@ class CronExpressionTest < TestBase
 
   def rejects(expression)
     begin
-      Snails::CronExpression.parse(expression)
+      Snails::Cron.parse(expression)
     rescue ArgumentError
       true
     else
@@ -34,7 +34,7 @@ class CronExpressionTest < TestBase
   # yesterday's, at the minute it is today's, and the next one moves to
   # tomorrow only after the minute has passed.
   def test_daily_occurrence
-    cron = Snails::CronExpression.parse("0 6 * * *")
+    cron = Snails::Cron.parse("0 6 * * *")
     assert_equal timestamp(utc(2026, 11, 17, 6, 0)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 18, 5, 0)))
     assert_equal timestamp(utc(2026, 11, 18, 6, 0)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 18, 6, 0)))
     assert_equal timestamp(utc(2026, 11, 18, 6, 0)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 18, 6, 1)))
@@ -44,7 +44,7 @@ class CronExpressionTest < TestBase
 
   # A stepped minute field advances the occurrence by the step inside the hour.
   def test_stepped_minutes
-    cron = Snails::CronExpression.parse("*/15 * * * *")
+    cron = Snails::Cron.parse("*/15 * * * *")
     assert_equal timestamp(utc(2026, 11, 18, 5, 0)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 18, 5, 7)))
     assert_equal timestamp(utc(2026, 11, 18, 5, 15)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 18, 5, 15)))
     assert_equal timestamp(utc(2026, 11, 18, 5, 15)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 18, 5, 29)))
@@ -55,7 +55,7 @@ class CronExpressionTest < TestBase
   # Four hours a day: the last hour of the day is followed by the first of the
   # next day, not by a same-day gap.
   def test_multiple_hours
-    cron = Snails::CronExpression.parse("0 0,6,12,18 * * *")
+    cron = Snails::Cron.parse("0 0,6,12,18 * * *")
     assert_equal timestamp(utc(2026, 11, 18, 0, 0)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 18, 5, 0)))
     assert_equal timestamp(utc(2026, 11, 18, 6, 0)), timestamp(cron.occurrence_after(utc(2026, 11, 18, 5, 0)))
     assert_equal timestamp(utc(2026, 11, 18, 18, 0)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 18, 18, 30)))
@@ -65,7 +65,7 @@ class CronExpressionTest < TestBase
   # A weekday range skips the weekend: Saturday and Sunday answer with Friday's
   # 22:30, and Monday morning still belongs to Friday's run until Monday 22:30.
   def test_weekday_range
-    cron = Snails::CronExpression.parse("30 22 * * MON-FRI")
+    cron = Snails::Cron.parse("30 22 * * MON-FRI")
     assert_equal timestamp(utc(2026, 11, 20, 22, 30)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 21, 12, 0)))
     assert_equal timestamp(utc(2026, 11, 20, 22, 30)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 23, 8, 0)))
     assert_equal timestamp(utc(2026, 11, 23, 22, 30)), timestamp(cron.occurrence_after(utc(2026, 11, 20, 22, 30)))
@@ -74,7 +74,7 @@ class CronExpressionTest < TestBase
 
   # Month names and a six-month gap resolve in both directions.
   def test_month_names
-    cron = Snails::CronExpression.parse("0 0 1 JAN,JUL *")
+    cron = Snails::Cron.parse("0 0 1 JAN,JUL *")
     assert_equal timestamp(utc(2026, 1, 1, 0, 0)), timestamp(cron.occurrence_at_or_before(utc(2026, 3, 15, 0, 0)))
     assert_equal timestamp(utc(2026, 7, 1, 0, 0)), timestamp(cron.occurrence_after(utc(2026, 2, 1, 0, 0)))
   end
@@ -82,7 +82,7 @@ class CronExpressionTest < TestBase
   # Both day fields restricted are ORed: every Monday and the 1st of the
   # month, whichever comes first.
   def test_day_or_weekday
-    cron = Snails::CronExpression.parse("0 0 1 * MON")
+    cron = Snails::Cron.parse("0 0 1 * MON")
     assert_equal timestamp(utc(2026, 11, 23, 0, 0)), timestamp(cron.occurrence_at_or_before(utc(2026, 11, 24, 12, 0)))
     assert_equal timestamp(utc(2026, 11, 30, 0, 0)), timestamp(cron.occurrence_after(utc(2026, 11, 23, 0, 0)))
     assert_equal timestamp(utc(2026, 11, 30, 0, 0)), timestamp(cron.occurrence_after(utc(2026, 11, 24, 12, 0)))
@@ -91,7 +91,7 @@ class CronExpressionTest < TestBase
 
   # Feb 29 is found across the non-leap years on both sides.
   def test_leap_day
-    cron = Snails::CronExpression.parse("0 0 29 2 *")
+    cron = Snails::Cron.parse("0 0 29 2 *")
     assert_equal timestamp(utc(2028, 2, 29, 0, 0)), timestamp(cron.occurrence_after(utc(2026, 3, 1, 0, 0)))
     assert_equal timestamp(utc(2028, 2, 29, 0, 0)), timestamp(cron.occurrence_at_or_before(utc(2028, 3, 1, 0, 0)))
     assert_equal timestamp(utc(2032, 2, 29, 0, 0)), timestamp(cron.occurrence_after(utc(2028, 2, 29, 0, 0)))
@@ -99,20 +99,20 @@ class CronExpressionTest < TestBase
 
   # Aliases expand before parsing.
   def test_aliases
-    assert_equal timestamp(utc(2026, 11, 18, 0, 0)), timestamp(Snails::CronExpression.parse("@daily").occurrence_at_or_before(utc(2026, 11, 18, 5, 0)))
-    assert_equal timestamp(utc(2026, 11, 18, 10, 0)), timestamp(Snails::CronExpression.parse("@hourly").occurrence_at_or_before(utc(2026, 11, 18, 10, 30)))
-    assert_equal timestamp(utc(2026, 11, 15, 0, 0)), timestamp(Snails::CronExpression.parse("@weekly").occurrence_at_or_before(utc(2026, 11, 18, 12, 0)))
-    assert_equal timestamp(utc(2026, 11, 22, 0, 0)), timestamp(Snails::CronExpression.parse("@weekly").occurrence_after(utc(2026, 11, 15, 0, 0)))
+    assert_equal timestamp(utc(2026, 11, 18, 0, 0)), timestamp(Snails::Cron.parse("@daily").occurrence_at_or_before(utc(2026, 11, 18, 5, 0)))
+    assert_equal timestamp(utc(2026, 11, 18, 10, 0)), timestamp(Snails::Cron.parse("@hourly").occurrence_at_or_before(utc(2026, 11, 18, 10, 30)))
+    assert_equal timestamp(utc(2026, 11, 15, 0, 0)), timestamp(Snails::Cron.parse("@weekly").occurrence_at_or_before(utc(2026, 11, 18, 12, 0)))
+    assert_equal timestamp(utc(2026, 11, 22, 0, 0)), timestamp(Snails::Cron.parse("@weekly").occurrence_after(utc(2026, 11, 15, 0, 0)))
   end
 
   # Names are case-insensitive and whitespace runs separate the fields.
   def test_name_and_whitespace_forms
-    daily = Snails::CronExpression.parse("0 6 * * *")
-    spaced = Snails::CronExpression.parse("  0\t6  * *   MON  ")
+    daily = Snails::Cron.parse("0 6 * * *")
+    spaced = Snails::Cron.parse("  0\t6  * *   MON  ")
     assert_equal timestamp(utc(2026, 11, 23, 6, 0)), timestamp(spaced.occurrence_after(utc(2026, 11, 22, 12, 0)))
     assert_equal timestamp(utc(2026, 11, 17, 6, 0)), timestamp(daily.occurrence_at_or_before(utc(2026, 11, 18, 5, 0)))
-    assert_equal timestamp(utc(2026, 11, 15, 0, 0)), timestamp(Snails::CronExpression.parse("0 0 * * sun").occurrence_at_or_before(utc(2026, 11, 18, 12, 0)))
-    assert_equal timestamp(utc(2026, 11, 15, 0, 0)), timestamp(Snails::CronExpression.parse("0 0 * * 0").occurrence_at_or_before(utc(2026, 11, 18, 12, 0)))
+    assert_equal timestamp(utc(2026, 11, 15, 0, 0)), timestamp(Snails::Cron.parse("0 0 * * sun").occurrence_at_or_before(utc(2026, 11, 18, 12, 0)))
+    assert_equal timestamp(utc(2026, 11, 15, 0, 0)), timestamp(Snails::Cron.parse("0 0 * * 0").occurrence_at_or_before(utc(2026, 11, 18, 12, 0)))
   end
 
   # Every malformed part is rejected with its field and the whole expression.
@@ -142,7 +142,7 @@ class CronExpressionTest < TestBase
   def test_parse_rejects_nil
     nil_rejected = false
     begin
-      Snails::CronExpression.parse(nil)
+      Snails::Cron.parse(nil)
     rescue ArgumentError
       nil_rejected = true
     end
@@ -161,17 +161,17 @@ class CronExpressionTest < TestBase
   # call is refused instead of quietly answering.
   def test_field_helpers_are_private
     begin
-      Snails::CronExpression.field_values("0 6 * * *", "0", 0, 59, [], "minute")
+      Snails::Cron.field_values("0 6 * * *", "0", 0, 59, [], "minute")
     rescue NoMethodError
       return
     end
-    raise "expected Snails::CronExpression.field_values to be private"
+    raise "expected Snails::Cron.field_values to be private"
   end
 
   # The day steps are private too; an app reaches the schedule through the two
   # occurrence queries.
   def test_day_steps_are_private
-    cron = Snails::CronExpression.parse("0 6 * * *")
+    cron = Snails::Cron.parse("0 6 * * *")
     begin
       cron.day_matches?(0)
     rescue NoMethodError
@@ -181,7 +181,7 @@ class CronExpressionTest < TestBase
   end
 end
 
-FixtureRunner.run(CronExpressionTest, [
+FixtureRunner.run(CronTest, [
   "test_daily_occurrence",
   "test_stepped_minutes",
   "test_multiple_hours",

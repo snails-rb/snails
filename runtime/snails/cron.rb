@@ -1,10 +1,9 @@
-# CronExpression — a five-field crontab expression. Parse it once when the
-# schedule is declared, then ask it for the occurrence that is due now and
-# for the one after it. An occurrence is one scheduled run of the job; its
-# time is a UTC epoch second, and that value is the `scheduled_at` the job is
-# enqueued with.
+# Cron — a five-field crontab expression. Parse it once when the schedule is
+# declared, then ask it for the occurrence that is due now and for the one
+# after it. An occurrence is one scheduled run of the job; its time is a UTC
+# epoch second, and that value is the `scheduled_at` the job is enqueued with.
 #
-# This object computes occurrence times. It does not schedule, start, or run
+# The object computes occurrence times. It does not schedule, start, or run
 # anything — the job scheduler owns that part.
 #
 # The grammar is the one `man 5 crontab` documents: minute hour day-of-month
@@ -25,7 +24,7 @@
 # century year that is not a leap year, such as 2100), so nine years is the
 # search limit: a schedule with no occurrence inside that span can never run.
 module Snails
-  class CronExpression
+  class Cron
     # Three-letter names, the only spelling `man 5 crontab` defines.
     MONTH_NAMES = %w[JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC]
     WEEKDAY_NAMES = %w[SUN MON TUE WED THU FRI SAT]
@@ -56,12 +55,12 @@ module Snails
     # silently never runs.
     #
     # @param expression [String] the five-field expression, or an `@...` alias
-    # @return [CronExpression] the parsed expression
+    # @return [Cron] the parsed expression
     # @raise [ArgumentError] the text is not a cron expression this class
     #   accepts, or it has no occurrence within the search limit
     # @example
-    #   Snails::CronExpression.parse("0 6 * * *")     # 06:00 UTC every day
-    #   Snails::CronExpression.parse("0 0 * * MON")   # midnight UTC every Monday
+    #   Snails::Cron.parse("0 6 * * *")     # 06:00 UTC every day
+    #   Snails::Cron.parse("0 0 * * MON")   # midnight UTC every Monday
     def self.parse(expression)
       unless expression.is_a?(String)
         raise ArgumentError, "cron schedule must be a String, got " + expression.class.to_s
