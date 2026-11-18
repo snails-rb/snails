@@ -24,7 +24,7 @@ runs:
     # lives here; a .spinel build cache would only ever be scoped to the PR.
     - name: Cache the pinned spinel install
       id: cache-spinel-install
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.local
         key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
@@ -32,7 +32,7 @@ runs:
     # later one. The key matches platform-ci's native cache.
     - name: Cache spin native package objects
       if: steps.cache-spinel-install.outputs.cache-hit != 'true'
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.cache/spin
         key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}

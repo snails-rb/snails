@@ -36,7 +36,7 @@ env:
 
 jobs:
   pin:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       rev: ${{ steps.pin.outputs.rev }}
@@ -78,10 +78,10 @@ jobs:
         include:
           # Native on each arch — cross-emulating the other one is the
           # 15-19 minute cost this workflow exists to avoid.
-          - runner: ubuntu-24.04-arm
+          - runner: ubuntu-26.04-arm
             platform: linux/arm64
             arch: arm64
-          - runner: ubuntu-latest
+          - runner: ubuntu-26.04
             platform: linux/amd64
             arch: amd64
     steps:
@@ -117,7 +117,7 @@ jobs:
   publish:
     name: publish pin tag
     needs: [pin, build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Log in to ghcr.io
@@ -166,9 +166,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-latest
+          - runner: ubuntu-26.04
             arch: amd64
-          - runner: ubuntu-24.04-arm
+          - runner: ubuntu-26.04-arm
             arch: arm64
     steps:
       - name: Checkout snails
@@ -202,7 +202,7 @@ jobs:
           grep -qx './builtins/' "$listing"
           grep -qx './lib/' "$listing"
           grep -qx './packages/' "$listing"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: toolchain-linux-${{ matrix.arch }}
           path: dist/
@@ -271,7 +271,7 @@ jobs:
             exit 1
           }
           "$app/bin/test"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: toolchain-macos-${{ matrix.arch }}
           path: dist/
@@ -280,13 +280,13 @@ jobs:
   publish-toolchain:
     name: publish toolchain assets
     needs: [pin, toolchain-linux, toolchain-macos]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
       - name: Download the toolchain assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: dist
           pattern: 'toolchain-*'
