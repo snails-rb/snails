@@ -4,11 +4,11 @@
 # epoch second, and that value is the `scheduled_at` the job is enqueued with.
 #
 # The grammar is the one `man 5 crontab` documents: minute hour day-of-month
-# month day-of-week, where each field is `*`, a comma list, a range, a step
-# (`*/5`, `1-15/2`), or a three-letter month or weekday name. The calendar
-# aliases (`@yearly` and friends) expand at parse. When both day fields are
-# restricted they are ORed: `30 4 1,15 * 5` runs on the 1st, the 15th, and
-# every Friday.
+# month day-of-week, where each field is `*`, a comma list, an inclusive range,
+# a step on `*` or on a range (`*/5`, `1-15/2`), or a three-letter month or
+# weekday name. The calendar aliases (`@yearly` and friends) expand at parse.
+# When both day fields are restricted they are ORed: `30 4 1,15 * 5` runs on
+# the 1st, the 15th, and every Friday.
 #
 # Everything else a cron dialect accepts is rejected instead of reinterpreted:
 # a seconds field, a time zone, natural language, `L`/`#`/`%`/`&`/`~`,
