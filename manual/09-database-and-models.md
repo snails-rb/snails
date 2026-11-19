@@ -81,7 +81,7 @@ class Post < Sqlx::Base
 end
 ```
 
-The child half uses the inherited `delete_all!`; the parent half writes its own DELETE because an override cannot reach the core body through `super` on the extend chain. A foreign key in the schema is still the stronger guarantee when the adapter enforces it.
+The child half uses the inherited `delete_all!`; the parent half writes its own DELETE because the inherited methods arrive through `extend`, so `super` does not reach them. A foreign key in the schema is still the stronger guarantee when the adapter enforces it.
 
 ## Enums and transactions
 

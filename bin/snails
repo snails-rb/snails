@@ -219,7 +219,7 @@ Common
   new           Create a project
   generate      Generate code (g)
   migrate       Manage schema migrations
-  sync          Update the vendored framework
+  sync          Update the framework copy
 
 Project
   pins          Check pin declarations or print the pins file
@@ -450,7 +450,7 @@ help_doctor() {
   cat <<'HELP'
 Usage: snails doctor [<app_root>] [--verbose]
 
-Check the CLI version, pin declaration, vendored framework, toolchain,
+Check the CLI version, pin declaration, framework copy, toolchain,
 environment, database target, and local clients. Exit 1 when a check fails.
 HELP
 }

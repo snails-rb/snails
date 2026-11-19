@@ -1,4 +1,4 @@
-# The process-local cache: one instance per process, not shared across prefork
+# The per-process cache: one instance per process, not shared across prefork
 # workers; expiry is lazy, the store flushes at a bound, and nil is a valid entry.
 #
 # With no global VM lock, the lock must cover compound operations, and `fetch`

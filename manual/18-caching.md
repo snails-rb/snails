@@ -1,6 +1,6 @@
 # Caching
 
-`Snails.cache` is a process-local key/value store for work that is expensive to repeat: a computed report, an upstream response, a counter window. It is not a shared cache — every process has its own copy, and a value never leaves the process that wrote it.
+`Snails.cache` is a per-process key/value store for work that is expensive to repeat: a computed report, an upstream response, a counter window. It is not a shared cache — every process has its own copy, and a value never leaves the process that wrote it.
 
 ## Store and fetch
 

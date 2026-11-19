@@ -58,7 +58,7 @@ A `datetime` column read from SQLite text goes through the stored-time parser an
 
 `integer_columns` is the condition cast list, not a conversion applied when a record is built. A String condition value for a declared column is parsed as a decimal integer before it binds; a non-decimal value raises `Sqlx::CastError`. The literal `where_clause` renderer and raw SQL do not apply the cast. A model that declares a boolean, datetime, date, or json column keeps that type even when the schema backs it with `INTEGER`; its declaration list wins.
 
-The built-in timestamp pair is special in one way: `create!` and `update!` fill a declared `created_at`/`updated_at` the caller left out. A table without those columns is legal and gets no stamp.
+The built-in timestamp pair is special in one way: `create!` and `update!` fill a declared `created_at`/`updated_at` the caller left out. A table without those columns is legal and gets no timestamp.
 
 ## Readers and overrides
 

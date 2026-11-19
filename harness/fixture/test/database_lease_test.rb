@@ -7,25 +7,25 @@ require_relative "test_database"
 # leases one connection to one thread at a time, so a no-lease fallback to
 # the pool's first connection can land on a connection another thread
 # holds — joining its open transaction and racing its statement cache.
-# Pinned here: a lease-required process refuses a lease-less access loudly
-# instead, and the logger's batch hand-off (a queue INSERT from a thread
+# Cases here cover: a lease-required process refuses a lease-less access with an error
+# instead, and the logger's batch delivery (a queue INSERT from a thread
 # holding no lease) stays legal because it leases its own connection.
 #
 # pool_size 1 keeps every lease on one connection, so the refusal needs no
 # pool contention to be deterministic.
 class DatabaseLeaseTest < TestBase
-  # The transport stand-in for the hand-off case: its `deliver` writes one
-  # row, so the case can tell "the hand-off leased a connection" (the write
+  # The transport stand-in for the delivery case: its `deliver` writes one
+  # row, so the case can tell "the delivery leased a connection" (the write
   # succeeds while the lease requirement is on) from "it ran lease-less"
   # (refused).
   class HandOffWriteTransport
     def deliver(records)
-      Sqlx::Base.write("INSERT INTO t (name) VALUES (?)", [ "hand-off" ])
+      Sqlx::Base.write("INSERT INTO t (name) VALUES (?)", [ "log-delivery" ])
     end
   end
 
   # The no-database counterpart: its `deliver` accepts the batch without a
-  # query, the OTLP default's shape at this seam.
+  # query, the OTLP default's behavior at this seam.
   class HandOffNoWriteTransport
     def deliver(records)
       nil
@@ -92,21 +92,21 @@ class DatabaseLeaseTest < TestBase
   end
 
   # The logger hands a batch off from a thread holding no lease (a request
-  # thread writing its completed-request record). Expected: the hand-off
+  # thread writing its completed-request record). Expected: the delivery
   # leases a connection for the transport call, so the transport's queue
   # write succeeds even though the caller holds no lease.
-  def test_the_log_hand_off_leases_its_own_connection
+  def test_the_log_delivery_leases_its_own_connection
     delivery = Snails::Logger::Delivery.new
     delivery.transport = HandOffWriteTransport.new
-    record = Snails::Logger::Record.new(:info, "probe.hand_off", "probe")
+    record = Snails::Logger::Record.new(:info, "probe.log_delivery", "probe")
 
     assert_equal nil, delivery.deliver(record)
     assert_equal nil, delivery.flush
-    assert_equal 1, count_named("hand-off")
+    assert_equal 1, count_named("log-delivery")
   end
 
   # A lease scope with no database access must not check out a connection.
-  # One pool slot and a holder thread keep the case deterministic: an eager
+  # One connection in the pool and a holder thread keep the case deterministic: an eager
   # checkout would wait for the holder, while the lazy scope returns at once.
   def test_a_no_database_scope_does_not_check_out_a_connection
     held = [false]
@@ -132,10 +132,10 @@ class DatabaseLeaseTest < TestBase
     assert_equal true, elapsed < 0.2
   end
 
-  # A log hand-off whose transport does no database work must not check out a
-  # connection. The no-op transport has the OTLP default's shape at the
+  # A log delivery whose transport does no database work must not check out a
+  # connection. The no-op transport has the OTLP default's behavior at the
   # delivery seam: it accepts the batch without a query.
-  def test_a_log_hand_off_without_database_work_does_not_check_out_a_connection
+  def test_a_log_delivery_without_database_work_does_not_check_out_a_connection
     held = [false]
     holder = Thread.new do
       Sqlx::Database.with_connection do
@@ -152,7 +152,7 @@ class DatabaseLeaseTest < TestBase
 
     delivery = Snails::Logger::Delivery.new
     delivery.transport = HandOffNoWriteTransport.new
-    record = Snails::Logger::Record.new(:info, "probe.no_db_hand_off", "probe")
+    record = Snails::Logger::Record.new(:info, "probe.no_db_log_delivery", "probe")
 
     started = Time.now
     assert_equal nil, delivery.deliver(record)
@@ -166,7 +166,7 @@ end
 
 FixtureRunner.run(DatabaseLeaseTest, [
   :test_a_lease_required_process_refuses_a_write_outside_any_lease,
-  :test_the_log_hand_off_leases_its_own_connection,
+  :test_the_log_delivery_leases_its_own_connection,
   :test_a_no_database_scope_does_not_check_out_a_connection,
-  :test_a_log_hand_off_without_database_work_does_not_check_out_a_connection
+  :test_a_log_delivery_without_database_work_does_not_check_out_a_connection
 ])

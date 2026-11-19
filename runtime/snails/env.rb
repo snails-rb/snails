@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # the process mode and its predicates. The vocabulary is SNAILS_ENV's:
-# development | test | staging | production. `Snails.logger`'s debug gate and
+# development | test | staging | production. `Snails.logger`'s debug check and
 # app-side dev-only branches read these predicates.
 module Snails
   # the process mode, read once from SNAILS_ENV and memoized. Development is the
@@ -15,7 +15,7 @@ module Snails
 
   # replace the process mode in-process (a test, a console-style override). A
   # deployment sets SNAILS_ENV before the process starts; there is no separate
-  # env-name slot.
+  # environment name value.
   #
   # @param name [String, nil] a vocabulary name, or nil for development
   # @return [Env] the new mode
@@ -32,7 +32,7 @@ module Snails
   # a plain object answering the known environment predicates (no
   # `method_missing`, no `String` subclass). A name outside the vocabulary
   # answers every predicate false rather than raising — mode is read on the
-  # request path (the logger's gate), where a raise would turn a typo into a
+  # request path (the logger's check), where a raise would turn a typo into a
   # 500.
   class Env
     def initialize(name)

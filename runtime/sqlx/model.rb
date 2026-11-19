@@ -18,7 +18,7 @@ module Sqlx
     # @return [Enum] the validated declaration
     # @raise [ArgumentError] on an empty declaration, a non-Symbol key,
     #   a non-Integer value, or a duplicated value (two labels sharing
-    #   one slot would alias each other silently)
+    #   one stored value would alias the other silently)
     # @example standard implementation form — each member is a
     #   hand-written one-liner (endless def) because spinel has no
     #   metaprogramming to generate them; the predicate queries the

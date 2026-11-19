@@ -26,7 +26,7 @@ class MainDispatchTest < TestBase
     req
   end
 
-  # The action sees the wired request/controller; dispatch clears both slots
+  # The action sees the wired request/controller; dispatch clears both thread-local values
   # when the action returns.
   def test_dispatch_exposes_current_during_the_action
     HarnessCurrentProbeController.reset
@@ -57,7 +57,7 @@ class MainDispatchTest < TestBase
     assert_equal true, ActionController::Current.controller.nil?
   end
 
-  # An exception from the action still clears both slots.
+  # An exception from the action still clears both thread-local values.
   def test_dispatch_clears_current_when_the_action_raises
     raised = false
     begin
@@ -85,8 +85,8 @@ class MainDispatchTest < TestBase
     assert_equal 400, res.status
   end
 
-  # A condition value that cannot be cast is a client error: the dispatcher
-  # answers the same 400 shape as a missing required parameter, not a 500.
+  # A condition value that cannot be cast is a client error: the framework
+  # answers the same 400 response as a missing required parameter, not a 500.
   def test_dispatch_answers_json_400_for_a_cast_error
     res = Tep::Response.new
     Snails::Main.dispatch(build_request("GET", "/cast-error"), res)

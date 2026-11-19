@@ -38,7 +38,7 @@ end
 # ActiveJob recurring (core) — the one-call declaration: `recurring` takes
 # the job class with either an interval or a cron expression and wires one
 # periodic callback; each run enqueues the job with the occurrence time as
-# `scheduled_at`. Pinned here: both registration forms and their rejection; the
+# `scheduled_at`. Cases here cover: both registration forms and their rejection; the
 # once-per-occurrence enqueue through the selected adapter; the next-occurrence
 # start (a missed occurrence is not caught up); a drain-less context still runs
 # at the call site; and the default adapter carries the recurring half
@@ -292,13 +292,13 @@ class JobRecurringTest < TestBase
   end
 
   # `enqueue_once` answers whether this call enqueued the job: true for
-  # the first call in a slot, false for the duplicate (the store-backed
+  # the first call for an occurrence, false for the duplicate (the database-backed
   # unique-key contract).
   def test_enqueue_once_answers_whether_it_enqueued
     ActiveJob.register_executor
-    slot = ActiveJob.scheduled_at_for(300)
-    first = UniqueQueueAdapter.enqueue_once("TickJob", -> { RecurringSink::RAN << 0 }, nil, slot)
-    second = UniqueQueueAdapter.enqueue_once("TickJob", -> { RecurringSink::RAN << 0 }, nil, slot)
+    interval_start = ActiveJob.scheduled_at_for(300)
+    first = UniqueQueueAdapter.enqueue_once("TickJob", -> { RecurringSink::RAN << 0 }, nil, interval_start)
+    second = UniqueQueueAdapter.enqueue_once("TickJob", -> { RecurringSink::RAN << 0 }, nil, interval_start)
     assert_equal true, first
     assert_equal false, second
   end
@@ -306,7 +306,7 @@ end
 
 # An app-defined adapter carrying the recurring half: `enqueue_once`
 # records the interval's `scheduled_at` and ignores repeats — the
-# unique-key shape every store-backed adapter implements (the harness
+# unique-key shape every database-backed adapter implements (the harness
 # pins it). Its signature is pinned by the sidecar beside this file.
 class UniqueQueueAdapter
   KEYS = []

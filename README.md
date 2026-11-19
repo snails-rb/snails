@@ -10,11 +10,11 @@
 [![ci](https://github.com/snails-rb/snails/actions/workflows/ci.yml/badge.svg)](https://github.com/snails-rb/snails/actions/workflows/ci.yml)
 [![release](https://img.shields.io/github/v/release/snails-rb/snails?display_name=release&label=version)](https://github.com/snails-rb/snails/releases/latest)
 
-Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions, drops the Ruby runtime, and compiles the app into one native binary. One process uses every core, with about 3× the throughput and 10× lower peak memory under load than Rails in cluster mode.
+Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions, drops the Ruby runtime, and compiles the app into one native binary. One process uses every core, with about 3× the throughput and more than 10× lower peak memory under load than Rails in cluster mode.
 
-The repo is split into the framework (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). An app vendors `runtime/` as `snails-core/` and pins the revision in `pins.toml`.
+The repo is split into the framework (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). An app copies `runtime/` into itself as `snails-core/` and pins the revision in `pins.toml`.
 
-Status: 1.x. The public API is stable.
+The public API is stable.
 
 ## Why Snails
 
@@ -41,7 +41,7 @@ Keep the CLI at or above the core version you pin. To upgrade an existing instal
 
 ## Benchmark
 
-The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode, with peak memory 10× lower under load, and about 11.9× the throughput of a default Rails app. A separate single-row database read is about 3.1× faster than Rails, close to the microbenchmark ratio.
+The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode, with peak memory more than 10× lower under load, and about 11.9× the throughput of a default Rails app. A separate single-row database read is about 3.1× faster than Rails, close to the microbenchmark ratio.
 
 Reproduce from that repository with `bin/bench`, `bin/bench-scenario`, `bin/boottime`, and `bin/imagesize`. The result tables are under [`results/`](https://github.com/snails-rb/snails-benchmark/tree/main/results).
 
@@ -96,7 +96,7 @@ The manual is the product documentation for developers building an app. It lives
 ## Layout
 
 ```
-runtime/        # app-agnostic core — vendored into a consuming app as snails-core/
+runtime/        # app-agnostic core — copied into a consuming app as snails-core/
 scaffold/       # snails new and --scaffold templates, plus the harness skeleton
 bin/snails      # the CLI entry point
 cli/            # the CLI implementation shipped in the dist

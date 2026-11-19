@@ -25,7 +25,7 @@ module TestDatabase
     end
   end
 
-  # The pg gate sets PG_URL; the sqlite gate does not.
+  # The PostgreSQL test run sets PG_URL; the SQLite test run does not.
   def self.pg?
     !ENV["PG_URL"].to_s.empty?
   end

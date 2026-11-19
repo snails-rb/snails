@@ -42,7 +42,7 @@ A call without `event:` writes a plain line and an `app.log` record. A call with
 
 ## Configure it
 
-The logger slots are set once in `config/environment.rb`:
+The logger settings are set once in `config/environment.rb`:
 
 ```ruby
 Snails.logger.level            = :info
@@ -59,7 +59,7 @@ Snails.logger.transport        = Snails::Logger::OTLPTransport.new(
 
 Without an explicit level, development writes debug and every other mode writes info and above. `output` defaults to `$stderr`; a String path is rejected — open the file and pass the IO. `formatter` renders the plain lines, `record_formatter` renders named events, and both must answer `call` and return a newline-terminated String. `host_name` answers `ENV["HOSTNAME"]` unless set.
 
-The core ships an OTLP/HTTP transport. Its endpoint is the receiver's base address; the transport appends the logs path itself. Endpoint and token are app-owned and come from the environment — never write their values into `config/environment.rb`.
+Snails ships an OTLP/HTTP transport. Its endpoint is the receiver's base address; the transport appends the logs path itself. Endpoint and token are app-owned and come from the environment — never write their values into `config/environment.rb`.
 
 Remote delivery is off until a transport is set. A delivery failure is reported locally and does not stop the app.
 

@@ -211,7 +211,7 @@ module Tep
 
     # Carries one of three outcomes: a parsed frame, a "need more bytes"
     # signal, or a close code for a protocol violation. The field is
-    # `outcome`, not `status`: a `status` attr slot collides with
+    # `outcome`, not `status`: a `status` attribute collides with
     # Tep::Response#status (Integer) in spinel's same-name attr
     # unification, widening Tep.reason to poly and breaking the build.
     class ParseResult

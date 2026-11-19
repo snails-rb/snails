@@ -2,10 +2,10 @@ require_relative "test_helper"
 require_relative "harness_runner"
 require_relative "test_database"
 
-# Snails::Queue::PruneJob (core) — the queue retention pass. Pinned here:
+# Snails::Queue::PruneJob (core) — the queue retention pass. Cases here cover:
 # only finished rows (succeeded/failed) past the retention window are
 # deleted — recent rows and pending rows stand regardless of
-# age — the ledger's old occurrences go with them (one window for both
+# age — the occurrence table's old rows go with them (one window for both
 # tables), each delete stops at the batch limit, and a backlog larger
 # than one batch is cleared by repetition. The setup rebuilds the queue
 # tables from the shipped DDL template each case; rows are inserted
@@ -69,8 +69,8 @@ class QueuePruneJobTest < TestBase
     assert_equal 1, scalar("SELECT COUNT(*) FROM snails_queue_jobs WHERE status = 'pending'")
   end
 
-  # The ledger shares the window: an old occurrence goes, a recent one
-  # stays — a queue and its ledger never disagree about what is old.
+  # The occurrence table shares the window: an old occurrence goes, a recent one
+  # stays — the queue and its occurrence table never disagree about what is old.
   def test_prune_removes_old_occurrences
     now = Time.now.utc
     old = 8.days.ago

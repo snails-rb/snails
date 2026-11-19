@@ -5,8 +5,8 @@ require_relative "../harness_runner"
 # connection, so two requests never share a session, a transaction cannot join
 # another lease's work, `lastval()`/`changes` answer on the lease's connection,
 # and the pool refuses a lease-less access once the server requires leases.
-# SQLite's gate covers the same cases through its own pool; this file runs in
-# the pg gate only.
+# SQLite's test run covers the same cases through its own pool; this file runs in
+# the PostgreSQL test run only.
 Sqlx::Database.configure(ENV["PG_URL"].to_s, pool_size: 2)
 
 class PgLeaseItem < Sqlx::Base

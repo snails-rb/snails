@@ -33,7 +33,7 @@ module ActiveJob
     # queue at or below half the bound.
     OVERFLOW_REPORTED = [ false ]
 
-    # Process-local monotonic job id: the process queue has no stored row, so
+    # In-process monotonic job id: the process queue has no stored row, so
     # the id only has to be unique within this process's lifetime. It resets
     # on restart and is not a cross-process correlation key.
     NEXT_ID = [ 0 ]
@@ -54,10 +54,11 @@ module ActiveJob
     end
 
     # put a job on the queue with a run time: the drain leaves it unrun until
-    # the clock (`Time.now`) passes `scheduled_at`. A store-backed adapter
+    # the clock (`Time.now`) passes `scheduled_at`. A database-backed adapter
     # stores the same value in its row instead; the time is the whole difference
-    # from `enqueue` here. The Time slot refuses a non-Time argument at the
-    # build or the call boundary (ext/time.rb), so no in-body guard stands here.
+    # from `enqueue` here. The typed Time parameter refuses a non-Time argument
+    # at the build or the call boundary (ext/time.rb), so no in-body guard
+    # stands here.
     # The same bound and refusal rule as `enqueue` applies: a scheduled job
     # waiting for its time counts against the queue.
     #
@@ -71,13 +72,13 @@ module ActiveJob
     end
 
     # the recurring half of the adapter interface: this adapter is
-    # process-local, so the run's scheduled time has no cross-process work to do
-    # — the call runs the `enqueue` path. A store-backed adapter keys its row by
+    # in-memory, so the run's scheduled time has no cross-process work to do
+    # — the call runs the `enqueue` path. A database-backed adapter keys its row by
     # (name, scheduled_at) under a unique constraint instead.
     #
-    # It answers whether THIS call enqueued the job: the process-local
-    # queue has no cross-process duplicate to drop, so it answers true
-    # unless the queue is full; a store-backed adapter answers false for an
+    # It returns whether THIS call enqueued the job: the in-memory
+    # queue has no cross-process duplicate to drop, so it returns true
+    # unless the queue is full; a database-backed adapter returns false for an
     # existing (name, scheduled_at) row.
     #
     # @return [Boolean] true when this call enqueued the job
@@ -86,7 +87,7 @@ module ActiveJob
     end
 
     # run every due job, in queue order, and answer how many ran. A job
-    # scheduled for a later time stays queued (`due_at` gates it); a job that
+    # scheduled for a later time stays queued (`due_at` controls it); a job that
     # enqueues another is reached by the same drain. The worker loop calls it
     # (inside the loop's Sqlx::Database lease); the contract tests call it
     # directly. A unit failure — anything the boundary does not re-raise — is
@@ -232,7 +233,7 @@ module ActiveJob
     # One local line per overflow episode. It must not become a log record:
     # a record would enqueue another delivery job into the full queue. The
     # line names the dropped job and the bound so the operator can raise
-    # worker throughput or move the queue to a store-backed adapter.
+    # worker throughput or move the queue to a database-backed adapter.
     def self.report_full(job_name)
       report = false
       QUEUE_LOCK.synchronize do
@@ -247,7 +248,7 @@ module ActiveJob
         :warn,
         "[queue] dropped " + job_name + ": process queue is full (limit " +
           MAX_PENDING.to_s + " pending); further drops stay quiet until the queue drains — " +
-          "increase WORKER_CONCURRENCY or use a store-backed adapter"
+          "increase WORKER_CONCURRENCY or switch to ActiveJob::DatabaseQueue"
       )
     end
 

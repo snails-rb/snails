@@ -49,7 +49,7 @@ module Snails
     end
 
     # the process zone every local time is presented in, as an IANA identifier.
-    # Read-only: config/environment.rb owns the slot with
+    # Read-only: config/environment.rb owns the value with
     # `Snails.time_zone = "<zone>"`, which resolves and validates the name.
     #
     # @return [String] the IANA identifier

@@ -2,7 +2,7 @@ require_relative "test_helper"
 require_relative "harness_runner"
 
 # Snails::Logger record layer (core) — one log event as a field bag, the
-# record formatter that renders it locally, the transport slot, and the
+# record formatter that renders it locally, the transport setting, and the
 # context fields the logger adds. The five level calls render through
 # `formatter` when they carry only a message and through `record_formatter`
 # when they carry an `event:`, and both shapes reach the transport.
@@ -233,7 +233,7 @@ class LoggerRecordTest < TestBase
     assert_equal [ "line\n" ], out.lines
   end
 
-  # The level gate also applies to calls carrying an event.
+  # The level check also applies to calls carrying an event.
   def test_event_call_respects_the_level
     out = RecordOutput.new
     formatter = RecordingRecordFormatter.new
@@ -248,7 +248,7 @@ class LoggerRecordTest < TestBase
     assert_equal :warn, formatter.calls[0]["record"].severity
   end
 
-  # Even when the level gate blocks logging, invalid arguments do not pass
+  # Even when the level check blocks logging, invalid arguments do not pass
   # silently.
   def test_event_call_validates_before_the_level
     out = RecordOutput.new
@@ -343,7 +343,7 @@ class LoggerRecordTest < TestBase
   end
 
   # Passing fields or exception without event is rejected before the level
-  # gate — silently falling back to app.log would erase the caller's intent.
+  # check — silently falling back to app.log would erase the caller's intent.
   def test_fields_or_exception_without_event_raise
     out = RecordOutput.new
     logger = new_logger(out)
@@ -363,7 +363,7 @@ class LoggerRecordTest < TestBase
 
   # record was removed from the public surface — an external call raises
   # NoMethodError.
-  def test_record_is_no_longer_public
+  def test_logger_record_is_private
     logger = new_logger(RecordOutput.new)
     blocked = false
     begin
@@ -407,7 +407,7 @@ class LoggerRecordTest < TestBase
     assert_equal 200, records[3].fields["http.response.status_code"]
   end
 
-  # The transport and record_formatter slots reject values that do not answer
+  # The transport and record_formatter settings reject values that do not answer
   # the contract at assignment time.
   def test_transport_and_record_formatter_validate_their_contract
     logger = Snails::Logger.new
@@ -459,7 +459,7 @@ class LoggerRecordTest < TestBase
   end
 
   # Request and job context are attached to every record as reserved fields.
-  def test_context_fields_ride_on_records
+  def test_records_include_context_fields
     out = RecordOutput.new
     formatter = RecordingRecordFormatter.new
     logger = new_logger(out)
@@ -502,10 +502,10 @@ FixtureRunner.run(LoggerRecordTest, [
   "test_record_formatter_escapes_values",
   "test_message_only_call_uses_the_formatter_and_delivers",
   "test_fields_or_exception_without_event_raise",
-  "test_record_is_no_longer_public",
+  "test_logger_record_is_private",
   "test_transport_receives_the_same_records_whatever_the_formatters",
   "test_transport_and_record_formatter_validate_their_contract",
   "test_transport_failure_is_local_only",
   "test_concurrent_writes_do_not_interleave",
-  "test_context_fields_ride_on_records"
+  "test_records_include_context_fields"
 ])

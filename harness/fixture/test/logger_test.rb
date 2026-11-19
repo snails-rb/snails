@@ -3,7 +3,7 @@ require_relative "harness_runner"
 require_relative "test_database"
 
 # Snails::Logger (core) — the app-facing logger: the mode-derived default
-# level, the level/output/formatter/progname slots, and the request id tag
+# level, the level/output/formatter/progname settings, and the request id tag
 # the message carries. Stderr formatting is asserted through the default
 # formatter with a fixed time, and writes are captured through a recording
 # output so the snapshot never bakes in a clock or pid.
@@ -33,7 +33,7 @@ class LoggerTest < TestBase
     end
   end
 
-  # A transport that parks inside `deliver` until released, so a hand-off can
+  # A transport that parks inside `deliver` until released, so a delivery can
   # be held open while another thread logs.
   class BlockingTransport
     def initialize
@@ -159,9 +159,9 @@ class LoggerTest < TestBase
     )
     Snails.time_zone = "UTC"
 
-    stamp = "[1970-01-01T09:00:00.000000+09:00 #"
-    assert_equal true, default_line.include?(stamp)
-    assert_equal true, record_line.include?(stamp)
+    expected_prefix = "[1970-01-01T09:00:00.000000+09:00 #"
+    assert_equal true, default_line.include?(expected_prefix)
+    assert_equal true, record_line.include?(expected_prefix)
   end
 
   # Two instants in one second share the cached date and clock text but each
@@ -190,7 +190,7 @@ class LoggerTest < TestBase
 
   # A formatter parked mid-render does not hold the write lock: the second
   # thread's line is written while the first render is still blocked, so a
-  # slow formatter cannot serialize every request thread's logging.
+  # slow formatter cannot serialize every green thread's logging.
   def test_a_blocked_formatter_does_not_hold_the_write_lock
     out = RecordingOutput.new
     formatter = BlockingFormatter.new
@@ -225,10 +225,10 @@ class LoggerTest < TestBase
     assert_equal 2, out.lines.length
   end
 
-  # A transport stuck in the hand-off does not block logging from other
+  # A transport stuck in the delivery does not block logging from other
   # threads. Expectation: the second line is recorded before the transport is
-  # released, and the first hand-off finishes after the release. If the local
-  # render lock wrapped the hand-off, this case would stall first.
+  # released, and the first delivery finishes after the release. If the local
+  # render lock wrapped the delivery, this case would stall first.
   def test_a_blocked_transport_does_not_hold_other_threads_logging
     out = RecordingOutput.new
     Snails.logger.output = out
@@ -277,9 +277,9 @@ class LoggerTest < TestBase
     Snails.env = ENV["SNAILS_ENV"]
   end
 
-  # An explicit level wins over the mode and gates every write at or
-  # above it; the predicates answer the same gate.
-  def test_explicit_level_gates_writes_and_predicates
+  # An explicit level wins over the mode and limits every write at or
+  # above it; the predicates answer the same check.
+  def test_explicit_level_limits_writes_and_predicates
     out = RecordingOutput.new
     fmt = RecordingFormatter.new
     logger = Snails::Logger.new
@@ -302,7 +302,7 @@ class LoggerTest < TestBase
     assert_equal "ERROR", fmt.calls[1]["severity"]
   end
 
-  # A typo in any slot stops at configuration time — a logger that
+  # A typo in any setting stops at configuration time — a logger that
   # silently writes nowhere is the failure this rejects.
   def test_configuration_rejects_bad_values
     logger = Snails::Logger.new
@@ -317,7 +317,7 @@ class LoggerTest < TestBase
     assert_equal true, formatter_message.include?("answering call")
   end
 
-  # The app environment file ran before the cases and its slots are the
+  # The app environment file ran before the cases and its settings are the
   # ones the process writes through.
   def test_environment_file_configured_the_shared_logger
     assert_equal true, Snails.logger.equal?(Snails.logger)
@@ -480,7 +480,7 @@ FixtureRunner.run(LoggerTest, [
   "test_message_is_untagged_before_a_request",
   "test_default_formatter_line",
   "test_default_level_follows_the_mode",
-  "test_explicit_level_gates_writes_and_predicates",
+  "test_explicit_level_limits_writes_and_predicates",
   "test_configuration_rejects_bad_values",
   "test_environment_file_configured_the_shared_logger",
   "test_request_id_tags_the_message",

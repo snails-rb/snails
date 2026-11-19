@@ -1,4 +1,4 @@
-# The job stack's process-local launcher: starts the scheduler loop and N
+# The job stack's in-process launcher: starts the scheduler loop and N
 # drain loops on new threads of the server process. The servers call `start`
 # once per server process from their connection loop (prefork children
 # included); an out-of-process worker would be this module behind a different

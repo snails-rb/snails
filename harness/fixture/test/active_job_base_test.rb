@@ -54,7 +54,7 @@ end
 # the base (the class name, overridable) and `perform(data)` is a
 # raising spec taking the decoded payload (nil when none — the base
 # refuses without an override). The module entry that reads the contract
-# (`enqueue`'s payload path) and the store-backed resolution convention
+# (`enqueue`'s payload path) and the database-backed resolution convention
 # (`Object.const_get` → `perform` — the adapter owns it) are driven here,
 # so the cases prove the members through their consumers.
 class JobBaseTest < TestBase
@@ -86,7 +86,7 @@ class JobBaseTest < TestBase
 
   # Missing body: registration succeeds (the name derives), and the
   # callback's run raises the spec's message when it runs the job.
-  def test_missing_perform_fails_loud
+  def test_missing_perform_raises
     ActiveJob.recurring(NoBodyJob, 300)
     begin
       ActiveJob::Scheduler::PERIODIC[0]["work"].call(Time.now.to_i)
@@ -111,7 +111,7 @@ class JobBaseTest < TestBase
     assert_equal [ 1 ], JobBaseSink::RAN
   end
 
-  # The store-backed convention: a stored name is a constant path and the
+  # The database-backed convention: a stored name is a constant path and the
   # resolution runs through `Object.const_get` — the adapter owns it (the
   # runtime offers no helper).
   def test_a_stored_name_resolves_to_its_class_and_runs
@@ -128,10 +128,10 @@ class JobBaseTest < TestBase
     assert_equal [ 5 ], JobBaseSink::RAN
   end
 
-  # Unknown name: the dynamic lookup fails loud at run time with the
-  # runtime's own message (a store-backed adapter surfaces it as the
+  # Unknown name: the dynamic lookup raises at run time with the
+  # runtime's own message (a database-backed adapter surfaces it as the
   # job's failure).
-  def test_an_unknown_stored_name_fails_loud
+  def test_an_unknown_stored_name_raises
     begin
       Object.const_get("GhostJob")
     rescue NameError => e
@@ -142,7 +142,7 @@ class JobBaseTest < TestBase
   end
 
   # A schedule needs a real run time: with Time active (the ext layer
-  # reopens it) the Time-typed slot refuses a non-Time at the boundary —
+  # reopens it) the Time parameter refuses a non-Time at the boundary —
   # an untyped value never reaches the body, and a known-type non-Time
   # does not even build.
   def test_schedule_rejects_a_non_time
@@ -155,13 +155,13 @@ class JobBaseTest < TestBase
     raise "expected TypeError from ActiveJob.schedule"
   end
 
-  # With no executor a schedule raises instead of running now: the delay
+  # With no worker loop a schedule raises instead of running now: the delay
   # is the point, and a queue nobody drains is a silent loss.
-  def test_schedule_without_an_executor_raises
+  def test_schedule_without_a_worker_loop_raises
     begin
       ActiveJob.schedule(NamedJob, Time.now.utc + 900)
     rescue RuntimeError => e
-      assert_equal "schedule needs an executor — a scheduled job with none would be silently lost", e.message
+      assert_equal "schedule needs a worker loop — a scheduled job with none would be silently lost", e.message
       return
     end
     raise "expected RuntimeError from ActiveJob.schedule"
@@ -171,12 +171,12 @@ end
 FixtureRunner.run(JobBaseTest, [
   "test_job_name_derives_from_the_class_name",
   "test_job_name_override_keeps_the_declared_key",
-  "test_missing_perform_fails_loud",
+  "test_missing_perform_raises",
   "test_payload_enqueue_passes_the_payload_to_the_body",
   "test_perform_result_is_discarded",
   "test_a_stored_name_resolves_to_its_class_and_runs",
   "test_a_stored_name_with_a_payload_runs_the_body",
-  "test_an_unknown_stored_name_fails_loud",
+  "test_an_unknown_stored_name_raises",
   "test_schedule_rejects_a_non_time",
-  "test_schedule_without_an_executor_raises"
+  "test_schedule_without_a_worker_loop_raises"
 ])

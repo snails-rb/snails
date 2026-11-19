@@ -80,7 +80,7 @@ module Snails
       end
 
       # encode one batch and enqueue the delivery job. It never performs HTTP;
-      # the transport contract stays the hand-off point.
+      # the transport contract stays the delivery point.
       #
       # A process without a registered executor would run the job at the call
       # site and block the caller, so that case is refused. The first refusal
@@ -95,7 +95,7 @@ module Snails
         if !ActiveJob.executor_registered
           if !@executor_warned
             @executor_warned = true
-            raise "log delivery needs a registered ActiveJob executor"
+            raise "log delivery needs a worker loop"
           end
           return nil
         end

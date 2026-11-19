@@ -25,7 +25,7 @@ module ActiveJob
 
     # The seconds between idle drains: a drain that fills its batch
     # keeps the loop coming straight back on its 50ms poll, so this
-    # interval gates only the idle check — the database sees one drain
+    # interval limits only the idle check — the database sees one drain
     # per interval instead of one per poll while the queue is empty.
     DRAIN_INTERVAL_SECONDS = 1
 
@@ -60,7 +60,7 @@ module ActiveJob
     # rolling deploy still retries at a bounded pace.
     DELIVERY_MAX_DELAY_SECONDS = 600
 
-    # hand off a job due now: write one pending row and return. The body does
+    # enqueue a job due now: write one pending row and return. The body does
     # not travel — the row carries the name and the payload, and a drain (this
     # process or another) resolves them when the row is claimed.
     #
@@ -75,7 +75,7 @@ module ActiveJob
       Snails::Queue::Job.enqueue!(job_name, payload, now, now)
     end
 
-    # hand off a delayed one-off: the row waits in pending until a drain's clock
+    # enqueue a delayed one-off: the row waits in pending until a drain's clock
     # passes `scheduled_at`. A one-off is NOT deduplicated: every call writes
     # its own row, so the same name and run time with different payloads are
     # different jobs.
@@ -83,7 +83,7 @@ module ActiveJob
     # @param job_name [String] the job's name — the stored constant path
     # @param work [Proc] the job, closed over its arguments (unused here)
     # @param payload [Object, nil] the serializable arguments (JSON text)
-    # @param scheduled_at [Time] the run time — the Time slot is the
+    # @param scheduled_at [Time] the run time — the typed Time parameter is the
     #   contract, so a non-Time never reaches the row (the .rbs pins it)
     # @return [void]
     def self.enqueue_at(job_name, work, payload, scheduled_at)
@@ -93,10 +93,10 @@ module ActiveJob
 
     # the recurring half: one row per (name, interval start), so several
     # processes running the same callback still queue the occurrence once. The
-    # ledger insert and the queue row are one transaction — a ledger collision
-    # (another process won) answers false with no row written, so the ledger can
-    # never keep an occurrence whose row was lost. A one-off `enqueue_at` never
-    # comes through here.
+    # occurrence-table insert and the queue row are one transaction — a
+    # collision there (another process won) answers false with no row written,
+    # so the occurrence table never keeps an occurrence whose row was lost. A
+    # one-off `enqueue_at` never comes through here.
     #
     # @param name [String] the job's name — the stored constant path
     # @param work [Proc] the job, closed over its arguments (unused here)
@@ -123,7 +123,7 @@ module ActiveJob
     # waiting, so a worker thread (its 50ms poll) comes straight back and works
     # through the backlog; a shorter drain clears the flag and the idle interval
     # takes over. What runs inside a drain is decided by the rows, not by this
-    # gate. The read is mutex-guarded: concurrent worker threads share the
+    # check. The read is mutex-guarded: concurrent worker threads share the
     # flags.
     #
     # @return [Boolean] true when a drain should run
@@ -219,8 +219,8 @@ module ActiveJob
     # and the id, name, and attempts are still in hand. The row returns to
     # pending (or becomes the dead letter at the attempt limit) with the
     # reason. A row load error other than a payload decode failure — for
-    # example a model declaration error — is a framework bug and stays loud:
-    # it leaves this method and the drain boundary records it.
+    # example a model declaration error — is a framework bug and raises: it
+    # leaves this method, and the drain boundary records it.
     def self.job_from_claimed_row(row)
       payload = row["payload"]
       begin

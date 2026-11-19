@@ -2,7 +2,7 @@ require_relative "test_helper"
 require_relative "harness_runner"
 
 # Snails version metadata (core) — the framework identity and the app-owned
-# version/revision readers. The framework constants are stamped into the dist
+# version/revision readers. The framework constants are written into the dist
 # artifact; the app readers exist on `Snails::Application` and may be reopened.
 class VersionTest < TestBase
   # A subclass stands in for an app reopen: the default readers are inherited
@@ -72,7 +72,7 @@ class VersionTest < TestBase
 
   # Revision is a deployment identifier, so it is fixed after the first read —
   # it does not change like a request value.
-  def test_app_revision_is_memoized
+  def test_app_revision_reads_once
     previous = ENV["REVISION"]
     ENV["REVISION"] = "first-revision"
     begin
@@ -93,5 +93,5 @@ FixtureRunner.run(VersionTest, [
   "test_app_readers_can_be_overridden",
   "test_app_revision_reads_env",
   "test_app_revision_reads_the_revision_file",
-  "test_app_revision_is_memoized"
+  "test_app_revision_reads_once"
 ])

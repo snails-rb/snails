@@ -1,7 +1,7 @@
 # Time — the date helpers, delegating the civil-calendar arithmetic to
 # `Snails::DateAndTime::Calculations` (day shifts walk the calendar, month
 # steps clamp to the target month's last day); zone conversion lives in
-# `Snails::TimeZone`. The reopen makes Time-typed parameter slots strict
+# `Snails::TimeZone`. The reopen makes typed Time parameters strict
 # program-wide, so a wrong argument fails at the boundary, not in the body.
 class Time
   # ---- boundaries ----

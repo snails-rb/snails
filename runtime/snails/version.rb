@@ -4,10 +4,10 @@
 # actually running. `publish-dist.sh` rewrites the two constants when it
 # packages a release; `sync` copies the vendored file, so the values name the
 # code in the binary rather than the app's pin declaration. A checkout sync
-# stamps the resolved revision into the app's vendored copy.
+# writes the resolved revision into the app's vendored copy.
 module Snails
   # The core version: a release tag (`v0.20.0`) or a full commit revision for
-  # an edge pin. `"unknown"` in a checkout that was never stamped.
+  # an edge pin. `"unknown"` in a checkout that was never written.
   VERSION = "unknown"
 
   # The exact core revision, full 40-hex when known.
@@ -15,14 +15,14 @@ module Snails
 
   # the framework version the running core was packaged from.
   #
-  # @return [String] the release tag or revision, `"unknown"` when unstamped
+  # @return [String] the release tag or revision, `"unknown"` when not written
   def self.version
     VERSION
   end
 
   # the exact framework revision the running core was packaged from.
   #
-  # @return [String] the full commit revision, `"unknown"` when unstamped
+  # @return [String] the full commit revision, `"unknown"` when not written
   def self.rev
     REV
   end

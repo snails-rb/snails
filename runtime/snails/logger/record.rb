@@ -9,7 +9,7 @@ module Snails
   class Logger
     class Record
       # Severities in increasing order — the same vocabulary the logger's
-      # level gate accepts.
+      # level check accepts.
       SEVERITIES = [ :debug, :info, :warn, :error, :fatal ].freeze
 
       # The field contract version — bump when a field is renamed or removed.
@@ -171,7 +171,7 @@ module Snails
         frames.join("\n")
       end
 
-      # Normalize names to Strings, validate their shape and values, and
+      # Normalize names to Strings, validate their format and values, and
       # reject caller fields that would shadow the record or its context.
       def normalize_fields(fields, caller_owned)
         if !fields.is_a?(Hash)

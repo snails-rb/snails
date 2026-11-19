@@ -20,7 +20,7 @@ class DatabaseBlockingTest < TestBase
   MAX_TICK_GAP_SECONDS = 0.25
 
   # The ticker's statement window target: long enough to collect several
-  # times while the query runs, short enough to keep the gate quick.
+  # times while the query runs, short enough to keep the test run quick.
   TARGET_STATEMENT_SECONDS = 0.8
 
   def setup
@@ -86,7 +86,7 @@ class DatabaseBlockingTest < TestBase
 
   # Rows whose recursive scan costs about `TARGET_STATEMENT_SECONDS` on this
   # machine. A fixed count would either finish too fast to overlap a
-  # collection or make a slow gate much slower.
+  # collection or make a slow test run much slower.
   def sqlite_rows_for_target
     probe_rows = 200_000
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)

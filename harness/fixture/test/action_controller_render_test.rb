@@ -5,7 +5,7 @@ require_relative "harness_runner"
 # point: the positional body (already-rendered text, unchanged from
 # before) and the `json:` keyword (a payload the controller encodes,
 # answering the JSON content type). Exactly one must be given — neither
-# and both are loud ArgumentErrors rather than a guessed body — and
+# and both raise ArgumentError rather than a guessed body — and
 # `json: nil` still renders, encoding to `null`.
 class RenderTest < TestBase
   def assert_equal(expected, actual)

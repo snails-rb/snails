@@ -9,7 +9,7 @@ module Sqlx
     # owning model carries only its own SQL (column list, join, foreign key)
     # instead of the prepare/step/finalize dance every reader repeated. The
     # per-column read stays in the model's `from_row`, which receives one
-    # name-keyed row per statement row — the same shape the raw read
+    # name-keyed row per statement row — the same format the raw read
     # (`rows_by_sql`) answers with — so the caller's column order never binds
     # record building: a reordered SELECT still lands every value on its own
     # attribute.
@@ -43,7 +43,7 @@ module Sqlx
     # back the row it yields first, keyed by column name, or nil when it yields
     # none. It is the raw counterpart of the model-level single-row read
     # (`find_by_sql(...).first`): the same query, without record building: the row
-    # shape is dynamic (a view, an aggregate, a computed column), so no model
+    # format is dynamic (a view, an aggregate, a computed column), so no model
     # stands behind it.
     #
     # @param sql [String] the caller's SELECT, with a `?` for each value
@@ -69,9 +69,9 @@ module Sqlx
     # the raw-read half of the read family: walk the caller's SELECT and hand
     # back each row as a name→value Hash, without building a record. It exists
     # for the statements no model can stand behind — a view, an aggregate, a
-    # computed column — where the row shape is genuinely dynamic and a model
+    # computed column — where the row format is genuinely dynamic and a model
     # would be a lie. `find_by_sql` is the same walk with a model in front of
-    # it; this one keeps the dynamic shape honest, and the shape is shared —
+    # it; this one keeps the dynamic format honest, and the format is shared —
     # `from_row` receives exactly these name-keyed rows.
     #
     # A value enters a read the way it enters a write: bound. The
@@ -88,7 +88,7 @@ module Sqlx
     #   the adapter's native types (Integer/Float/String, nil for NULL)
     # @raise [ArgumentError] the values and the statement's
     #   placeholders do not agree
-    # @example view read — no model fits the row shape
+    # @example view read — no model fits the row format
     #   Sqlx::Base.rows_by_sql("SELECT service, host FROM latest_samples")
     # @example a read with a value — bound, not spliced into the text
     #   Sqlx::Base.rows_by_sql("SELECT id FROM widgets WHERE name = ?", [ "alpha" ])
@@ -196,7 +196,7 @@ module Sqlx
     #   the comparison), or gives `is_not` a bound other than nil
     #   (`IS NOT <value>` is not SQL — the operator is the null test)
     # The core read and write entries bind condition values through `?` so one
-    # SQL shape serves every value; this method stays the literal renderer for
+    # SQL form serves every value; this method stays the literal renderer for
     # a caller that assembles its own SQL and needs the clause text. The two
     # forms share the same validation and produce the same predicates. This
     # literal form does not apply the integer column cast — it renders the
@@ -244,7 +244,7 @@ module Sqlx
     end
 
     # the single-row lookup by a conditions hash, assembled from the model's
-    # `table_name` and `only_columns` declarations. Core owns this shape because
+    # `table_name` and `only_columns` declarations. Core owns this form because
     # it never varies by model (the same
     # `SELECT <quoted cols> FROM <quoted table> WHERE <clause> LIMIT 1` every
     # time) — the hand-rolled per-model copy is where the miss path and the
@@ -262,7 +262,7 @@ module Sqlx
     # table's last row and `:asc` its first, the answers
     # `Model.last`/`Model.first` give — while an empty hash with no
     # order still has no answer and raises. The order column is `id`
-    # by the same decision `find` pins the lookup column: every
+    # by the same decision `find` fixes the lookup column: every
     # table this entry point serves is ordered by its primary key,
     # and a different order would be its own declaration decision if
     # a model ever needs it.
@@ -345,7 +345,7 @@ module Sqlx
 
     # the multi-row counterpart of `find_by`: every row matching the conditions
     # hash, assembled from the model's `table_name` and `only_columns`
-    # declarations. It exists so an association reader or a scope-shaped class
+    # declarations. It exists so an association reader or a scope-like class
     # method carries only its own conditions instead of hand-writing the same
     # `SELECT <projection> FROM <table> WHERE <clause>` the consumer models
     # repeated per reader — the assembly never varies by model, and the walk
@@ -356,7 +356,7 @@ module Sqlx
     # matches), the option here sorts the returned rows: `:desc` is
     # highest id first, `:asc` lowest first. nil conditions mean the
     # whole table: "every row" is an explicit nil the caller writes,
-    # never an empty hash — an empty hash is the shape a broken
+    # never an empty hash — an empty hash is the case a broken
     # condition builder leaves behind, so it raises instead of quietly
     # widening the read to every row (the same rule `update_all!` and
     # `delete_all!` keep).
@@ -737,8 +737,8 @@ module Sqlx
     #   values bind through `write` (nil binds NULL). A declared
     #   `created_at`/`updated_at` the caller did not pass is filled
     #   with the current UTC time — one value shared by both columns,
-    #   so an insert's two stamps agree; a timestamp the caller did
-    #   pass wins over the stamp.
+    #   so an insert's two timestamps agree; a timestamp the caller did
+    #   pass wins over the automatic timestamp.
     # @return [Object] the persisted record, re-read by its `id` —
     #   never nil (the row was just written)
     # @raise [ArgumentError] on empty attrs — there is no row and no
@@ -763,16 +763,16 @@ module Sqlx
         placeholders << "?"
         values << bound_value(name, value)
       end
-      stamps = []
-      [ "created_at", "updated_at" ].each do |stamp|
-        next unless declared.include?(stamp)
-        next if given.include?(stamp)
-        stamps << stamp
+      timestamp_columns = []
+      [ "created_at", "updated_at" ].each do |timestamp_column|
+        next unless declared.include?(timestamp_column)
+        next if given.include?(timestamp_column)
+        timestamp_columns << timestamp_column
       end
-      if !stamps.empty?
+      if !timestamp_columns.empty?
         now = Time.now.utc
-        stamps.each do |stamp|
-          columns << '"' + stamp + '"'
+        timestamp_columns.each do |timestamp_column|
+          columns << '"' + timestamp_column + '"'
           placeholders << "?"
           values << now
         end
@@ -784,7 +784,7 @@ module Sqlx
     end
 
     # rewrite a row's columns by an id hash write and hand back the re-read
-    # record. The class-level shape is a decision: this runtime's models write
+    # record. The class-level form is a decision: this runtime's models write
     # through class-level SQL (there is no instance `save`), so the entry reads
     # next to `create!` rather than as an instance method. The re-read is also
     # the strict side — an unknown id writes nothing (a 0-row UPDATE is silent)
@@ -801,7 +801,7 @@ module Sqlx
     #   value the caller did pass wins.
     # @return [Object] the re-read record — never nil on success
     # @raise [ArgumentError] on empty attrs — there is nothing to
-    #   rewrite (stamp-only writes belong to a dedicated entry, not
+    #   rewrite (timestamp-only writes belong to a dedicated entry, not
     #   this one)
     # @raise [Sqlx::RecordNotFound] no row has that `id`
     # @raise [Sqlx::CastError] the model declares `id` in `integer_columns`
@@ -843,12 +843,12 @@ module Sqlx
     # model: the table comes from the declaration, the WHERE body from the
     # inherited conditions path, the SET half from the attrs keys.
     #
-    # No timestamp is stamped: `update!` stamps because it hands back
+    # No timestamp is set: `update!` sets the timestamps because it hands back
     # a re-read record, and here the caller passes `updated_at` when
     # it wants it moved — a rewrite never moves a timestamp the
     # caller did not ask to move. nil conditions mean the whole
     # table: "every row" is an explicit nil the caller writes, never
-    # an empty hash — an empty hash is the shape a broken condition
+    # an empty hash — an empty hash is the case a broken condition
     # builder leaves behind, so it raises instead of quietly widening
     # the rewrite to every row (the same rule `delete_all!` keeps).
     #
@@ -1000,7 +1000,7 @@ module Sqlx
     # @return [Integer] the number of rows deleted — 0 when no row
     #   had that `id`
     # @raise [ArgumentError] the id is neither an Integer nor a
-    #   String — an Array is the shape `delete_all!({ id: ids })`
+    #   String — an Array is the form `delete_all!({ id: ids })`
     #   owns, and anything else would bind as text and miss
     #   silently on one adapter while the driver errors on the other
     # @raise [Sqlx::CastError] the model declares `id` in `integer_columns`
@@ -1020,11 +1020,11 @@ module Sqlx
 
     # remove every row matching the conditions hash: the multi-row counterpart
     # of `delete!`, assembled from the model's `table_name` and the inherited
-    # conditions path. It exists so an association cascade or a scope-shaped
+    # conditions path. It exists so an association cascade or a scope-like
     # cleanup carries only its conditions instead of hand-writing the same
     # `DELETE FROM <table> WHERE <clause>` — the assembly never varies by model.
     # nil conditions mean the whole table: "every row" is an explicit nil, never
-    # an empty hash — an empty hash is the shape a broken condition builder
+    # an empty hash — an empty hash is the case a broken condition builder
     # leaves behind, so it raises instead of quietly erasing every row (the same
     # rule `update_all!` keeps).
     #
@@ -1064,7 +1064,7 @@ module Sqlx
     end
 
     # the single-row half of `find_by_sql`: walk the caller's SELECT and hand
-    # back the row it yields first, built from the same name-keyed shape, or
+    # back the row it yields first, built from the same name-keyed format, or
     # nil when it yields none. `find_by` assembles its `... LIMIT 1` statement
     # on this walk, so the single-row read shares one path with `find_by_sql`
     # instead of a second cursor. The statement is read fully, so a caller that
@@ -1104,7 +1104,7 @@ module Sqlx
     # The bind companion of `where_clause`: the same conditions contract with
     # every value replaced by a `?` placeholder and returned alongside the
     # clause. Core entries use it so a lookup across many values keeps one
-    # prepared-statement shape; the public `where_clause` keeps the literal
+    # prepared-statement form; the public `where_clause` keeps the literal
     # form for caller-written SQL.
     #
     # @param conditions [Hash{Symbol => Object}] the `where_clause`

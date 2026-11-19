@@ -273,7 +273,7 @@ module Sqlx
 
     # Dedicated SQLite connection pool. A single-use object so its instance ivars
     # type concretely: @conns is a DatabaseConnection PtrArray (objects keep their
-    # tag, unlike a generic pool's int slot), @free is an IntArray stack of
+    # tag, unlike a generic pool's int element type), @free is an IntArray stack of
     # available indices into @conns.
     class DatabasePool
       # PRAGMAs ARE PER-CONNECTION, so they run on every handle the pool opens,
@@ -416,10 +416,10 @@ module Sqlx
 
       # return one connection to the free list and wake a waiter. A completed
       # request trims the connection's statement cache first; the release sits
-      # in an `ensure` so a raise while trimming cannot leak the slot.
+      # in an `ensure` so a raise while trimming cannot leak the pool position.
       #
-      # @param idx [Integer] the freed slot
-      # @param conn [DatabaseConnection] the connection in that slot
+      # @param idx [Integer] the freed pool position
+      # @param conn [DatabaseConnection] the connection in that position
       # @param finished [Boolean] whether the block completed without raising
       # @return [void]
       def release(idx, conn, finished)
@@ -462,7 +462,7 @@ module Sqlx
     # reached off Sqlx::Database — the one require every persistence-touching
     # bootstrap (main.rb AND the emitted test_helper) already loads.
 
-    # Own connection pool. A generic pool storing handles in an int-slot array
+    # Own connection pool. A generic pool storing handles in an int-indexed array
     # breaks here: a DatabaseConnection pointer flattens to a bare machine word
     # and reads back tagged INT, so a later `.dbh` call (guarded `tag == OBJ`)
     # silently no-ops to NULL. DatabasePool keeps its connections in an
@@ -537,7 +537,7 @@ module Sqlx
     #
     # SQLite calls it with `count` 0 on the first busy event of one lock wait and
     # an increasing count after that. The timeout is wall-clock, so a waiter that
-    # keeps losing the hand-off still ends within `busy_timeout_ms` — the count
+    # keeps losing the lock still ends within `busy_timeout_ms` — the count
     # is only used to detect a new wait.
     #
     # The fixed interval is the point. The default handler behind `PRAGMA
@@ -552,7 +552,7 @@ module Sqlx
     # `Thread.current` across fibers, so there the timeout can start from another
     # fiber's clock — the same documented limit the request context has.
     #
-    # @param user_data [untyped] NULL; the callback signature requires the slot
+    # @param user_data [untyped] NULL; the callback signature requires the argument
     # @param count [Integer] the retry number of this wait, 0 on its first event
     # @return [Integer] 1 to retry, 0 to give up (`Sqlx::Busy` follows)
     def self.busy_wait(user_data, count)
@@ -1004,9 +1004,10 @@ module Sqlx
     # at the top of this file is the contract; these are free to change
     # without notice.
 
-    # Render one raw value into its `?` slot by runtime type — the adapter-owned
-    # half of `exec_write`. nil binds NULL, a Time renders in the stored form, and
-    # anything else falls to text (the rule `escape_string` follows).
+    # Render one raw value into its `?` placeholder by runtime type — the
+    # adapter-owned half of `exec_write`. nil binds NULL, a Time renders in the
+    # stored form, and anything else falls to text (the rule `escape_string`
+    # follows).
     def self.bind_params(stmt, params)
       i = 0
       while i < params.length

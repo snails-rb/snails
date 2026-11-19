@@ -1,7 +1,7 @@
 # Per-request context for code outside a controller instance: the dispatcher
 # stores the request and controller here for the action's duration.
 # Per-thread (`Thread.current`), so concurrent requests cannot read each
-# other's controller; slots are set before the action and cleared in `ensure`.
+# other's controller; the values are set before the action and cleared in `ensure`.
 # Explicit `def self.` methods are the form AOT resolves statically.
 module ActionController
   class API
@@ -16,7 +16,7 @@ module ActionController
   # Per-request values for code that has no controller instance to read them
   # from.
   #
-  # @note The dispatcher writes both slots immediately before the action and
+  # @note The dispatcher writes both values immediately before the action and
   #   clears them when it returns or raises.
   module Current
     # the request parked for the current thread during the current action.

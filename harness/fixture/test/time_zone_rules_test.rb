@@ -19,7 +19,7 @@ class TimeZoneRulesTest < TestBase
 
   # The rule helper is a private instance method on the zone data; the
   # module function it replaced is gone.
-  def test_rule_instant_is_not_public
+  def test_time_zone_rule_helper_is_private
     zone = Snails::TimeZone::TimeZoneData.new("UTC", [], [], 0, [])
     begin
       zone.rule_instant(2050, 3, 2, 0, 7200)
@@ -32,5 +32,5 @@ end
 
 FixtureRunner.run(TimeZoneRulesTest, [
   "test_posix_dst_rule_offsets",
-  "test_rule_instant_is_not_public"
+  "test_time_zone_rule_helper_is_private"
 ])

@@ -80,7 +80,7 @@ class ActionMailerTest < TestBase
     assert_equal true, error.message.include?("Hash")
   end
 
-  # Test mode delivers inline: the gate's capture sees the message in the
+  # Test mode delivers inline: the test capture sees the message in the
   # same call, before any worker loop runs.
   def test_deliver_later_in_test_mode_delivers_inline
     before = ActionMailer::Base.deliveries.length

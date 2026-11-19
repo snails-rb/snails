@@ -6,7 +6,7 @@
 # The name is deliberately not `FixtureRunner` (snails-core/snails/harness.rb): the
 # bundle runner compiles every case file into one program, and a second
 # definition of the same module in that graph makes one body shadow the
-# other — the dispatch gate below would never run and every process
+# other — the file selection check below would never run and every process
 # would execute the first file's cases. This runner is the fixture's own
 # (it calls `setup` per case); apps use `Snails::Harness::IntegrationTest`.
 module FixtureRunner

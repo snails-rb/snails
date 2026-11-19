@@ -98,7 +98,7 @@ class HarnessAssertTest < Snails::Harness::IntegrationTest
     assert_response :success
   end
 
-  # assert_response — a wrong integer fails with the same one-line shape
+  # assert_response — a wrong integer fails with the same one-line format
   # as the symbol path, body excerpt included.
   test "assert_response fails on a status mismatch" do
     @response = Snails::Harness::Response.new(415, '{"error":"too_large"}', nil)
@@ -145,7 +145,7 @@ class HarnessAssertTest < Snails::Harness::IntegrationTest
     assert_equal 'assert_response missing: got 410 — {"error":"gone"}', raised.message
   end
 
-  # assert_response — a symbol outside the shared table fails loudly at
+  # assert_response — a symbol outside the shared table raises at
   # the call instead of comparing against nothing.
   test "assert_response rejects a symbol outside the table" do
     @response = Snails::Harness::Response.new(418, "", nil)

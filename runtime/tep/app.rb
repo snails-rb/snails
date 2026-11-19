@@ -33,14 +33,14 @@ module Tep
 
     def initialize
       @name = ""
-      # Type-seed the Broadcast subscriber registry: one push pins the
+      # Type-seed the Broadcast subscriber registry: one push seeds the
       # element type, then it is dropped.
       @broadcast_subs = [Tep::BroadcastSubscription.new(
         "_", -1, 0, Tep::WebSocket::Driver.new(-1))]
       @broadcast_subs.pop
       @broadcast_lock = Mutex.new
 
-      # Scheduler arrays (fiber mode): seed a noop-bodied slot to pin each
+      # Scheduler arrays (fiber mode): seed a noop-bodied entry to fix each
       # element type, then drop it.
       @sched_fibers   = [Tep::FiberSlot.new(Fiber.new { Tep.seed_fiber_noop })]
       @sched_fibers.pop

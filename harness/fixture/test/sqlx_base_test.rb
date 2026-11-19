@@ -4,7 +4,7 @@ require_relative "test_database"
 
 # Sqlx::Base (core) — find_by_sql walks a caller-written
 # SELECT through from_row: an implementing model gets one call per
-# row, the bare base fails loud, and an empty result set collects
+# row, the bare base raises, and an empty result set collects
 # into []. setup owns a fresh table set per case.
 class SqlxTest < TestBase
   def setup
@@ -18,7 +18,7 @@ class SqlxTest < TestBase
     TestDatabase.exec('CREATE TABLE ordered_items (id INTEGER PRIMARY KEY, "order" TEXT NOT NULL)')
     TestDatabase.exec('INSERT INTO ordered_items ("order") VALUES (\'asc\')')
     # The write-entry fixture: both declared timestamp columns plus a
-    # UNIQUE email, so create!/update! stamping and the UNIQUE check
+    # UNIQUE email, so the timestamps create!/update! set and the UNIQUE check
     # ride on one declaration pair.
     TestDatabase.exec("CREATE TABLE write_entries (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)")
     # The default-record-building fixture: no model method converts
@@ -27,11 +27,11 @@ class SqlxTest < TestBase
     TestDatabase.exec("INSERT INTO declared_samples (name, created_at, seen_at, flag) VALUES ('alpha', '2026-10-05 17:32:02.443000', '2026-10-06 08:00:00.000000', 1), ('beta', NULL, NULL, 0)")
     # The upsert fixture: a primary-key-less table — the series key
     # is the identity — plus a second unique index an upsert
-    # targeting the series key must NOT swallow (it stays loud).
+    # targeting the series key must NOT swallow (it still raises).
     TestDatabase.exec("CREATE TABLE plain_series (ts TEXT NOT NULL, service TEXT NOT NULL, metric TEXT NOT NULL, kind TEXT, value REAL)")
     TestDatabase.exec("CREATE UNIQUE INDEX idx_plain_series_key ON plain_series (ts, service, metric)")
     TestDatabase.exec("CREATE UNIQUE INDEX idx_plain_series_metric ON plain_series (metric)")
-    # The json fixture: a JSON-typed column pins the codec both ways —
+    # The json fixture: a JSON-typed column exercises the codec both ways —
     # stored text survives a re-read, and a scalar number comes back
     # equal.
     TestDatabase.exec("CREATE TABLE json_samples (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, detail JSON)")
@@ -48,9 +48,9 @@ class SqlxTest < TestBase
     raise(msg || "expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual
   end
 
-  # Loud failure: the base itself implements no from_row, so a bare
+  # Raised failure: the base itself implements no from_row, so a bare
   # find_by_sql fails from the marker instead of returning junk rows.
-  def test_base_from_row_loud
+  def test_base_from_row_raises
     begin
       Sqlx::Base.find_by_sql("SELECT name FROM samples")
     rescue NotImplementedError
@@ -124,7 +124,7 @@ class SqlxTest < TestBase
   # Undeclared model: the base owns no table/projection
   # declarations, so a bare find_by raises from the declaration
   # stub instead of answering nil.
-  def test_find_by_base_loud
+  def test_find_by_base_raises
     begin
       Sqlx::Base.find_by({ name: "alpha" })
     rescue NotImplementedError
@@ -136,7 +136,7 @@ class SqlxTest < TestBase
   # The bang counterpart of the undeclared model: the base raises
   # NotImplementedError, not RecordNotFound — without declarations
   # neither miss path is reachable.
-  def test_find_by_bang_base_loud
+  def test_find_by_bang_base_raises
     begin
       Sqlx::Base.find_by!({ name: "alpha" })
     rescue NotImplementedError
@@ -145,10 +145,10 @@ class SqlxTest < TestBase
     raise "expected NotImplementedError from Sqlx::Base.find_by!"
   end
 
-  # The declaration pair is loud on the base: find_by splices both
+  # The declaration pair raises on the base: find_by splices both
   # values straight into the SELECT, so an undeclared table or
   # column list must raise before any SQL exists.
-  def test_declaration_stubs_base_loud
+  def test_declaration_stubs_base_raises
     begin
       Sqlx::Base.table_name
     rescue NotImplementedError
@@ -179,7 +179,7 @@ class SqlxTest < TestBase
 
   # Undeclared model: the declaration stubs raise before any list
   # exists — never a nil spliced into the caller's SELECT.
-  def test_projection_base_loud
+  def test_projection_base_raises
     begin
       Sqlx::Base.projection
     rescue NotImplementedError
@@ -232,9 +232,9 @@ class SqlxTest < TestBase
                  SqlxCaptureModel.where_clause({ id: 2, name: nil })
   end
 
-  # An empty hash has no clause to build — loud instead of an
+  # An empty hash has no clause to build — raises instead of an
   # empty fragment splicing into a WHERE-less SELECT.
-  def test_where_clause_empty_loud
+  def test_where_clause_empty_raises
     begin
       SqlxCaptureModel.where_clause({})
     rescue ArgumentError
@@ -288,8 +288,8 @@ class SqlxTest < TestBase
   end
 
   # An empty array has no membership to build — IN () is not SQL,
-  # so loud beats a driver syntax error or an invented translation.
-  def test_where_clause_array_empty_loud
+  # so raising beats a driver syntax error or an invented translation.
+  def test_where_clause_array_empty_raises
     begin
       SqlxCaptureModel.where_clause({ id: [] })
     rescue ArgumentError
@@ -299,9 +299,9 @@ class SqlxTest < TestBase
   end
 
   # A nil element would half-answer as neither IS NULL nor a match
-  # (IN (NULL, ...) is UNKNOWN for every row) — loud instead of a
+  # (IN (NULL, ...) is UNKNOWN for every row) — raises instead of a
   # translation that quietly drops the null rows.
-  def test_where_clause_array_nil_element_loud
+  def test_where_clause_array_nil_element_raises
     begin
       SqlxCaptureModel.where_clause({ id: [1, nil] })
     rescue ArgumentError
@@ -364,9 +364,9 @@ class SqlxTest < TestBase
     assert_equal "alpha", rows[0]["name"]
   end
 
-  # An operator outside the whitelist is a typo — loud at the entry,
+  # An operator outside the whitelist is a typo — raises at the entry,
   # not a comparison nobody meant rendered into the statement.
-  def test_where_clause_comparison_unknown_operator_loud
+  def test_where_clause_comparison_unknown_operator_raises
     begin
       SqlxCaptureModel.where_clause({ id: { near: 3 } })
     rescue ArgumentError
@@ -376,9 +376,9 @@ class SqlxTest < TestBase
   end
 
   # An empty operator hash has no predicate to build — the condition
-  # would vanish from the clause silently, so loud like the empty
+  # would vanish from the clause silently, so raises like the empty
   # conditions hash.
-  def test_where_clause_comparison_empty_hash_loud
+  def test_where_clause_comparison_empty_hash_raises
     begin
       SqlxCaptureModel.where_clause({ id: {} })
     rescue ArgumentError
@@ -388,8 +388,8 @@ class SqlxTest < TestBase
   end
 
   # A nil bound would render `< NULL` — a condition that matches
-  # nothing — so loud instead of a quietly wrong clause.
-  def test_where_clause_comparison_nil_bound_loud
+  # nothing — so raises instead of a quietly wrong clause.
+  def test_where_clause_comparison_nil_bound_raises
     begin
       SqlxCaptureModel.where_clause({ id: { lt: nil } })
     rescue ArgumentError
@@ -399,8 +399,8 @@ class SqlxTest < TestBase
   end
 
   # A structured bound (a nested typo like { lt: { lte: 1 } }) would
-  # stringify into the comparison — loud before quote ever sees it.
-  def test_where_clause_comparison_nested_bound_loud
+  # stringify into the comparison — raises before quote ever sees it.
+  def test_where_clause_comparison_nested_bound_raises
     begin
       SqlxCaptureModel.where_clause({ id: { lt: { lte: 1 } } })
     rescue ArgumentError
@@ -411,8 +411,8 @@ class SqlxTest < TestBase
 
   # The null test is the only IS NOT form: SQL's IS NOT takes NULL
   # (and the boolean literals, out of this contract), so any other
-  # bound is loud instead of rendering a comparison nobody meant.
-  def test_where_clause_is_not_bound_loud
+  # bound is raises instead of rendering a comparison nobody meant.
+  def test_where_clause_is_not_bound_raises
     begin
       SqlxCaptureModel.where_clause({ id: { is_not: 3 } })
     rescue ArgumentError
@@ -422,8 +422,8 @@ class SqlxTest < TestBase
   end
 
   # A predicate belongs to a column, not to an IN list: an operator
-  # hash as an element would stringify into a literal, so it is loud.
-  def test_where_clause_array_operator_hash_loud
+  # hash as an element would stringify into a literal, so it raises.
+  def test_where_clause_array_operator_hash_raises
     begin
       SqlxCaptureModel.where_clause({ id: [1, { is_not: nil }] })
     rescue ArgumentError
@@ -434,7 +434,7 @@ class SqlxTest < TestBase
 
   # The empty hash reaches find_by the same way — the declaration
   # pair is present, so the clause guard is what must fire.
-  def test_find_by_empty_loud
+  def test_find_by_empty_raises
     begin
       SqlxCaptureModel.find_by({})
     rescue ArgumentError
@@ -509,7 +509,7 @@ class SqlxTest < TestBase
 
   # A read binds its values the way a write does — the value is not
   # spliced into the statement's text — and a value that does not fit
-  # a placeholder is loud.
+  # a placeholder raises.
   def test_read_binds_its_values
     rows = Sqlx::Base.rows_by_sql("SELECT name FROM samples WHERE name = ?", [ "beta" ])
     assert_equal 1, rows.length
@@ -520,7 +520,7 @@ class SqlxTest < TestBase
       raise "unexpected message: #{e.message}" unless e.message.include?("placeholders")
       return
     end
-    raise "expected a value/placeholder mismatch to be loud"
+    raise "expected a value/placeholder mismatch to raise"
   end
 
   # A step-time driver error is not an empty result: abs() of the
@@ -537,26 +537,26 @@ class SqlxTest < TestBase
 
   # A statement with a `?` and no value list is a missing bind, not a
   # NULL: the read entry checks even when the list is absent.
-  def test_read_without_values_is_loud
+  def test_read_without_values_raises
     begin
       Sqlx::Base.rows_by_sql("SELECT name FROM samples WHERE name = ?")
     rescue ArgumentError => e
       raise "unexpected message: #{e.message}" unless e.message.include?("placeholders")
       return
     end
-    raise "expected a missing value list to be loud"
+    raise "expected a missing value list to raise"
   end
 
   # The record-building entry delegates to the raw one, so the same missing
-  # value list is loud before a row is mapped.
-  def test_find_by_sql_without_values_is_loud
+  # value list is raises before a row is mapped.
+  def test_find_by_sql_without_values_raises
     begin
       SqlxCaptureModel.find_by_sql("SELECT name FROM samples WHERE name = ?")
     rescue ArgumentError => e
       raise "unexpected message: #{e.message}" unless e.message.include?("placeholders")
       return
     end
-    raise "expected a missing value list to be loud through find_by_sql"
+    raise "expected a missing value list to raise through find_by_sql"
   end
 
   # The raw single-row counterpart takes the same value list as rows_by_sql.
@@ -595,9 +595,9 @@ class SqlxTest < TestBase
     assert_equal 1, SqlxDeclaredModel.count({ seen_at: { is_not: nil } })
   end
 
-  # The missing declaration is loud the same way find_by's is: the
+  # The missing declaration raises the same way find_by's is: the
   # base has no table to count, so the stub raises before any SQL.
-  def test_count_base_loud
+  def test_count_base_raises
     begin
       Sqlx::Base.count
     rescue NotImplementedError
@@ -624,7 +624,7 @@ class SqlxTest < TestBase
 
   # The base has no table to look up: the declaration stub raises
   # before any SQL.
-  def test_find_base_loud
+  def test_find_base_raises
     begin
       Sqlx::Base.find(1)
     rescue NotImplementedError
@@ -736,7 +736,7 @@ class SqlxTest < TestBase
 
   # The base has no table to probe: the declaration stub raises
   # before any SQL.
-  def test_exists_base_loud
+  def test_exists_base_raises
     begin
       Sqlx::Base.exists?
     rescue NotImplementedError
@@ -748,7 +748,7 @@ class SqlxTest < TestBase
   # Spec-only: the base declares all's signature and
   # semantics but owes no SQL — a bare call raises instead of
   # handing back an empty array that reads as "no rows".
-  def test_all_base_loud
+  def test_all_base_raises
     begin
       Sqlx::Base.all
     rescue NotImplementedError
@@ -786,9 +786,9 @@ class SqlxTest < TestBase
     assert_equal "alpha", SqlxCaptureModel.find_by({}, order: :asc)
   end
 
-  # A typo'd order fails loud before any SQL — it must never
+  # A typo'd order fails raises before any SQL — it must never
   # silently fall back to an unordered row.
-  def test_find_by_invalid_order_loud
+  def test_find_by_invalid_order_raises
     begin
       SqlxCaptureModel.find_by({ name: "alpha" }, order: :descending)
     rescue ArgumentError
@@ -860,9 +860,9 @@ class SqlxTest < TestBase
     assert_equal ["beta", "gamma"], SqlxCaptureModel.fetch_many({ tag: "dup" }, order: :asc)
   end
 
-  # A typo'd order fails loud before any SQL — never silently
+  # A typo'd order fails raises before any SQL — never silently
   # unordered rows (the find_by rule, multi-row edition).
-  def test_fetch_many_invalid_order_loud
+  def test_fetch_many_invalid_order_raises
     begin
       SqlxCaptureModel.fetch_many({ tag: "dup" }, order: :descending)
     rescue ArgumentError
@@ -874,7 +874,7 @@ class SqlxTest < TestBase
   # An empty conditions hash is the shape a broken condition builder
   # leaves behind — the whole table is the explicit nil, so an empty
   # hash raises instead of quietly widening the read to every row.
-  def test_fetch_many_empty_loud
+  def test_fetch_many_empty_raises
     begin
       SqlxCaptureModel.fetch_many({})
     rescue ArgumentError
@@ -897,9 +897,9 @@ class SqlxTest < TestBase
     assert_equal ["alpha", "beta", "gamma"], SqlxCaptureModel.fetch_many(nil, order: :asc)
   end
 
-  # The declaration pair is loud the same way find_by's is: the
+  # The declaration pair raises the same way find_by's is: the
   # base has no table or column list to assemble from.
-  def test_fetch_many_base_loud
+  def test_fetch_many_base_raises
     begin
       Sqlx::Base.fetch_many({ name: "alpha" })
     rescue NotImplementedError
@@ -959,7 +959,7 @@ class SqlxTest < TestBase
 
   # A zero limit is a broken page size, not an empty page: it raises
   # before any SQL runs.
-  def test_fetch_many_limit_zero_loud
+  def test_fetch_many_limit_zero_raises
     raised = false
     begin
       SqlxCaptureModel.fetch_many(nil, limit: 0)
@@ -970,7 +970,7 @@ class SqlxTest < TestBase
   end
 
   # A negative limit is rejected at the entry point.
-  def test_fetch_many_negative_limit_loud
+  def test_fetch_many_negative_limit_raises
     raised = false
     begin
       SqlxCaptureModel.fetch_many(nil, limit: -1)
@@ -982,7 +982,7 @@ class SqlxTest < TestBase
 
   # An offset without a limit would read the whole tail, so the entry
   # point rejects it before SQL runs.
-  def test_fetch_many_offset_without_limit_loud
+  def test_fetch_many_offset_without_limit_raises
     raised = false
     begin
       SqlxCaptureModel.fetch_many(nil, order: :asc, offset: 1)
@@ -994,7 +994,7 @@ class SqlxTest < TestBase
 
   # A page without a sort can repeat or skip rows under writes, so an
   # offset requires order.
-  def test_fetch_many_offset_without_order_loud
+  def test_fetch_many_offset_without_order_raises
     raised = false
     begin
       SqlxCaptureModel.fetch_many(nil, limit: 1, offset: 1)
@@ -1005,7 +1005,7 @@ class SqlxTest < TestBase
   end
 
   # A negative offset is rejected at the entry point.
-  def test_fetch_many_negative_offset_loud
+  def test_fetch_many_negative_offset_raises
     raised = false
     begin
       SqlxCaptureModel.fetch_many(nil, order: :asc, limit: 1, offset: -1)
@@ -1099,7 +1099,7 @@ class SqlxTest < TestBase
 
   # The whole table is spelled nil; an empty hash is the broken-builder
   # shape and raises before any SQL runs.
-  def test_find_each_empty_conditions_loud
+  def test_find_each_empty_conditions_raises
     raised = false
     begin
       SqlxEachModel.find_each({}) { |name| name }
@@ -1111,8 +1111,8 @@ class SqlxTest < TestBase
 
   # A page size must be positive: zero and negative are rejected at the
   # entry point. A non-Integer is already a build-time type error, so
-  # the harness pins the runtime half.
-  def test_find_each_non_positive_batch_size_loud
+  # the harness covers the runtime half.
+  def test_find_each_non_positive_batch_size_raises
     zero = false
     begin
       SqlxEachModel.find_each(nil, batch_size: 0) { |name| name }
@@ -1143,7 +1143,7 @@ class SqlxTest < TestBase
 
   # The cursor is read from the projection: a model that omits id
   # cannot walk (a silent stop after the first batch is the failure
-  # this loud check prevents).
+  # thraises check prevents).
   def test_find_each_requires_id_projection
     raised = false
     begin
@@ -1156,7 +1156,7 @@ class SqlxTest < TestBase
 
   # The base has no declarations, so the walk fails through the same
   # declaration stubs as the other read entries.
-  def test_find_each_base_loud
+  def test_find_each_base_raises
     begin
       Sqlx::Base.find_each(nil) { |row| row }
     rescue NotImplementedError
@@ -1272,7 +1272,7 @@ class SqlxTest < TestBase
   end
 
   # The whole table is spelled nil; an empty hash raises before SQL.
-  def test_find_in_batches_empty_conditions_loud
+  def test_find_in_batches_empty_conditions_raises
     raised = false
     begin
       SqlxEachModel.find_in_batches({}) { |rows| rows }
@@ -1283,7 +1283,7 @@ class SqlxTest < TestBase
   end
 
   # A page size must be positive: zero and negative are rejected.
-  def test_find_in_batches_non_positive_batch_size_loud
+  def test_find_in_batches_non_positive_batch_size_raises
     zero = false
     begin
       SqlxEachModel.find_in_batches(nil, batch_size: 0) { |rows| rows }
@@ -1325,7 +1325,7 @@ class SqlxTest < TestBase
 
   # The base has no declarations, so the bulk walk fails through the
   # same declaration stubs.
-  def test_find_in_batches_base_loud
+  def test_find_in_batches_base_raises
     begin
       Sqlx::Base.find_in_batches(nil) { |rows| rows }
     rescue NotImplementedError
@@ -1401,9 +1401,9 @@ class SqlxTest < TestBase
   end
 
   # Entry validation: a keyword that is not a declared column
-  # raises at initialize — a typo is loud here, never a silent nil
+  # raises at initialize — a typo raises here, never a silent nil
   # from the accessor later.
-  def test_loop_unknown_attribute_loud
+  def test_loop_unknown_attribute_raises
     begin
       SqlxLoopModel.new(id: 1, naem: "typo")
     rescue ArgumentError
@@ -1422,7 +1422,7 @@ class SqlxTest < TestBase
 
   # The default record building: with no from_row on the model, the
   # inherited walk copies every projected column and converts the
-  # built-in stamps plus the declared exceptions — the stored-TEXT
+  # built-in timestamps plus the declared exceptions — the stored-TEXT
   # datetime becomes a Time (created_at with no declaration at all)
   # and the stored 1/0 becomes a boolean, NULL staying nil.
   def test_default_record_building_converts_declared_columns
@@ -1439,18 +1439,18 @@ class SqlxTest < TestBase
     assert_equal false, beta.flag
   end
 
-  # The stamp pair is legal even where the table has no such column:
-  # the default record building passes the absent stamps by, so a model
-  # over a stamp-less table builds records without a declaration error.
-  def test_default_stamps_skip_when_table_lacks_them
+  # The timestamp pair is legal even where the table has no such column:
+  # the default record building passes the absent timestamps by, so a model
+  # over a table without timestamps builds records without a declaration error.
+  def test_default_timestamps_skip_when_table_lacks_them
     rec = SqlxStamplessModel.find(1)
     assert_equal "alpha", rec.name
   end
 
-  # A declared exception outside only_columns is loud — only the
-  # built-in stamps are exempt — so a typo fails at the declaration
+  # A declared exception outside only_columns raises — only the
+  # built-in timestamps are exempt — so a typo fails at the declaration
   # instead of staying raw silently.
-  def test_default_record_building_unknown_declared_column_loud
+  def test_default_record_building_unknown_declared_column_raises
     begin
       SqlxBadDeclaredModel.find(1)
     rescue ArgumentError
@@ -1500,7 +1500,7 @@ class SqlxTest < TestBase
     assert_equal "explicit", rec.name
   end
 
-  # A timestamp the caller passes wins over the automatic stamp —
+  # A timestamp the caller passes wins over the automatic timestamp —
   # the caller's value, not the clock's.
   def test_create_caller_timestamp_wins
     rec = SqlxWriteEntryModel.create!({ name: "pin", email: "p@example.com", created_at: "2020-01-01 00:00:00", updated_at: "2020-01-01 00:00:00" })
@@ -1509,8 +1509,8 @@ class SqlxTest < TestBase
   end
 
   # Empty attrs: there is no row to insert and no columns to name —
-  # loud instead of an INSERT with an empty column list.
-  def test_create_empty_attrs_loud
+  # raises instead of an INSERT with an empty column list.
+  def test_create_empty_attrs_raises
     begin
       SqlxWriteEntryModel.create!({})
     rescue ArgumentError
@@ -1533,7 +1533,7 @@ class SqlxTest < TestBase
   end
 
   # Undeclared model: the declaration stubs raise before any SQL.
-  def test_create_base_loud
+  def test_create_base_raises
     begin
       Sqlx::Base.create!({ name: "x" })
     rescue NotImplementedError
@@ -1554,7 +1554,7 @@ class SqlxTest < TestBase
     assert_equal false, updated.updated_at.nil?
   end
 
-  # The stamp is refresh, not passthrough: a stale updated_at is
+  # The timestamp is refreshed, not passed through: a stale updated_at is
   # replaced with the current db time on update!.
   def test_update_refreshes_updated_at
     rec = SqlxWriteEntryModel.create!({ name: "stale", email: "s@example.com", updated_at: "2020-01-01 00:00:00" })
@@ -1562,7 +1562,7 @@ class SqlxTest < TestBase
     assert_equal false, updated.updated_at == Time.utc(2020, 1, 1)
   end
 
-  # A timestamp the caller passes wins over the automatic stamp on
+  # A timestamp the caller passes wins over the automatic timestamp on
   # update! too.
   def test_update_caller_timestamp_wins
     rec = SqlxWriteEntryModel.create!({ name: "any", email: "t@example.com" })
@@ -1570,7 +1570,7 @@ class SqlxTest < TestBase
     assert_equal Time.utc(2021, 2, 3, 4, 5, 6), updated.updated_at
   end
 
-  # An unknown id is loud: the 0-row UPDATE is silent, so the
+  # An unknown id raises: the 0-row UPDATE is silent, so the
   # re-read raises RecordNotFound instead of returning a record
   # that was never written.
   def test_update_unknown_id_raises
@@ -1582,9 +1582,9 @@ class SqlxTest < TestBase
     raise "expected Sqlx::RecordNotFound from Sqlx::Base.update!"
   end
 
-  # Empty attrs: there is nothing to rewrite — a stamp-only write
+  # Empty attrs: there is nothing to rewrite — a timestamp-only write
   # belongs to a dedicated entry, not this one.
-  def test_update_empty_attrs_loud
+  def test_update_empty_attrs_raises
     begin
       SqlxWriteEntryModel.update!(1, {})
     rescue ArgumentError
@@ -1594,7 +1594,7 @@ class SqlxTest < TestBase
   end
 
   # Undeclared model: the declaration stubs raise before any SQL.
-  def test_update_base_loud
+  def test_update_base_raises
     begin
       Sqlx::Base.update!(1, { name: "x" })
     rescue NotImplementedError
@@ -1642,9 +1642,9 @@ class SqlxTest < TestBase
     assert_equal "2021-02-03 04:05:06", rows[0]["updated_at"]
   end
 
-  # No timestamp is stamped: rewriting a row leaves updated_at
+  # No timestamp is set: rewriting a row leaves updated_at
   # exactly as it was — the caller moves it when it wants it moved.
-  def test_update_all_does_not_stamp
+  def test_update_all_does_not_update_updated_at
     SqlxWriteEntryModel.create!({ name: "n", email: "n@example.com", updated_at: "2021-02-03 04:05:06" })
     SqlxWriteEntryModel.update_all!({ name: "n" }, { name: "renamed" })
     rows = Sqlx::Base.rows_by_sql("SELECT name, updated_at FROM write_entries WHERE name = 'renamed'")
@@ -1669,7 +1669,7 @@ class SqlxTest < TestBase
   # An empty conditions hash is the shape a broken condition builder
   # leaves behind — the whole table is the explicit nil, so an empty
   # hash raises instead of quietly widening the rewrite to every row.
-  def test_update_all_empty_conditions_loud
+  def test_update_all_empty_conditions_raises
     begin
       SqlxCaptureModel.update_all!({}, { tag: "x" })
     rescue ArgumentError
@@ -1678,9 +1678,9 @@ class SqlxTest < TestBase
     raise "expected ArgumentError from Sqlx::Base.update_all!"
   end
 
-  # Empty attrs: there is nothing to rewrite — the same loud rule
+  # Empty attrs: there is nothing to rewrite — the same rule
   # as update!'s empty attrs.
-  def test_update_all_empty_attrs_loud
+  def test_update_all_empty_attrs_raises
     begin
       SqlxCaptureModel.update_all!({ id: 1 }, {})
     rescue ArgumentError
@@ -1689,9 +1689,9 @@ class SqlxTest < TestBase
     raise "expected ArgumentError from Sqlx::Base.update_all!"
   end
 
-  # An unknown column is loud from the driver — the attr key is
+  # An unknown column raises from the driver — the attr key is
   # code, so a typo surfaces as the SQL error, never a quiet no-op.
-  def test_update_all_unknown_column_loud
+  def test_update_all_unknown_column_raises
     begin
       SqlxCaptureModel.update_all!({ id: 1 }, { bogus: "x" })
     rescue RuntimeError
@@ -1701,7 +1701,7 @@ class SqlxTest < TestBase
   end
 
   # Undeclared model: the declaration stub raises before any SQL.
-  def test_update_all_base_loud
+  def test_update_all_base_raises
     begin
       Sqlx::Base.update_all!({ id: 1 }, { name: "x" })
     rescue NotImplementedError
@@ -1733,7 +1733,7 @@ class SqlxTest < TestBase
 
   # A conflict on ANOTHER unique index is not this statement's
   # business — targeting the series key leaves the second index to
-  # fail loud, so a wrong-row update can never hide behind the
+  # raise, so a wrong-row update can never hide behind the
   # upsert.
   def test_upsert_all_other_unique_index_raises
     PlainSeries.upsert_all!([ { ts: "2026-10-01 00:00:00", service: "web", metric: "cpu", kind: "gauge", value: 1.0 } ],
@@ -1747,9 +1747,9 @@ class SqlxTest < TestBase
     raise "expected Sqlx::RecordNotUnique from Sqlx::Base.upsert_all!"
   end
 
-  # Empty rows: there is no statement to build — loud like the empty
+  # Empty rows: there is no statement to build — raises like the empty
   # inputs of the write family.
-  def test_upsert_all_empty_rows_loud
+  def test_upsert_all_empty_rows_raises
     begin
       PlainSeries.upsert_all!([], unique_by: [ :ts ])
     rescue ArgumentError
@@ -1761,7 +1761,7 @@ class SqlxTest < TestBase
   # An empty unique_by has no conflict target: "any unique index"
   # is the silent policy this entry refuses to invent, and a plain
   # insert is create!'s job.
-  def test_upsert_all_empty_unique_by_loud
+  def test_upsert_all_empty_unique_by_raises
     begin
       PlainSeries.upsert_all!([ { ts: "a", service: "web", metric: "cpu" } ], unique_by: [])
     rescue ArgumentError
@@ -1770,9 +1770,9 @@ class SqlxTest < TestBase
     raise "expected ArgumentError from Sqlx::Base.upsert_all!"
   end
 
-  # Differing row keys: one statement has one column list — loud
+  # Differing row keys: one statement has one column list — raises
   # instead of a row quietly losing values to a missing key.
-  def test_upsert_all_unequal_keys_loud
+  def test_upsert_all_unequal_keys_raises
     begin
       PlainSeries.upsert_all!([
         { ts: "a", service: "web", metric: "cpu" },
@@ -1785,8 +1785,8 @@ class SqlxTest < TestBase
   end
 
   # A conflict target outside the insert list would never fire — the
-  # columns must be row keys, loud at the entry.
-  def test_upsert_all_unique_by_outside_keys_loud
+  # columns must be row keys, raises at the entry.
+  def test_upsert_all_unique_by_outside_keys_raises
     begin
       PlainSeries.upsert_all!([ { ts: "a", service: "web" } ], unique_by: [ :ts, :metric ])
     rescue ArgumentError
@@ -1797,7 +1797,7 @@ class SqlxTest < TestBase
 
   # Nothing left to update: every row key is part of the conflict
   # target — a skip-duplicates statement is not this entry.
-  def test_upsert_all_no_updatable_loud
+  def test_upsert_all_no_updatable_raises
     begin
       PlainSeries.upsert_all!([ { ts: "a" } ], unique_by: [ :ts ])
     rescue ArgumentError
@@ -1807,7 +1807,7 @@ class SqlxTest < TestBase
   end
 
   # Undeclared model: the declaration stub raises before any SQL.
-  def test_upsert_all_base_loud
+  def test_upsert_all_base_raises
     begin
       Sqlx::Base.upsert_all!([ { ts: "a" } ], unique_by: [ :ts ])
     rescue NotImplementedError
@@ -1833,7 +1833,7 @@ class SqlxTest < TestBase
   end
 
   # Undeclared model: the declaration stub raises before any SQL.
-  def test_delete_base_loud
+  def test_delete_base_raises
     begin
       Sqlx::Base.delete!(1)
     rescue NotImplementedError
@@ -1842,10 +1842,10 @@ class SqlxTest < TestBase
     raise "expected NotImplementedError from Sqlx::Base.delete!"
   end
 
-  # An Array id is loud: it would bind as text and delete nothing
+  # An Array id raises: it would bind as text and delete nothing
   # on one adapter while the driver errors on the other — the shapes
   # delete_all! owns instead.
-  def test_delete_array_id_loud
+  def test_delete_array_id_raises
     begin
       SqlxWriteEntryModel.delete!([1, 2, 3])
     rescue ArgumentError
@@ -1854,9 +1854,9 @@ class SqlxTest < TestBase
     raise "expected ArgumentError from Sqlx::Base.delete!"
   end
 
-  # A nil id is loud: `id = NULL` matches no row on every adapter, so
+  # A nil id raises: `id = NULL` matches no row on every adapter, so
   # the silent-0 answer would hide a caller bug.
-  def test_delete_nil_id_loud
+  def test_delete_nil_id_raises
     begin
       SqlxWriteEntryModel.delete!(nil)
     rescue ArgumentError
@@ -1901,7 +1901,7 @@ class SqlxTest < TestBase
   # An empty conditions hash is the shape a broken condition builder
   # leaves behind — the whole table is the explicit nil, so an empty
   # hash raises instead of quietly erasing every row.
-  def test_delete_all_empty_loud
+  def test_delete_all_empty_raises
     begin
       SqlxWriteEntryModel.delete_all!({})
     rescue ArgumentError
@@ -1911,7 +1911,7 @@ class SqlxTest < TestBase
   end
 
   # Undeclared model: the declaration stub raises before any SQL.
-  def test_delete_all_base_loud
+  def test_delete_all_base_raises
     begin
       Sqlx::Base.delete_all!({ name: "x" })
     rescue NotImplementedError
@@ -1953,7 +1953,7 @@ class SqlxTest < TestBase
 
   # A value JSON cannot represent stops at the write entry — the
   # codec's contract, so a Time never reaches the column as text.
-  def test_json_non_encodable_value_loud
+  def test_json_non_encodable_value_raises
     begin
       SqlxJsonModel.create!({ name: "j5", detail: Time.now })
     rescue ArgumentError
@@ -1963,9 +1963,9 @@ class SqlxTest < TestBase
   end
 
   # A json declaration outside only_columns fails during record building — the
-  # same loud rule as the other type exceptions, never raw text
+  # same raises rule as the other type exceptions, never raw text
   # returned under a declared name.
-  def test_json_declaration_outside_only_columns_loud
+  def test_json_declaration_outside_only_columns_raises
     rec = SqlxJsonModel.create!({ name: "j6", detail: { "seed" => true } })
     begin
       SqlxBadJsonModel.find(rec.id)
@@ -2020,9 +2020,9 @@ class SqlxTest < TestBase
 end
 
 # The model under test: reads its one column by name and counts the
-# calls so the test can pin the dispatch.
+# calls so the test can track the dispatch.
 # The counter is an int accumulator — spinel gives a bare [] an int
-# slot, so recording strings through push would be refused at compile.
+# element type, so recording strings through push would be refused at compile.
 class SqlxCaptureModel < Sqlx::Base
   def self.calls
     @calls ||= 0
@@ -2138,8 +2138,8 @@ end
 
 # The write-entry model: the hash-backed path over the fixture with
 # both declared timestamps and a UNIQUE email, so create!/update!
-# stamping, the UNIQUE check, and the re-read all ride one
-# declaration pair. No from_row: the built-in stamps convert by
+# setting the timestamps, the UNIQUE check, and the re-read all ride one
+# declaration pair. No from_row: the built-in timestamps convert by
 # default.
 class SqlxWriteEntryModel < Sqlx::Base
   %w[id name email created_at updated_at].each do |n|
@@ -2152,8 +2152,8 @@ end
 
 # The default-record-building fixture: no from_row on the model — the
 # inherited walk copies the projected columns and converts the
-# declared datetime list (the option replaces the default stamp
-# pair, so it spells both stamps plus the extra seen_at) and the
+# declared datetime list (the option replaces the default timestamp
+# pair, so it spells both timestamps plus the extra seen_at) and the
 # boolean flag. A model carries a from_row method only when its row
 # needs more than the declaration.
 class SqlxDeclaredModel < Sqlx::Base
@@ -2170,7 +2170,7 @@ class SqlxDeclaredModel < Sqlx::Base
   def self.integer_columns = %w[id flag]
 end
 
-# The stamp-less fixture: the built-in stamps are always legal
+# The fixture without timestamps: the built-in timestamps are always legal
 # datetime columns, and this table has neither — the default
 # record building must pass them by (not raise) instead of demanding
 # columns the model never declared.
@@ -2185,7 +2185,7 @@ end
 
 # The declaration-typo fixture: its datetime exception names a
 # column outside only_columns, so the default record building must fail
-# loud instead of staying raw silently (only the built-in stamps are
+# raises instead of staying raw silently (only the built-in timestamps are
 # exempt from the check).
 class SqlxBadDeclaredModel < Sqlx::Base
   def self.table_name = "declared_samples"
@@ -2215,7 +2215,7 @@ class SqlxJsonModel < Sqlx::Base
 end
 
 # The json declaration-typo fixture: its exception names a column
-# outside only_columns, so the default record building must fail loud
+# outside only_columns, so the default record building must raise
 # instead of returning raw text under the declared name.
 class SqlxBadJsonModel < Sqlx::Base
   def self.table_name = "json_samples"
@@ -2246,7 +2246,7 @@ class SqlxTextIdModel < Sqlx::Base
 end
 
 FixtureRunner.run(SqlxTest, [
-  "test_base_from_row_loud",
+  "test_base_from_row_raises",
   "test_find_by_sql_maps_rows",
   "test_cross_class_typed_array",
   "test_empty_result",
@@ -2255,34 +2255,34 @@ FixtureRunner.run(SqlxTest, [
   "test_rows_by_sql_aggregate",
   "test_rows_by_sql_empty_is_array",
   "test_rows_by_sql_builds_no_record",
-  "test_find_by_base_loud",
-  "test_find_by_bang_base_loud",
-  "test_declaration_stubs_base_loud",
+  "test_find_by_base_raises",
+  "test_find_by_bang_base_raises",
+  "test_declaration_stubs_base_raises",
   "test_projection_qualifies_and_quotes",
   "test_projection_quotes_reserved_column",
-  "test_projection_base_loud",
+  "test_projection_base_raises",
   "test_where_clause_nil_is_null",
   "test_where_clause_is_not_null",
   "test_where_clause_escapes_values",
   "test_where_clause_boolean_renders_the_adapter_spelling",
   "test_where_clause_joins_with_and",
-  "test_where_clause_empty_loud",
+  "test_where_clause_empty_raises",
   "test_where_clause_array_membership",
   "test_where_clause_array_escapes_elements",
   "test_where_clause_time_renders_the_stored_form",
   "test_where_clause_time_matches_a_stored_row",
   "test_where_clause_array_joins_with_and",
-  "test_where_clause_array_empty_loud",
-  "test_where_clause_array_nil_element_loud",
+  "test_where_clause_array_empty_raises",
+  "test_where_clause_array_nil_element_raises",
   "test_where_clause_comparison_predicates",
   "test_where_clause_comparison_matches_stored_rows",
-  "test_where_clause_comparison_unknown_operator_loud",
-  "test_where_clause_comparison_empty_hash_loud",
-  "test_where_clause_comparison_nil_bound_loud",
-  "test_where_clause_comparison_nested_bound_loud",
-  "test_where_clause_is_not_bound_loud",
-  "test_where_clause_array_operator_hash_loud",
-  "test_find_by_empty_loud",
+  "test_where_clause_comparison_unknown_operator_raises",
+  "test_where_clause_comparison_empty_hash_raises",
+  "test_where_clause_comparison_nil_bound_raises",
+  "test_where_clause_comparison_nested_bound_raises",
+  "test_where_clause_is_not_bound_raises",
+  "test_where_clause_array_operator_hash_raises",
+  "test_find_by_empty_raises",
   "test_find_by_via_where_clause",
   "test_find_by_is_not_null_condition",
   "test_find_by_time_condition_binds_to_the_stored_form",
@@ -2295,14 +2295,14 @@ FixtureRunner.run(SqlxTest, [
   "test_count_is_not_null_condition",
   "test_read_binds_its_values",
   "test_step_error_is_not_an_empty_result",
-  "test_read_without_values_is_loud",
-  "test_find_by_sql_without_values_is_loud",
+  "test_read_without_values_raises",
+  "test_find_by_sql_without_values_raises",
   "test_row_by_sql_takes_values",
   "test_row_by_sql_returns_the_first_row",
-  "test_count_base_loud",
+  "test_count_base_raises",
   "test_find_returns_record",
   "test_find_miss_raises",
-  "test_find_base_loud",
+  "test_find_base_raises",
   "test_find_casts_a_decimal_string",
   "test_find_rejects_a_non_decimal_string",
   "test_conditions_cast_integer_columns",
@@ -2316,13 +2316,13 @@ FixtureRunner.run(SqlxTest, [
   "test_exists_positional_id",
   "test_exists_any_row",
   "test_exists_nil_is_false",
-  "test_exists_base_loud",
-  "test_all_base_loud",
+  "test_exists_base_raises",
+  "test_all_base_raises",
   "test_all_via_recipe",
   "test_find_by_order_desc_returns_last_match",
   "test_find_by_order_asc_returns_first_match",
   "test_find_by_empty_with_order_returns_table_edge",
-  "test_find_by_invalid_order_loud",
+  "test_find_by_invalid_order_raises",
   "test_find_by_array_condition",
   "test_find_by_array_condition_with_order",
   "test_fetch_many_single_match_is_array",
@@ -2331,22 +2331,22 @@ FixtureRunner.run(SqlxTest, [
   "test_fetch_many_is_not_null_condition",
   "test_fetch_many_order_desc",
   "test_fetch_many_order_asc",
-  "test_fetch_many_invalid_order_loud",
-  "test_fetch_many_empty_loud",
+  "test_fetch_many_invalid_order_raises",
+  "test_fetch_many_empty_raises",
   "test_fetch_many_nil_conditions_whole_table",
   "test_fetch_many_nil_conditions_order",
-  "test_fetch_many_base_loud",
+  "test_fetch_many_base_raises",
   "test_fetch_many_cross_class_typed_array",
   "test_fetch_many_limit_returns_the_first_n",
   "test_fetch_many_limit_without_order_bounds_the_read",
   "test_fetch_many_limit_offset_pages_without_repeats",
   "test_fetch_many_limit_with_conditions",
   "test_fetch_many_limit_beyond_rows_returns_all",
-  "test_fetch_many_limit_zero_loud",
-  "test_fetch_many_negative_limit_loud",
-  "test_fetch_many_offset_without_limit_loud",
-  "test_fetch_many_offset_without_order_loud",
-  "test_fetch_many_negative_offset_loud",
+  "test_fetch_many_limit_zero_raises",
+  "test_fetch_many_negative_limit_raises",
+  "test_fetch_many_offset_without_limit_raises",
+  "test_fetch_many_offset_without_order_raises",
+  "test_fetch_many_negative_offset_raises",
   "test_find_each_nil_conditions_walks_the_whole_table",
   "test_find_each_default_batch_size_walks_the_whole_table",
   "test_find_each_yields_model_records",
@@ -2356,11 +2356,11 @@ FixtureRunner.run(SqlxTest, [
   "test_find_each_id_condition_combines_with_the_cursor",
   "test_find_each_cursor_is_keyset_not_offset",
   "test_find_each_empty_result_yields_nothing",
-  "test_find_each_empty_conditions_loud",
-  "test_find_each_non_positive_batch_size_loud",
+  "test_find_each_empty_conditions_raises",
+  "test_find_each_non_positive_batch_size_raises",
   "test_find_each_requires_a_block",
   "test_find_each_requires_id_projection",
-  "test_find_each_base_loud",
+  "test_find_each_base_raises",
   "test_find_each_break_stops_the_walk",
   "test_find_each_builds_one_batch_at_a_time",
   "test_find_in_batches_yields_batch_arrays",
@@ -2371,11 +2371,11 @@ FixtureRunner.run(SqlxTest, [
   "test_find_in_batches_cursor_is_keyset_not_offset",
   "test_find_in_batches_bulk_update_per_batch",
   "test_find_in_batches_empty_result_yields_nothing",
-  "test_find_in_batches_empty_conditions_loud",
-  "test_find_in_batches_non_positive_batch_size_loud",
+  "test_find_in_batches_empty_conditions_raises",
+  "test_find_in_batches_non_positive_batch_size_raises",
   "test_find_in_batches_requires_a_block",
   "test_find_in_batches_requires_id_projection",
-  "test_find_in_batches_base_loud",
+  "test_find_in_batches_base_raises",
   "test_find_in_batches_break_stops_the_walk",
   "test_find_in_batches_builds_one_batch_at_a_time",
   "test_loop_find_by",
@@ -2383,57 +2383,57 @@ FixtureRunner.run(SqlxTest, [
   "test_loop_declarations",
   "test_loop_count",
   "test_loop_cross_class_typed_array",
-  "test_loop_unknown_attribute_loud",
+  "test_loop_unknown_attribute_raises",
   "test_loop_missing_attribute_is_nil",
   "test_default_record_building_converts_declared_columns",
-  "test_default_stamps_skip_when_table_lacks_them",
-  "test_default_record_building_unknown_declared_column_loud",
+  "test_default_timestamps_skip_when_table_lacks_them",
+  "test_default_record_building_unknown_declared_column_raises",
   "test_record_building_is_column_order_independent",
   "test_null_column_reads_as_nil",
   "test_create_returns_persisted_record",
   "test_create_with_explicit_id_returns_that_row",
   "test_create_caller_timestamp_wins",
-  "test_create_empty_attrs_loud",
+  "test_create_empty_attrs_raises",
   "test_create_unique_violation_raises_not_unique",
-  "test_create_base_loud",
+  "test_create_base_raises",
   "test_update_returns_persisted_record",
   "test_update_refreshes_updated_at",
   "test_update_caller_timestamp_wins",
   "test_update_unknown_id_raises",
-  "test_update_empty_attrs_loud",
-  "test_update_base_loud",
+  "test_update_empty_attrs_raises",
+  "test_update_base_raises",
   "test_update_all_returns_affected_count",
   "test_update_all_range_conditions",
   "test_update_all_binds_caller_time",
-  "test_update_all_does_not_stamp",
+  "test_update_all_does_not_update_updated_at",
   "test_update_all_nil_conditions_whole_table",
-  "test_update_all_empty_conditions_loud",
-  "test_update_all_empty_attrs_loud",
-  "test_update_all_unknown_column_loud",
-  "test_update_all_base_loud",
+  "test_update_all_empty_conditions_raises",
+  "test_update_all_empty_attrs_raises",
+  "test_update_all_unknown_column_raises",
+  "test_update_all_base_raises",
   "test_upsert_all_writes_and_rewrites",
   "test_upsert_all_other_unique_index_raises",
-  "test_upsert_all_empty_rows_loud",
-  "test_upsert_all_empty_unique_by_loud",
-  "test_upsert_all_unequal_keys_loud",
-  "test_upsert_all_unique_by_outside_keys_loud",
-  "test_upsert_all_no_updatable_loud",
-  "test_upsert_all_base_loud",
+  "test_upsert_all_empty_rows_raises",
+  "test_upsert_all_empty_unique_by_raises",
+  "test_upsert_all_unequal_keys_raises",
+  "test_upsert_all_unique_by_outside_keys_raises",
+  "test_upsert_all_no_updatable_raises",
+  "test_upsert_all_base_raises",
   "test_delete_removes_row_and_returns_count",
   "test_delete_unknown_id_is_silent_zero",
-  "test_delete_base_loud",
-  "test_delete_array_id_loud",
-  "test_delete_nil_id_loud",
+  "test_delete_base_raises",
+  "test_delete_array_id_raises",
+  "test_delete_nil_id_raises",
   "test_delete_all_removes_matches_and_returns_count",
   "test_delete_all_array_condition",
   "test_delete_all_nil_conditions_whole_table",
-  "test_delete_all_empty_loud",
-  "test_delete_all_base_loud",
+  "test_delete_all_empty_raises",
+  "test_delete_all_base_raises",
   "test_json_column_roundtrips_through_create",
   "test_json_column_scalar_number_roundtrips",
   "test_json_column_nil_reads_nil",
-  "test_json_non_encodable_value_loud",
-  "test_json_declaration_outside_only_columns_loud",
+  "test_json_non_encodable_value_raises",
+  "test_json_declaration_outside_only_columns_raises",
   "test_undeclared_json_column_stays_raw_text",
   "test_update_encodes_json_column",
   "test_update_all_encodes_json_column",

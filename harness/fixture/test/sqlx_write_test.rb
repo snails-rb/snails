@@ -93,7 +93,7 @@ class WriteTest < TestBase
   end
 
   # A statement that takes no values needs no value list — and a
-  # value that does not fit a placeholder is loud, not a quiet NULL.
+  # value that does not fit a placeholder raises, not a quiet NULL.
   def test_write_binds_every_value_and_counts_the_placeholders
     Sqlx::Base.write("INSERT INTO w (name) VALUES ('plain')")
     assert_equal 1, count_where("name = 'plain'")
@@ -105,7 +105,7 @@ class WriteTest < TestBase
       raise "unexpected message: #{e.message}" unless e.message.include?("placeholders")
       return
     end
-    raise "expected a value/placeholder mismatch to be loud"
+    raise "expected a value/placeholder mismatch to raise"
   end
 
   # The placeholder count is an internal helper — private on purpose, so

@@ -1,5 +1,5 @@
 # The JSON encoder `render json:` runs, required beside its consumer: a tree
-# that loads the runtime without the boot chain still resolves
+# that loads the runtime without the boot order still resolves
 # `ActionController::JsonRender`.
 require_relative "json_render"
 # Status symbols resolve through the shared protocol table, required beside
@@ -48,13 +48,13 @@ module ActionController
       @_params = value
     end
 
-    # the current action: the run-time context the `only:`/`except:` gate reads.
+    # the current action: the run-time context the `only:`/`except:` check reads.
     # The action dispatch sets it before `run_before_filters`. Nil before any
     # dispatch set it, and a conditional filter run without it raises rather
     # than silently applying to every action (or none).
     #
     # @return [Symbol?] the action the controller is dispatching
-    # @param value [Symbol?] the action to gate conditional filters
+    # @param value [Symbol?] the action conditional filters check
     #   against
     attr_accessor :action_name
     # true when the request's Accept is a bare `*/*`, an XMLHttpRequest or fetch
@@ -99,7 +99,7 @@ module ActionController
       @action_name = nil
     end
 
-    # true once render/redirect_to/head has produced a response. Two gates read
+    # true once render/redirect_to/head has produced a response. Two checks read
     # it: the action dispatch skips the action after a filter that responded
     # (the halting rule), and `send_action` skips the implicit 204 once anything
     # — filter or action — has answered.
@@ -148,7 +148,7 @@ module ActionController
     end
 
     # run this controller's registered before-filters in registration order,
-    # each gated by its `only:`/`except:` lists. The chain stops at the first
+    # each filtered by its `only:`/`except:` lists. The chain stops at the first
     # filter that has produced a response: a filter that renders/redirects/heads
     # skips the remaining filters and, at the call site, the action body.
     #
@@ -172,7 +172,7 @@ module ActionController
     end
 
     # dispatch one matched action: set the action context, run the controller's
-    # registered before-filters, then hand off to `send_action`.
+    # registered before-filters, then calls `send_action`.
     #
     # A filter that responds (render/redirect/head) marks the response
     # performed and the action is skipped — the halting rule. A name with
@@ -201,7 +201,7 @@ module ActionController
     # for "done, nothing to return" (DELETE acknowledgements and other
     # fire-and-forget writes are the common case).
     #
-    # `performed?` is the gate on purpose: a response already produced —
+    # `performed?` is the check on purpose: a response already produced —
     # by the action body, or by a before-filter that halted the chain —
     # is the answer and is never overwritten (`head` would clobber a
     # rendered status and body). Wrapping callers (a preamble that runs
@@ -417,7 +417,7 @@ module ActionController
       head(:no_content)
     end
 
-    # only/except gate — true when the current action matches. `only:`
+    # only/except check — true when the current action matches. `only:`
     # limits the filter to the listed actions; `except:` excludes
     # them. Without an action context, a conditional filter raises (the
     # strict contract — a silent skip would hide a misconfigured guard).

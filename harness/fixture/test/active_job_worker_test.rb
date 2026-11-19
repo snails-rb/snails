@@ -2,7 +2,7 @@ require_relative "test_helper"
 require_relative "harness_runner"
 require_relative "test_database"
 
-# The job bodies the hand-off cases drive — WorkerMarkJob records a run
+# The job bodies the enqueue cases drive — WorkerMarkJob records a run
 # in the marks table, WorkerBoomJob raises (the drain's failure pair).
 class WorkerMarkJob < ActiveJob::Base
   def self.perform(data)
@@ -40,7 +40,7 @@ class FailingThenExitingAdapter
   end
 end
 
-# ActiveJob::Worker (core) — the drain loop. Pinned here: the drain round
+# ActiveJob::Worker (core) — the drain loop. Cases here cover: the drain round
 # trip (a queued job runs on drain, and a raising job is reported without
 # stopping the drain) and the loop's failure boundary. The loop itself is a
 # `while true` that `ActiveJob::Launcher.start` spawns once per worker

@@ -20,7 +20,7 @@ class ResourcesTest < TestBase
     assert_equal [:index, :create, :show, :update, :destroy], rows.map { |r| r.action }
   end
 
-  def test_controller_carried_on_every_row
+  def test_every_route_row_includes_the_controller
     rows = Snails::RouteTable.resources("/posts", ApplicationController)
     rows.each do |r|
       assert_equal ApplicationController, r.controller
@@ -84,7 +84,7 @@ end
 
 FixtureRunner.run(ResourcesTest, [
   "test_five_rows_in_rest_order",
-  "test_controller_carried_on_every_row",
+  "test_every_route_row_includes_the_controller",
   "test_controller_class_instantiates",
   "test_format_given_lands_on_every_row",
   "test_format_omitted_is_nil",

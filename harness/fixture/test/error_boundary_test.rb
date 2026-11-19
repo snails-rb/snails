@@ -2,7 +2,7 @@ require_relative "test_helper"
 require_relative "harness_runner"
 
 # Snails::ErrorBoundary (core) — the one policy every long-lived loop's
-# unit boundary shares. Pinned here: a plain application error and a
+# unit boundary shares. Cases here cover: a plain application error and a
 # ScriptError (NotImplementedError) are unit failures the loop survives,
 # while process control (SystemExit/SignalException) and the fatal
 # NoMemoryError are re-raised. Each loop spells the native `rescue` itself;

@@ -9,10 +9,10 @@ require_relative "test_database"
 class DatabaseTimeTest < TestBase
   def setup
     TestDatabase.configure!("database_time")
-    TestDatabase.drop_tables!("stamps")
-    TestDatabase.exec("CREATE TABLE stamps (id INTEGER PRIMARY KEY, at DATETIME)")
-    TestDatabase.exec("INSERT INTO stamps (id, at) VALUES (1, '2024-01-02 03:04:05.000006')")
-    TestDatabase.exec("INSERT INTO stamps (id, at) VALUES (2, NULL)")
+    TestDatabase.drop_tables!("time_samples")
+    TestDatabase.exec("CREATE TABLE time_samples (id INTEGER PRIMARY KEY, at DATETIME)")
+    TestDatabase.exec("INSERT INTO time_samples (id, at) VALUES (1, '2024-01-02 03:04:05.000006')")
+    TestDatabase.exec("INSERT INTO time_samples (id, at) VALUES (2, NULL)")
   end
 
   def assert_equal(expected, actual, msg = nil)
@@ -20,7 +20,7 @@ class DatabaseTimeTest < TestBase
   end
 
   def stored_at(id)
-    rows = Sqlx::Base.rows_by_sql("SELECT at FROM stamps WHERE id = ?", [id])
+    rows = Sqlx::Base.rows_by_sql("SELECT at FROM time_samples WHERE id = ?", [id])
     rows.empty? ? nil : rows[0]["at"]
   end
 

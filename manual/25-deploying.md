@@ -67,7 +67,7 @@ bin/compose run --rm app snails migrate apply
 bin/compose up -d --wait
 ```
 
-If another system owns the database schema, set `DB_OWNER="external"` in `pins.toml` and skip the migration command; apply the change in the owning system. The migration commands refuse to write DDL when that pin is set, and `check` reports the expected state instead.
+If another system owns the database schema, set `DB_OWNER="external"` in `pins.toml` and skip the migration command; apply the change in the owning system. The migration commands refuse to write DDL when `DB_OWNER` is set, and `check` reports the expected state instead.
 
 The server never changes the schema on boot. A bare `snails migrate apply` on the host targets the development database, not the deployed one, so run it through compose.
 

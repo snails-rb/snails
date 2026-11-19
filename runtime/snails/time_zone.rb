@@ -29,7 +29,7 @@ module Snails
 
   # the process zone every local-time presentation uses, as an IANA identifier.
   # The app sets it once from config/environment.rb with
-  # `Snails.time_zone = "<zone>"`; before that line runs, the slot reads as
+  # `Snails.time_zone = "<zone>"`; before that line runs, the value reads as
   # "UTC".
   #
   # @return [String] the IANA identifier ("UTC" when nothing was set)
@@ -39,8 +39,8 @@ module Snails
     zone
   end
 
-  # pin the process zone. The name may be a zone vocabulary name or an IANA
-  # identifier; `Snails.iana_zone` resolves and validates it before the slot
+  # set the process zone. The name may be a zone vocabulary name or an IANA
+  # identifier; `Snails.iana_zone` resolves and validates it before the value
   # changes, and `ENV["TZ"]` is set for libc.
   #
   # @param name [String] the zone name or IANA identifier
@@ -104,7 +104,7 @@ module Snails
       "Casablanca" => "Africa/Casablanca",
       "Monrovia" => "Africa/Monrovia",
       # Plain "UTC", not "Etc/UTC": both name the same zone, and the
-      # plain one keeps the slot's answer identical — "UTC" whether the app set
+      # plain one keeps the answer identical — "UTC" whether the app set
       # it that way or never set one at all.
       "UTC" => "UTC",
       "Belgrade" => "Europe/Belgrade",

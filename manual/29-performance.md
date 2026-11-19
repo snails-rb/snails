@@ -6,7 +6,7 @@ Snails compiles to native code and carries no GVL. One process runs request hand
 
 ## How it compares
 
-Both sides are generated app defaults answering the same `GET /up` with the same JSON body, run as containers on one machine: 8 cores with SMT for 16 hardware threads. Rails Cluster Mode adds one Puma worker per server hardware thread so it can use the same cores Snails uses in one process. The server is pinned to threads 4–15, six physical cores; the load generator gets threads 0–3 so it cannot steal CPU from the server. Request logging is off for the throughput and memory figures, so the measurement is the request path and not the log writer; launch time and idle memory come from a run with logging on, where it makes no difference to either.
+Both sides are generated app defaults answering the same `GET /up` with the same JSON body, run as containers on one machine: 8 cores with SMT for 16 hardware threads. Rails Cluster Mode adds one Puma worker per server hardware thread so it can use the same cores Snails uses in one process. The server is restricted to threads 4–15, six physical cores; the load generator gets threads 0–3 so it cannot steal CPU from the server. Request logging is off for the throughput and memory figures, so the measurement is the request path and not the log writer; launch time and idle memory come from a run with logging on, where it makes no difference to either.
 
 | | Snails | Rails | Rails Cluster Mode |
 |---|---:|---:|---:|
@@ -19,7 +19,7 @@ Both sides are generated app defaults answering the same `GET /up` with the same
 
 The three columns are three deployments of the same app:
 
-- **Snails** — one process, no GVL, request threads spread across the cores available to it.
+- **Snails** — one process, no GVL, request handlers spread across the cores available to it.
 - **Rails** — `rails new` untouched: `WEB_CONCURRENCY=0`, a single process with 3 threads. One core does the Ruby work no matter how many the machine has.
 - **Rails Cluster Mode** — `WEB_CONCURRENCY=n`, one Puma worker per server hardware thread, 5 threads each. Five threads is Puma's default max; the generated puma.rb defaults to 3, so this column is a tuned configuration, not a generated default. This is the configuration that actually uses the hardware Snails uses by default.
 

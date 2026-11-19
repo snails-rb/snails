@@ -78,7 +78,7 @@ end
 assert_equal "Welcome", emails.last["subject"]
 ```
 
-`assert_emails` counts the lines the block added; `emails` returns the run's rows in send order, each with `"to"` (an Array), `"from"`, and `"subject"`. The gate empties the file before boot, so a case never sees another run's mail.
+`assert_emails` counts the lines the block added; `emails` returns the run's rows in send order, each with `"to"` (an Array), `"from"`, and `"subject"`. The test run empties the file before boot, so a case never sees another run's mail.
 
 For a direct test of the mailer, register `ActionMailer::CaptureMethod` and read `ActionMailer::Base.deliveries` in the same process:
 

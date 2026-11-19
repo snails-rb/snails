@@ -4,10 +4,10 @@ require_relative "test_database"
 
 # Sqlx::Base.enum (core) — a hand-written enum
 # declaration validates once at load, answers label and value both
-# ways from one source, and fails loud on the shapes that would alias
+# ways from one source, and raises on the shapes that would alias
 # silently. The bound writer (Enum#writer) rides here too:
 # write is the declaration's counterpart, not a separate surface. setup owns
-# a fresh table per case for the standard-shape walk.
+# a fresh table per case for the end-to-end walk.
 class EnumTest < TestBase
   def setup
     TestDatabase.configure!("sqlx_enum")
@@ -46,7 +46,7 @@ class EnumTest < TestBase
   end
 
   # An unknown name raises — not a to_i fallback that would read as
-  # the first slot.
+  # the first stored value.
   def test_value_unknown_raises
     begin
       Sqlx::Base.enum(active: 1).value("bogus")
@@ -57,15 +57,15 @@ class EnumTest < TestBase
   end
 
   # The stored-value spelling ("1") and the Symbol label both read
-  # the same slot — the spellings the forms layer sends.
+  # the same stored value — the spellings the forms layer sends.
   def test_value_accepts_spellings
     decl = Sqlx::Base.enum(active: 1)
     assert_equal 1, decl.value("1")
     assert_equal 1, decl.value(:active)
   end
 
-  # label? is the predicate form: a matching slot answers true, a
-  # different slot or an unknown raw answers false, and the label
+  # label? is the predicate form: a matching stored value answers true, a
+  # different stored value or an unknown raw answers false, and the label
   # half stays strict so a declaration rename cannot make every
   # predicate answer false forever.
   def test_label_predicate
@@ -77,7 +77,7 @@ class EnumTest < TestBase
   end
 
   # A label the declaration no longer carries raises at the first
-  # predicate call — the loud edge the strict label half exists for.
+  # predicate call — the strict edge the strict label half exists for.
   def test_label_predicate_unknown_label_raises
     begin
       Sqlx::Base.enum(active: 1).label?(1, :draft)
@@ -87,9 +87,9 @@ class EnumTest < TestBase
     raise "expected ArgumentError from Enum#label?"
   end
 
-  # Load-time loudness: the four shapes that would drift or alias
+  # Load-time validation: the four shapes that would drift or alias
   # silently if the declaration were two parallel constants.
-  def test_declaration_rejects_bad_shapes
+  def test_declaration_rejects_invalid_forms
     bad = [
       {},
       { "active" => 1 },
@@ -108,10 +108,10 @@ class EnumTest < TestBase
     end
   end
 
-  # The standard shape end to end: declaration → reader → predicate →
+  # The standard form end to end: declaration → reader → predicate →
   # bang writer through the declaration's `writer` factory — the
-  # writer stores the label's value and stamps updated_at.
-  def test_standard_shape_walk
+  # writer stores the label's value and sets updated_at.
+  def test_enum_declaration_end_to_end
     assert_equal "active", EnumShapeModel.status_label(2)
     assert_equal true, EnumShapeModel.active?(2)
     assert_equal false, EnumShapeModel.active?(1)
@@ -141,7 +141,7 @@ class EnumTest < TestBase
   end
 
   # An unknown label raises through the bound declaration before any
-  # SQL runs — a redeclared enum cannot write a stale slot.
+  # SQL runs — a redeclared enum cannot write a stale stored value.
   def test_enum_writer_unknown_label_raises
     begin
       EnumShapeModel::STATUS.writer(
@@ -164,7 +164,7 @@ class EnumTest < TestBase
   end
 end
 
-# The standard-shape model: the declaration owns the mapping and
+# The standard-form model: the declaration owns the mapping and
 # the writer factory, and each member is the one-liner the
 # `enum` @example spells out.
 class EnumShapeModel < Sqlx::Base
@@ -198,8 +198,8 @@ FixtureRunner.run(EnumTest, [
   "test_value_accepts_spellings",
   "test_label_predicate",
   "test_label_predicate_unknown_label_raises",
-  "test_declaration_rejects_bad_shapes",
-  "test_standard_shape_walk",
+  "test_declaration_rejects_invalid_forms",
+  "test_enum_declaration_end_to_end",
   "test_enum_writer_from_declaration",
   "test_enum_writer_answers_nil",
   "test_enum_writer_unknown_label_raises",

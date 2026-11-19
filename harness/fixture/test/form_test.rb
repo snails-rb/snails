@@ -2,10 +2,10 @@ require "set"
 require_relative "test_helper"
 require_relative "harness_runner"
 
-# Snails::Form on the Sqlx-row shape: the literal FIELDS accessor loop
+# Snails::Form on the Sqlx row structure: the literal FIELDS accessor loop
 # (readers through read_attribute), input projection through the write
 # seam, declaration-order errors, the private-engine boundary, and
-# every declaration-time loud failure. This file runs on a graph with
+# every failure that raises at declaration time. This file runs on a graph with
 # NO I18n, so messages come from core's built-in defaults through the
 # interpolation fallback — the locale branch of `resolve_message`
 # (I18n present, `default:`, "translation missing") is proven by the
@@ -66,7 +66,7 @@ class FormScopedForm < Snails::Form
   validates :email, uniqueness: { model: FormTakenUser, scope: :kind }
 end
 
-# The same scope as an Array keeps the other declaration shape.
+# The same scope as an Array keeps the other declaration form.
 class FormScopedArrayForm < Snails::Form
   FIELDS = %w[email kind].each { |n| define_method(n) { read_attribute(n) } }
   validates :email, uniqueness: { model: FormTakenUser, scope: [ :kind ] }
@@ -143,7 +143,7 @@ class FormMultiAttributeForm < Snails::Form
 end
 
 # A custom validate method with a Symbol message key that nothing
-# resolves (no locale entry, no I18n): the loud path.
+# resolves (no locale entry, no I18n): the error path.
 class FormDefaultScopeForm < Snails::Form
   FIELDS = %w[name].each { |n| define_method(n) { read_attribute(n) } }
   validates :name, presence: true
@@ -245,7 +245,7 @@ class FormTest < TestBase
   # a key outside FIELDS never enters the form (unknown HTTP keys, and
   # framework state like `errors`), the accessor loop answers through
   # read_attribute, and anything that is not a Hash is a caller bug —
-  # loud.
+  # it raises.
   def test_projects_declared_fields
     form = FormSignupForm.new({ "email" => "a@b.test", :password => "password", "device_uuid" => "ignored", "errors" => "clobber" })
     assert_equal [ "email", "password", "password_confirmation" ], FormSignupForm.field_names
@@ -340,7 +340,7 @@ class FormTest < TestBase
     assert_equal [ "Password confirmation doesn't match Password" ], form.errors.full_messages
   end
 
-  # The 422 detail shape: blocks in declaration order (email block,
+  # The 422 detail format: blocks in declaration order (email block,
   # then password block), newline-joined.
   def test_join_orders_messages_by_declaration
     form = FormSignupForm.new({ "email" => "taken@example.test", "password" => "password", "password_confirmation" => "different" })
@@ -420,7 +420,7 @@ class FormTest < TestBase
   end
 
   # Declaration rejects option typos and missing required options:
-  # every failure is loud at load, none silently skips a rule.
+  # every failure raises at load, none silently skips a rule.
   def test_rejects_option_typos_and_missing_options
     assert_argument_error("has no option :minmum") do
       FormScopedForm.validates(:email, length: { minmum: 8 })
@@ -486,8 +486,8 @@ class FormTest < TestBase
     rescue ArgumentError => e
       assert_equal true, e.message.include?("is not a field")
     end
-    # The Symbol/Hash slot types refuse a String literal at compile
-    # where they can; these prove the run-time entry guards answer loud
+    # The Symbol/Hash parameter types refuse a String literal at compile
+    # where they can; these prove the run-time entry guards raise
     # too, for values crossing an untyped boundary.
     begin
       form.errors.add("email", "x")
@@ -532,7 +532,7 @@ class FormTest < TestBase
   end
 
   # A Symbol message key nothing can resolve, with no I18n to ask:
-  # a loud ArgumentError out of valid?, never an empty message.
+  # an ArgumentError out of valid?, never an empty message.
   def test_unresolvable_custom_key_raises
     form = FormDefaultScopeForm.new({ "name" => "dup" })
     raised = nil

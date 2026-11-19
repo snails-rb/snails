@@ -3,8 +3,8 @@ require_relative "harness_runner"
 
 # before_action dialect (core) — registration (owner
 # flattening, only/except lists), owner-partitioned walk, send
-# dispatch (no per-controller case), filter halt, only/except gating
-# through the action_name context, loud failure for a registered name
+# dispatch (no per-controller case), filter halt, only/except filtering
+# through the action_name context, an error for a registered name
 # without a method, rejection of non-Symbol registrations, and
 # inherited filter methods. Ancestor auto-propagation of REGISTRATION
 # is not part of the dialect — spinel never calls the inherited hook, so
@@ -60,7 +60,7 @@ class BeforeActionTest < TestBase
     assert_equal false, c.performed?
   end
 
-  # A registered name whose method does not exist fails loudly as
+  # A registered name whose method does not exist raises as
   # NoMethodError — silent skip is the failure class this design
   # exists to avoid.
   def test_missing_filter_method_raises
@@ -87,7 +87,7 @@ class BeforeActionTest < TestBase
     assert_equal true, raised
   end
 
-  # only: match — with the action context set, the gated filter runs.
+  # only: match — with the action context set, the conditional filter runs.
   def test_only_match
     c = HarnessOnlyController.new
     c.action_name = :create
@@ -96,7 +96,7 @@ class BeforeActionTest < TestBase
     assert_equal true, c.all_ran?
   end
 
-  # only: mismatch — the gated filter is skipped, the ungated one
+  # only: mismatch — the conditional filter is skipped, the unconditional one
   # runs.
   def test_only_mismatch
     c = HarnessOnlyController.new
@@ -106,7 +106,7 @@ class BeforeActionTest < TestBase
     assert_equal true, c.all_ran?
   end
 
-  # only: gated halt — the filter renders on create, so the later
+  # only: conditional halt — the filter renders on create, so the later
   # filter never runs.
   def test_only_halt_skips_later_filters
     c = HarnessOnlyHaltController.new
