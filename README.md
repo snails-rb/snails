@@ -31,7 +31,7 @@ demo/bin/test
 Or let mise manage the CLI:
 
 ```sh
-mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_prefix=rev-]'
+mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_prefix=v]'
 snails new demo
 ```
 
