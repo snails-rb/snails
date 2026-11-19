@@ -3,14 +3,14 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash
 #
-# The script downloads the dist for the latest release (or a rev you
-# name), verifies its sha256 sidecar, unpacks it under
-# <SNAILS_HOME>/dist/<rev>, and links <SNAILS_BIN_DIR>/snails to it. The
-# CLI is self-contained: `snails new` vendors the pinned core from the
-# same dist. Re-run to upgrade; remove the dist directory and the symlink
-# to uninstall.
+# The script downloads the dist for the latest release (a version, or an
+# edge rev), verifies its sha256 sidecar, unpacks it under
+# <SNAILS_HOME>/dist/<version-or-rev>, and links <SNAILS_BIN_DIR>/snails to
+# it. The CLI is self-contained: `snails new` vendors the pinned core from
+# the same dist. Re-run to upgrade; remove the dist directory and the
+# symlink to uninstall.
 #
-# Usage: install.sh [--rev <full-rev>]
+# Usage: install.sh [--version <vX.Y.Z>] [--rev <full-rev>]
 #
 # Environment:
 #   SNAILS_DIST_BASE_URL  asset base URL (default: the repo's releases)
@@ -28,19 +28,35 @@ API="${SNAILS_API_BASE_URL:-https://api.github.com/repos/$REPO}"
 
 usage() {
   cat <<'USAGE'
-usage: install.sh [--rev <full-rev>]
-  --rev <rev>   install a specific full rev instead of the latest release
+usage: install.sh [--version <vX.Y.Z>] [--rev <full-rev>]
+  --version <version>  install a specific release version (stable or rc)
+  --rev <rev>          install a full-rev edge release instead of the latest
 USAGE
 }
 
+version=""
 rev=""
 while (($#)); do
   case "$1" in
+    --version) version="${2:-}"; shift 2 ;;
     --rev) rev="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "[snails] unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
+if [[ -n $version && -n $rev ]]; then
+  echo "[snails] pass either --version or --rev, not both" >&2
+  usage >&2
+  exit 2
+fi
+if [[ -n $version && ! $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+  echo "[snails] '$version' is not a vX.Y.Z version — pass a release version, or --rev <full-rev>" >&2
+  exit 1
+fi
+if [[ -n $rev && ! $rev =~ ^[0-9a-f]{40}$ ]]; then
+  echo "[snails] '$rev' is not a full 40-hex rev — pass the value of 'git rev-parse HEAD' in the snails checkout" >&2
+  exit 1
+fi
 
 command -v curl >/dev/null 2>&1 || { echo "[snails] curl is required — install it and rerun" >&2; exit 1; }
 command -v tar >/dev/null 2>&1 || { echo "[snails] tar is required — install it and rerun" >&2; exit 1; }
@@ -71,54 +87,162 @@ sha256_check() {
     (cd "$dir" && shasum -a 256 -c "$file")
   fi
 }
+# packaged_version <dir> — the VERSION constant in an unpacked dist, or
+# empty when the metadata is missing.
+packaged_version() {
+  sed -n 's/^  VERSION = "\(.*\)"/\1/p' "$1/runtime/snails/version.rb" 2>/dev/null | head -n1
+}
+# dist_matches <dir> <version> <rev> — true when <dir> is already the dist
+# this install asks for: its packaged version names the requested version,
+# or its REV names the requested rev.
+dist_matches() {
+  local dir="$1" want_version="$2" want_rev="$3"
+  [[ -f $dir/REV && $(<"$dir/REV") =~ ^[0-9a-f]{40}$ ]] || return 1
+  if [[ -n $want_version ]]; then
+    [[ "$(packaged_version "$dir")" == "$want_version" ]] || return 1
+  elif [[ -n $want_rev && $(<"$dir/REV") != "$want_rev" ]]; then
+    return 1
+  fi
+  return 0
+}
+# dist_tag_from_json <body> — the first dist tag in a release JSON document,
+# newest first. A dist release is a version tag or an edge `rev-<40hex>`;
+# toolchain releases (`spinel-rev-…`) are not dist pins.
+dist_tag_from_json() {
+  printf '%s' "$1" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' \
+    | sed 's/.*"\([^"]*\)"$/\1/' \
+    | grep -E '^(v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|rev-[0-9a-f]{40})$' \
+    | head -n1
+}
+# resolve_version_rev <version> — the commit a version tag names. A
+# version-keyed release tags the release with the version; a version
+# published before that layout tags a commit whose rev release carries the
+# artifact. A lightweight tag names its commit directly, an annotated tag
+# through its tag object.
+resolve_version_rev() {
+  local version="$1" json sha type
+  json="$(api_get "$API/git/ref/tags/$version")" || return 1
+  sha="$(printf '%s' "$json" | tr -d '[:space:]' | sed -n 's/.*"object":{[^}]*"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
+  type="$(printf '%s' "$json" | tr -d '[:space:]' | sed -n 's/.*"object":{[^}]*"type":"\([a-z]*\)".*/\1/p')"
+  case "$type" in
+    commit)
+      printf '%s' "$sha"
+      ;;
+    tag)
+      json="$(api_get "$API/git/tags/$sha")" || return 1
+      sha="$(printf '%s' "$json" | tr -d '[:space:]' | sed -n 's/.*"object":{[^}]*"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
+      type="$(printf '%s' "$json" | tr -d '[:space:]' | sed -n 's/.*"object":{[^}]*"type":"\([a-z]*\)".*/\1/p')"
+      [[ $type == "commit" ]] || return 1
+      printf '%s' "$sha"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
 
-# The default install follows the Latest release, whose tag names the rev
-# to install. A fresh channel has no stable release yet, so fall back to
-# the newest dist release; without either, name a rev explicitly. The list
-# holds toolchain releases (`spinel-rev-…`) too, so the fallback picks the
-# newest `rev-` tag instead of assuming the newest release is a dist.
-if [[ -z $rev ]]; then
+# The default install follows the Latest release, whose tag names the pin.
+# A fresh channel has no stable release yet, so fall back to the newest dist
+# release; without either, name a version or rev explicitly.
+tag=""
+if [[ -n $version ]]; then
+  tag="$version"
+elif [[ -n $rev ]]; then
+  tag="rev-$rev"
+else
   body="$(api_get "$API/releases/latest")" || body=""
-  tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\(rev-[^"]*\)"[[:space:]]*[,}].*/\1/p' | head -n1)"
+  tag="$(dist_tag_from_json "$body" || true)"
   if [[ -z $tag ]]; then
     body="$(api_get "$API/releases?per_page=100")" || body=""
-    tag="$(printf '%s' "$body" | sed -n 's/.*"tag_name":[[:space:]]*"\(rev-[^"]*\)"[[:space:]]*[,}].*/\1/p' | head -n1)"
+    tag="$(dist_tag_from_json "$body" || true)"
   fi
   if [[ -z $body ]]; then
-    echo "[snails] could not find a release for $REPO — check your network, or pass --rev <full-rev>" >&2
+    echo "[snails] could not find a release for $REPO — check your network, or pass --version <vX.Y.Z> / --rev <full-rev>" >&2
     exit 1
   fi
   if [[ -z $tag ]]; then
-    echo "[snails] could not find a dist release for $REPO — check the release channel, or pass --rev <full-rev>" >&2
+    echo "[snails] could not find a dist release for $REPO — check the release channel, or pass --version <vX.Y.Z> / --rev <full-rev>" >&2
     exit 1
   fi
-  rev="${tag#rev-}"
 fi
-if [[ ! $rev =~ ^[0-9a-f]{40}$ ]]; then
-  echo "[snails] '$rev' is not a full 40-hex rev — pass the value of 'git rev-parse HEAD' in the snails checkout" >&2
+
+key=""
+want_version=""
+want_rev=""
+if [[ $tag == rev-* ]]; then
+  want_rev="${tag#rev-}"
+  if [[ ! $want_rev =~ ^[0-9a-f]{40}$ ]]; then
+    echo "[snails] '$tag' does not name a full 40-hex rev — check the release tag" >&2
+    exit 1
+  fi
+  key="$want_rev"
+elif [[ $tag == v* ]]; then
+  want_version="$tag"
+  key="$want_version"
+else
+  echo "[snails] '$tag' is neither a version release nor an edge rev release — check the release channel" >&2
   exit 1
 fi
 
-dest="$SNAILS_HOME/dist/$rev"
-asset="snails-dist-$rev.tar.gz"
+dest="$SNAILS_HOME/dist/$key"
+asset="snails-dist-$key.tar.gz"
 
-if [[ -f $dest/REV && $(<"$dest/REV") == "$rev" ]]; then
-  echo "[snails] dist $rev already installed at $dest"
+if dist_matches "$dest" "$want_version" "$want_rev"; then
+  echo "[snails] dist $key already installed at $dest"
 else
   tmp="$dest.tmp.$$"
   rm -rf "$tmp"
   mkdir -p "$tmp"
-  echo "[snails] downloading dist $rev" >&2
-  download_asset "rev-$rev" "$asset" "$tmp/$asset" || { rm -rf "$tmp"; echo "[snails] could not download the dist for $rev — check the release tag and your network, then retry" >&2; exit 1; }
-  download_asset "rev-$rev" "$asset.sha256" "$tmp/$asset.sha256" || { rm -rf "$tmp"; echo "[snails] could not download the checksum for $rev — check the release assets, then retry" >&2; exit 1; }
-  if ! sha256_check "$tmp" "$asset.sha256" >/dev/null; then
+  echo "[snails] downloading dist $key" >&2
+  fetch_tag="$tag"
+  fetch_asset="$asset"
+  if ! download_asset "$fetch_tag" "$fetch_asset" "$tmp/$fetch_asset"; then
+    if [[ -z $want_version ]]; then
+      rm -rf "$tmp"
+      echo "[snails] could not download the dist for $key — release $tag has no $asset; check the release and your network" >&2
+      exit 1
+    fi
+    # A version published before version-keyed releases has no asset under
+    # its own tag; the rev release that names the same artifact carries it.
+    legacy_rev="$(resolve_version_rev "$want_version" || true)"
+    if [[ -z $legacy_rev ]]; then
+      rm -rf "$tmp"
+      echo "[snails] could not download the dist for $key — release $tag has no $asset, and its tag names no revision; check the release and your network" >&2
+      exit 1
+    fi
+    fetch_tag="rev-$legacy_rev"
+    fetch_asset="snails-dist-$legacy_rev.tar.gz"
+    want_rev="$legacy_rev"
+    echo "[snails] release $tag has no version asset — using legacy release $fetch_tag" >&2
+    if ! download_asset "$fetch_tag" "$fetch_asset" "$tmp/$fetch_asset"; then
+      rm -rf "$tmp"
+      echo "[snails] could not download the dist for $key — neither release $tag nor legacy release $fetch_tag is reachable" >&2
+      exit 1
+    fi
+  fi
+  if ! download_asset "$fetch_tag" "$fetch_asset.sha256" "$tmp/$fetch_asset.sha256"; then
+    rm -rf "$tmp"
+    echo "[snails] could not download the checksum for $key — release $fetch_tag has no $fetch_asset.sha256" >&2
+    exit 1
+  fi
+  if ! sha256_check "$tmp" "$fetch_asset.sha256" >/dev/null; then
     rm -rf "$tmp"
     echo "[snails] checksum mismatch — delete the cached dist and retry; if it repeats, the release is corrupt" >&2
     exit 1
   fi
-  tar -xzf "$tmp/$asset" -C "$tmp"
-  rm -f "$tmp/$asset" "$tmp/$asset.sha256"
-  if [[ ! -f $tmp/REV || $(<"$tmp/REV") != "$rev" ]]; then
+  tar -xzf "$tmp/$fetch_asset" -C "$tmp"
+  rm -f "$tmp/$fetch_asset" "$tmp/$fetch_asset.sha256"
+  if [[ ! -f $tmp/REV || ! $(<"$tmp/REV") =~ ^[0-9a-f]{40}$ ]]; then
+    rm -rf "$tmp"
+    echo "[snails] the downloaded dist carries no full revision — the release is corrupt; delete the cached dist and retry" >&2
+    exit 1
+  fi
+  if [[ -n $want_version && "$(packaged_version "$tmp")" != "$want_version" ]]; then
+    rm -rf "$tmp"
+    echo "[snails] the downloaded dist names version '$(packaged_version "$tmp")', not $want_version — the release asset is mis-stamped" >&2
+    exit 1
+  fi
+  if [[ -n $want_rev && $(<"$tmp/REV") != "$want_rev" ]]; then
     rm -rf "$tmp"
     echo "[snails] the downloaded dist is for another revision — delete the cached dist and retry" >&2
     exit 1
@@ -126,7 +250,7 @@ else
   mkdir -p "$(dirname "$dest")"
   rm -rf "$dest"
   mv "$tmp" "$dest"
-  echo "[snails] dist $rev -> $dest"
+  echo "[snails] dist $key -> $dest"
 fi
 
 mkdir -p "$SNAILS_BIN_DIR"

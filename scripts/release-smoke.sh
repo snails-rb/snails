@@ -12,10 +12,12 @@
 # job passes gnu-sed and coreutils for the repo scripts, for example).
 #
 # Usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--install-rev <full-rev>]
-#                                    [--keep] [--pg-link]
+#                                    [--install-version <vX.Y.Z>] [--keep] [--pg-link]
 #   --rev <rev>          expected revision — the default install must resolve to it
 #   --install-rev <rev>  install this revision (install.sh --rev) instead of the
-#                        default channel; for a prerelease or edge dist
+#                        default channel; for an edge dist
+#   --install-version <version>  install this version (install.sh --version)
+#                        instead of the default channel; for a prerelease
 #   --keep               keep the work directory and print its path
 #   --pg-link            also build a --database=postgresql app (link only, no server)
 #
@@ -31,16 +33,19 @@ set -uo pipefail
 INSTALL_URL="${SNAILS_INSTALL_URL:-https://raw.githubusercontent.com/snails-rb/snails/main/install.sh}"
 EXPECTED_REV=""
 INSTALL_REV=""
+INSTALL_VERSION=""
 KEEP=""
 PG_LINK=""
 
 usage() {
   cat <<'USAGE'
 usage: bash scripts/release-smoke.sh [--rev <full-rev>] [--install-rev <full-rev>]
-                                   [--keep] [--pg-link]
+                                   [--install-version <vX.Y.Z>] [--keep] [--pg-link]
   --rev <rev>          expected revision — the default install must resolve to it
   --install-rev <rev>  install this revision (install.sh --rev) instead of the
-                       default channel; for a prerelease or edge dist
+                       default channel; for an edge dist
+  --install-version <version>  install this version (install.sh --version)
+                       instead of the default channel; for a prerelease
   --keep               keep the work directory and print its path
   --pg-link            also build a --database=postgresql app (link only, no server)
 USAGE
@@ -66,6 +71,15 @@ while (($#)); do
       INSTALL_REV="$2"
       shift 2
       ;;
+    --install-version)
+      [[ $# -ge 2 && -n $2 ]] || {
+        echo "[release-smoke] --install-version needs a value" >&2
+        usage >&2
+        exit 2
+      }
+      INSTALL_VERSION="$2"
+      shift 2
+      ;;
     --keep) KEEP=1; shift ;;
     --pg-link) PG_LINK=1; shift ;;
     -h | --help) usage; exit 0 ;;
@@ -83,6 +97,14 @@ done
 }
 [[ -z $INSTALL_REV || $INSTALL_REV =~ ^[0-9a-f]{40}$ ]] || {
   echo "[release-smoke] --install-rev must be a full 40-hex revision: '$INSTALL_REV'" >&2
+  exit 2
+}
+[[ -z $INSTALL_VERSION || $INSTALL_VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
+  echo "[release-smoke] --install-version must look like v1.2.3: '$INSTALL_VERSION'" >&2
+  exit 2
+}
+[[ -z $INSTALL_REV || -z $INSTALL_VERSION ]] || {
+  echo "[release-smoke] pass either --install-rev or --install-version, not both" >&2
   exit 2
 }
 [[ -z $EXPECTED_REV || -z $INSTALL_REV ]] || {
@@ -156,11 +178,14 @@ fail() {
 #    checkout copy of install.sh would skip the pipe path the manual shows.
 stage "install the CLI from the published channel"
 install_log="$WORK/install.log"
-# The documented pipe form; --install-rev is the prerelease/edge variant
-# (`install.sh --rev`), which the default channel lookup never selects.
+# The documented pipe form; an explicit install names the prerelease
+# (`--version`) or the edge dist (`--rev`), which the default channel lookup
+# never selects.
 installer=(bash)
 if [[ -n $INSTALL_REV ]]; then
   installer=(bash -s -- --rev "$INSTALL_REV")
+elif [[ -n $INSTALL_VERSION ]]; then
+  installer=(bash -s -- --version "$INSTALL_VERSION")
 fi
 if ! curl -fsSL "$INSTALL_URL" | "${installer[@]}" >"$install_log" 2>&1; then
   cat "$install_log" >&2

@@ -5,10 +5,11 @@
 # notes, stable/prerelease/unversioned channel flags), dist-mode `snails new` (the
 # REV file is the pin source), the dist-mode fetch path (`snails sync` on a
 # pin that is not the dist's own rev downloads, verifies, caches, and reuses
-# the published dist), the version-pin resolution through the release
-# repository's tag, `verify-pin` in dist mode (publication check), and
-# install.sh (download, verify, unpack, symlink, latest resolution, and the
-# optional API token).
+# the published dist), version-keyed releases (an rc and its stable on one
+# commit, the legacy rev-release fallback, a mis-stamped asset, and separate
+# per-version caches), `verify-pin` in dist mode (publication check), and
+# install.sh (download, verify, unpack, symlink, latest resolution, version
+# and rev installs, and the optional API token).
 #
 # The distribution base is a local HTTP server serving the same layout
 # as the GitHub releases, so no network is touched; the GitHub-specific
@@ -177,17 +178,19 @@ chk "a rev without the core paths is rejected" $? 1
 grep -q 'does not carry runtime' fake.out
 chk "the missing path is named" $? 0
 
-# 3b. --version: the release channel alias. The format gate refuses a
-#     non-SemVer value before anything is built; a dry run announces the
-#     version tag beside the release tag.
+# 3b. --version: the release tag is the version, so the pin and the asset
+#     address are one name. The format gate refuses a non-SemVer value
+#     before anything is built.
 bash "$PUB" HEAD --version 9.9.9 --dry-run --out ver-out > ver-format.out 2>&1
 chk "--version rejects a non-SemVer value" $? 1
 grep -q -- '--version must look like v0.1.0' ver-format.out
 chk "the bad version is named with the expected form" $? 0
 bash "$PUB" HEAD --version v9.9.9 --dry-run --out ver-out > ver-dry.out 2>&1
 chk "--version dry-run builds the assets" $? 0
-grep -q "version tag: v9.9.9" ver-dry.out
-chk "the dry run announces the version tag" $? 0
+grep -q "release tag: v9.9.9" ver-dry.out
+chk "the release tag is the version" $? 0
+grep -q "snails-dist-v9.9.9.tar.gz" ver-dry.out
+chk "the version names the asset" $? 0
 grep -q 'release title: snails v9.9.9' ver-dry.out
 chk "the release title is the version" $? 0
 grep -q 'channel: stable' ver-dry.out
@@ -201,8 +204,8 @@ bash "$PUB" HEAD --version v9.9.9-rc.1 --dry-run --out ver-rc-out > ver-rc.out 2
 chk "--version dry-run builds a prerelease" $? 0
 grep -q 'channel: prerelease' ver-rc.out
 chk "a prerelease is announced as its own channel" $? 0
-grep -q -- "install.sh | bash -s -- --rev $REV" ver-rc-out/release-notes.md
-chk "a prerelease installs by rev" $? 0
+grep -q -- "install.sh | bash -s -- --version v9.9.9-rc.1" ver-rc-out/release-notes.md
+chk "a prerelease installs by version" $? 0
 
 bash "$PUB" HEAD --dry-run --out unv-out > unv.out 2>&1
 chk "a dry run without --version builds the assets" $? 0
@@ -349,7 +352,7 @@ chk "the dist-mode ok line is printed" $? 0
 #     stamped metadata — no API call. The prerelease asset keeps this
 #     version distinct from the fake release pin resolved in section 7.
 mkdir vdist
-tar -xzf "ver-rc-out/snails-dist-$REV.tar.gz" -C vdist
+tar -xzf "ver-rc-out/snails-dist-v9.9.9-rc.1.tar.gz" -C vdist
 grep -q '^  VERSION = "v9.9.9-rc.1"$' vdist/runtime/snails/version.rb
 chk "the versioned dist carries its release version" $? 0
 bash vdist/bin/snails new vdemo > vnew.out 2>&1
@@ -551,6 +554,160 @@ chk "dist-mode verify-pins fails an unknown vX.Y.Z" $? 1
 grep -q 'names no release tag v0.0.0' pair-noversion.out
 chk "the dist-mode unknown version names the tag" $? 0
 
+# 7c. version-keyed releases: a version release carries its assets under
+#     the version tag, so an rc and its stable can name the same commit
+#     with separate artifacts. A version published before the transition
+#     keeps the rev release as its fallback. A mis-stamped asset is
+#     refused instead of cached, and the two versions keep separate caches.
+FAKE3="$(printf 'f%.0s' {1..40})"
+FAKE4="$(printf '1%.0s' {1..40})"
+seed_toolchain abc1234
+mk_release_artifact() {
+  local dest="$1" rev="$2" version="$3"
+  rm -rf "$dest"
+  cp -R dist "$dest"
+  printf '%s\n' "$rev" > "$dest/REV"
+  printf 'SPINEL_REV="abc1234"\n' > "$dest/pins.toml"
+  awk -v version="$version" -v rev="$rev" '
+    /^[[:space:]]*VERSION = / { print "  VERSION = \"" version "\""; next }
+    /^[[:space:]]*REV = /     { print "  REV = \"" rev "\""; next }
+    { print }
+  ' "$dest/runtime/snails/version.rb" > "$dest/runtime/snails/version.rb.tmp"
+  mv "$dest/runtime/snails/version.rb.tmp" "$dest/runtime/snails/version.rb"
+}
+serve_release() {
+  local dir="$1" asset="$2" source="$3"
+  mkdir -p "serve/$dir"
+  cp "$source/pins.toml" "serve/$dir/pins.toml"
+  tar -czf "serve/$dir/$asset" -C "$source" .
+  (cd "serve/$dir" && sha256sum "$asset" > "$asset.sha256")
+}
+tag_commit() {
+  local tag="$1" rev="$2"
+  mkdir -p serve/api/git/ref/tags
+  printf '{"ref":"refs/tags/%s","object":{"sha":"%s","type":"commit"}}\n' "$tag" "$rev" > "serve/api/git/ref/tags/$tag"
+}
+mk_release_artifact vsrc-rc "$FAKE3" "v9.9.11-rc.2"
+mk_release_artifact vsrc-stable "$FAKE3" "v9.9.11"
+mk_release_artifact vsrc-mis "$FAKE3" "$FAKE3"
+mk_release_artifact vsrc-legacy "$FAKE4" "v9.9.13"
+serve_release "v9.9.11-rc.2" "snails-dist-v9.9.11-rc.2.tar.gz" vsrc-rc
+serve_release "v9.9.11" "snails-dist-v9.9.11.tar.gz" vsrc-stable
+serve_release "v9.9.12" "snails-dist-v9.9.12.tar.gz" vsrc-mis
+serve_release "rev-$FAKE4" "snails-dist-$FAKE4.tar.gz" vsrc-legacy
+tag_commit v9.9.11-rc.2 "$FAKE3"
+tag_commit v9.9.11 "$FAKE3"
+tag_commit v9.9.12 "$FAKE3"
+tag_commit v9.9.13 "$FAKE4"
+
+cat > vpin-stable.toml <<CONF
+SPINEL_REV="abc1234"
+SNALS_REV="v9.9.11"
+CONF
+cat > vpin-rc.toml <<CONF
+SPINEL_REV="abc1234"
+SNALS_REV="v9.9.11-rc.2"
+CONF
+cat > vpin-legacy.toml <<CONF
+SPINEL_REV="abc1234"
+SNALS_REV="v9.9.13"
+CONF
+SNAILS_GIT_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails verify-pin vpin-stable.toml > vpin-stable.out 2>&1
+chk "a version pin is published under its version tag" $? 0
+grep -q 'usable (release v9.9.11)' vpin-stable.out
+chk "the version release tag is named" $? 0
+SNAILS_GIT_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails verify-pin vpin-rc.toml > vpin-rc.out 2>&1
+chk "an rc pin is published under its own version tag" $? 0
+grep -q 'usable (release v9.9.11-rc.2)' vpin-rc.out
+chk "the rc release tag is named" $? 0
+SNAILS_GIT_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails verify-pin vpin-legacy.toml > vpin-legacy.out 2>&1
+chk "a previous version falls back to its rev release" $? 0
+grep -q "usable (release rev-$FAKE4)" vpin-legacy.out
+chk "the legacy fallback names the rev release" $? 0
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails verify-pin "$FAKE3" > vpin-edge.out 2>&1
+chk "a versioned commit has no rev-release edge pin" $? 1
+grep -q 'this is an edge pin' vpin-edge.out
+chk "the edge refusal is named" $? 0
+
+cat > sapp-rc.toml <<CONF
+SPINEL_REV="abc1234"
+SNALS_REV="v9.9.11-rc.2"
+CONF
+mk_contract_app sapp-rc
+SNAILS_GIT_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails sync sapp-rc --pins sapp-rc.toml > sapp-rc.out 2> sapp-rc.err
+chk "an rc pin syncs from its version release" $? 0
+grep -q 'VERSION = "v9.9.11-rc.2"' sapp-rc/$SNAILS_VENDOR_DIR/snails/version.rb
+chk "the vendored rc keeps its version" $? 0
+grep -q "REV = \"$FAKE3\"" sapp-rc/$SNAILS_VENDOR_DIR/snails/version.rb
+chk "the vendored rc keeps its revision" $? 0
+[[ -f "$XDG_CACHE_HOME/snails/dist/v9.9.11-rc.2/REV" ]]
+chk "the rc caches under its version" $? 0
+
+cat > sapp-stable.toml <<CONF
+SPINEL_REV="abc1234"
+SNALS_REV="v9.9.11"
+CONF
+mk_contract_app sapp-stable
+SNAILS_GIT_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails sync sapp-stable --pins sapp-stable.toml > sapp-stable.out 2> sapp-stable.err
+chk "the stable pin syncs at the same commit" $? 0
+grep -q 'VERSION = "v9.9.11"' sapp-stable/$SNAILS_VENDOR_DIR/snails/version.rb
+chk "the vendored stable keeps its version" $? 0
+[[ -f "$XDG_CACHE_HOME/snails/dist/v9.9.11/REV" ]]
+chk "the stable caches under its version" $? 0
+if cmp -s "$XDG_CACHE_HOME/snails/dist/v9.9.11-rc.2/runtime/snails/version.rb" \
+          "$XDG_CACHE_HOME/snails/dist/v9.9.11/runtime/snails/version.rb"; then
+  same_cache=1
+else
+  same_cache=0
+fi
+chk "two versions at one revision keep separate cache entries" "$same_cache" 0
+
+cat > sapp-legacy.toml <<CONF
+SPINEL_REV="abc1234"
+SNALS_REV="v9.9.13"
+CONF
+mk_contract_app sapp-legacy
+SNAILS_GIT_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails sync sapp-legacy --pins sapp-legacy.toml > sapp-legacy.out 2> sapp-legacy.err
+chk "a previous version syncs through the rev-release fallback" $? 0
+grep -q 'VERSION = "v9.9.13"' sapp-legacy/$SNAILS_VENDOR_DIR/snails/version.rb
+chk "the legacy artifact keeps its version" $? 0
+[[ -f "$XDG_CACHE_HOME/snails/dist/v9.9.13/REV" ]]
+chk "the legacy version caches under its version" $? 0
+
+cat > sapp-mis.toml <<CONF
+SPINEL_REV="abc1234"
+SNALS_REV="v9.9.12"
+CONF
+mk_contract_app sapp-mis
+SNAILS_GIT_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails sync sapp-mis --pins sapp-mis.toml > sapp-mis.out 2>&1
+chk "a mis-stamped version asset fails the sync" $? 1
+grep -q 'mis-stamped' sapp-mis.out
+chk "the mis-stamped asset is named" $? 0
+[[ ! -e "$XDG_CACHE_HOME/snails/dist/v9.9.12" ]]
+chk "no cache entry survives a mis-stamped asset" $? 0
+
+SNAILS_GIT_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+  dist/bin/snails verify-pins --pins sapp-stable.toml > sapp-vp.out 2>&1
+chk "dist-mode verify-pins reads a version release's pins.toml" $? 0
+grep -q 'pins ok (spinel=abc1234 snails=v9.9.11)' sapp-vp.out
+chk "the version release's record is the one checked" $? 0
+
 # 8. clear failures: a checksum mismatch leaves no cache, an abbreviated
 #    pin cannot resolve in dist mode.
 cat > bapp-pins.toml <<CONF
@@ -652,6 +809,63 @@ SNAILS_HOME="$WORK/ihome-none" SNAILS_BIN_DIR="$WORK/ibin-none" \
 chk "install.sh refuses a channel with only toolchain releases" $? 1
 grep -q 'could not find a dist release' inst-none.out
 chk "the toolchain-only channel is named" $? 0
+
+# Version installs: --version names the release tag, and Latest can be a
+# version tag. The install directory and the asset name follow the version,
+# so an rc and its stable at one commit never overwrite each other.
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-v" SNAILS_BIN_DIR="$WORK/ibin-v" \
+  bash "$INSTALL" --version v9.9.11 > inst-v.out 2>&1
+chk "install.sh --version installs a version release" $? 0
+[[ -f "$WORK/ihome-v/dist/v9.9.11/REV" && "$(cat "$WORK/ihome-v/dist/v9.9.11/REV")" == "$FAKE3" ]]
+chk "the version install lands under its version" $? 0
+grep -q 'VERSION = "v9.9.11"' "$WORK/ihome-v/dist/v9.9.11/runtime/snails/version.rb"
+chk "the version install carries its version" $? 0
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-v" SNAILS_BIN_DIR="$WORK/ibin-v" \
+  bash "$INSTALL" --version v9.9.11 > inst-v2.out 2>&1
+chk "install.sh --version is idempotent" $? 0
+grep -q 'already installed' inst-v2.out
+chk "the version re-run is announced" $? 0
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-v" SNAILS_BIN_DIR="$WORK/ibin-v" \
+  bash "$INSTALL" --version v9.9.11-rc.2 > inst-vrc.out 2>&1
+chk "install.sh --version installs an rc beside its stable" $? 0
+[[ -d "$WORK/ihome-v/dist/v9.9.11" && -d "$WORK/ihome-v/dist/v9.9.11-rc.2" ]]
+chk "the rc and stable coexist under one install root" $? 0
+SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-vlegacy" SNAILS_BIN_DIR="$WORK/ibin-vlegacy" \
+  bash "$INSTALL" --version v9.9.13 > inst-vlegacy.out 2>&1
+chk "install.sh --version falls back to a legacy rev release" $? 0
+grep -q 'using legacy release' inst-vlegacy.out
+chk "the legacy install names its release" $? 0
+[[ -f "$WORK/ihome-vlegacy/dist/v9.9.13/REV" && "$(cat "$WORK/ihome-vlegacy/dist/v9.9.13/REV")" == "$FAKE4" ]]
+chk "the legacy install lands under its version" $? 0
+grep -q 'VERSION = "v9.9.13"' "$WORK/ihome-vlegacy/dist/v9.9.13/runtime/snails/version.rb"
+chk "the legacy install carries its version" $? 0
+mkdir -p serve/api-version-latest/releases
+printf '{"tag_name":"v9.9.11"}\n' > serve/api-version-latest/releases/latest
+SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-version-latest" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-vlatest" SNAILS_BIN_DIR="$WORK/ibin-vlatest" \
+  bash "$INSTALL" > inst-vlatest.out 2>&1
+chk "install.sh follows a version Latest" $? 0
+grep -q '\[snails\] dist v9.9.11 -> ' inst-vlatest.out
+chk "the version Latest install is reported" $? 0
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-vbad" SNAILS_BIN_DIR="$WORK/ibin-vbad" \
+  bash "$INSTALL" --version v9.9.12 > inst-vbad.out 2>&1
+chk "install.sh refuses a mis-stamped version asset" $? 1
+grep -q 'mis-stamped' inst-vbad.out
+chk "the mis-stamped install is named" $? 0
+[[ ! -e "$WORK/ihome-vbad/dist/v9.9.12" ]]
+chk "no version install survives a mis-stamped asset" $? 0
+SNAILS_HOME="$WORK/ihome-both" SNAILS_BIN_DIR="$WORK/ibin-both" \
+  bash "$INSTALL" --version v9.9.11 --rev "$FAKE" > inst-both.out 2>&1
+chk "install.sh refuses both --version and --rev" $? 2
+grep -q 'not both' inst-both.out
+chk "the both-flags refusal is named" $? 0
 
 # 9b. install.sh sends SNAILS_GITHUB_TOKEN to the release API. CI runners share
 #     their IP's 60/hour unauthenticated budget, so a release smoke that installs

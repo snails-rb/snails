@@ -51,7 +51,9 @@ Exit code 0 means everything matches; a mismatch prints what disagrees and exits
 [snails] /tmp/manual-demo snails-core in sync
 ```
 
-A project on an edge pin (`SNALS_REV` is a full commit) resolves that commit from the checkout or the published dist. An installed release resolves a `vX.Y.Z` pin through its release tag.
+A project on an edge pin (`SNALS_REV` is a full commit) resolves that commit from the checkout or the published dist. An installed release resolves a `vX.Y.Z` pin through the release tagged with that version.
+
+Keep the CLI at or above the version you pin. When the release is newer than the CLI, run the install command from the README first, then set `SNALS_REV`.
 
 ## Go back
 

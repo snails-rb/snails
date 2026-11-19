@@ -37,7 +37,10 @@ on:
         description: 'Revision the default install must resolve to (default: no expectation)'
         required: false
       install_rev:
-        description: 'Install this revision with install.sh --rev (prerelease or edge dist)'
+        description: 'Install this revision with install.sh --rev (edge dist)'
+        required: false
+      install_version:
+        description: 'Install this version with install.sh --version (prerelease)'
         required: false
 
 concurrency:
@@ -89,10 +92,12 @@ jobs:
           SNAILS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_REV: ${{ steps.expect.outputs.rev }}
           INSTALL_REV: ${{ github.event.inputs.install_rev }}
+          INSTALL_VERSION: ${{ github.event.inputs.install_version }}
         run: |
           args=()
-          if [[ -n $EXPECTED_REV ]]; then args=(--rev "$EXPECTED_REV"); fi
-          if [[ -n $INSTALL_REV ]]; then args=(--install-rev "$INSTALL_REV"); fi
+          if [[ -n $EXPECTED_REV ]]; then args+=(--rev "$EXPECTED_REV"); fi
+          if [[ -n $INSTALL_REV ]]; then args+=(--install-rev "$INSTALL_REV"); fi
+          if [[ -n $INSTALL_VERSION ]]; then args+=(--install-version "$INSTALL_VERSION"); fi
           bash scripts/release-smoke.sh ${args[@]+"${args[@]}"}
 
   macos:
@@ -139,8 +144,10 @@ jobs:
           SNAILS_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_REV: ${{ steps.expect.outputs.rev }}
           INSTALL_REV: ${{ github.event.inputs.install_rev }}
+          INSTALL_VERSION: ${{ github.event.inputs.install_version }}
         run: |
           args=(--pg-link)
           if [[ -n $EXPECTED_REV ]]; then args+=(--rev "$EXPECTED_REV"); fi
           if [[ -n $INSTALL_REV ]]; then args+=(--install-rev "$INSTALL_REV"); fi
+          if [[ -n $INSTALL_VERSION ]]; then args+=(--install-version "$INSTALL_VERSION"); fi
           bash scripts/release-smoke.sh "${args[@]}"
