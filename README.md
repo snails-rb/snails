@@ -35,7 +35,7 @@ mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_
 snails new demo
 ```
 
-Keep the CLI at or above the core version you pin. To upgrade an existing install, run the install command again; it replaces the linked CLI.
+Keep the CLI at or above the framework version you pin. To upgrade an existing install, run the install command again; it replaces the linked CLI.
 
 `snails new` downloads the pinned compiler for Linux amd64/arm64 or macOS Apple Silicon/Intel. `bin/dev` and `bin/test` compile the app, so install the packages under [Requirements](manual/02-getting-started.md#requirements) before the first run. [Getting Started](manual/02-getting-started.md) has the full flow.
 
@@ -96,13 +96,13 @@ The manual is the product documentation for developers building an app. It lives
 ## Layout
 
 ```
-runtime/        # app-agnostic core — copied into a consuming app as snails-core/
+runtime/        # app-agnostic framework code — copied into a consuming app as snails-core/
 scaffold/       # snails new and --scaffold templates, plus the harness skeleton
 bin/snails      # the CLI entry point
 cli/            # the CLI implementation shipped in the dist
 scripts/        # repository-only verification and release tools (not in the dist)
 install.sh      # curl installer for the CLI
-pins.toml       # SPINEL_REV — the spinel revision this core is verified with
+pins.toml       # SPINEL_REV — the spinel revision this framework is verified with
 manual/         # product documentation (English)
 LICENSE         # MIT
 ```

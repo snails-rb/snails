@@ -62,7 +62,7 @@ The logger settings, the mail provider, and any boot override belong here too. T
 ```text
 main.rb
   config/boot.rb            require snails-core/boot/all
-    framework                 Snails runtime
+    framework                 Snails framework
     config/database.rb        one adapter
     config/application.rb     app values
     config/routes.rb          route table
