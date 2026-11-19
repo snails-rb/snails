@@ -1,9 +1,9 @@
-# Harness test helper — loads the boot chain only (no DB configure:
+# Harness test helper — loads the boot order only (no DB configure:
 # harness cases drive instances and never touch server or DB).
 require_relative "../boot"
 
 # Captures the logger's failure reports so a snapshot stays stable — the
-# default line carries a clock and a pid. Messages only: the line shape is
+# default line carries a clock and a pid. Messages only: the line format is
 # logger_test's contract.
 class CapturedLog
   def initialize

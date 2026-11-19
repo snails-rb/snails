@@ -80,7 +80,7 @@ class ProcessActionTest < TestBase
 
   # A name with no method raises — a silent empty 200 is the failure
   # class this dispatch exists to avoid.
-  def test_a_missing_action_method_is_loud
+  def test_a_missing_action_method_raises
     c = HarnessDispatchController.new
     raised = false
     begin
@@ -123,7 +123,7 @@ end
 FixtureRunner.run(ProcessActionTest, [
   "test_dispatch_sets_action_context_and_runs_the_action",
   "test_a_responding_filter_halts_the_action",
-  "test_a_missing_action_method_is_loud",
+  "test_a_missing_action_method_raises",
   "test_a_renderless_action_answers_204",
   "test_a_rendered_action_keeps_its_response",
   "test_the_health_endpoint_answers_ok",

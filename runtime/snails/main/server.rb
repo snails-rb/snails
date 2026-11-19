@@ -5,7 +5,7 @@ module Snails
     # configure the process-wide `Sqlx::Database` from the app's
     # `config/database.rb`. Adapter-neutral: the selected backend reads its own
     # source. No DDL here; schema is applied by an explicit step (the core
-    # `Snails::SchemaLoader` in the harness gate, or the app's own script).
+    # `Snails::SchemaLoader` in the test runner, or the app's own script).
     #
     # @return [void]
     def self.configure_database!

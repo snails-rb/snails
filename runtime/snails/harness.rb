@@ -1,13 +1,13 @@
 # The app-agnostic test harness: a real-HTTP client, assertions, per-case DB
 # isolation, and an explicit case runner.
 #
-# It stays off the app boot chain, so the server binary never compiles it;
+# It stays off the app boot order, so the server binary never compiles it;
 # fixtures, record accessors, and seeds belong to the app.
 require "net/http"
 require "uri"
 require "json"
 # The DB wiring below needs the DB adapter (`Sqlx::Database`). The harness
-# target requires ../runtime/boot before this file, and the boot chain
+# target requires ../runtime/boot before this file, and the boot order
 # loads the app's config/database.rb, so it is in the graph by then.
 
 module Snails
@@ -71,9 +71,9 @@ module Snails
     # The mail capture sink, relative to this target's cwd: the runner
     # executes cases in `harness/`, directly under the spin root, so this
     # resolves to the root's `tmp/mail-capture.jsonl` — the file the
-    # server's DeliveryLog writes in test mode from the same anchor. The
-    # gate empties the file before boot, so it holds one run's deliveries;
-    # without a gate the file is absent and the helpers answer empty.
+    # server's DeliveryLog writes in test mode from the same anchor. The test
+    # runner empties the file before boot, so it holds one run's deliveries;
+    # without a test runner the file is absent and the helpers return empty.
     MAIL_LOG_PATH = "../tmp/mail-capture.jsonl"
   end
 
@@ -83,9 +83,9 @@ module Snails
     class SkipSignal < StandardError
     end
 
-    # the bundle dispatch gate the case macro reads. The bundle runner compiles
-    # every case file into one binary and runs it once per file, so each process
-    # must run only the file it was started for: the entry writes
+    # the bundle file selection check the case macro reads. The bundle runner
+    # compiles every case file into one binary and runs it once per file, so
+    # each process must run only the file it was started for: the entry writes
     # `$spin_test_file = <index>` before each file's require (require order is
     # the runner's index order) and the process env names the selected index.
     # Without the env (a plain `spin test <file>`) every file runs — the
@@ -132,7 +132,7 @@ module Snails
       # the selected file's cases run (`Snails::Harness.file_selected?`), so
       # each run prints only its own file's cases.
       #
-      # The selection gate wraps the body in an `if` rather than returning
+      # The file selection check wraps the body in an `if` rather than returning
       # early: an early return in a method that stores `&block` corrupts a
       # later stored block's exit under spinel AOT (`instance_exec` then
       # raises `TypeError` after the body has finished).
@@ -398,12 +398,12 @@ module Snails
 
       # assert the block caused exactly `count` deliveries. The server is a
       # separate process, so its `ActionMailer::Base.deliveries` is unreadable
-      # from here; the shared observation point is the gate's mail log
+      # from here; the shared observation point is the test runner's mail log
       # (`tmp/mail-capture.jsonl` under the spin root, `MAIL_LOG_PATH` from this
       # target's cwd — the file the server writes in test mode, where the
-      # stamped config/environment.rb registers the capture). The engine empties
+      # generated config/environment.rb registers the capture). The engine empties
       # the file before boot, so the count is the block's before/after line
-      # delta, never an absolute. Without a live gate (a bare
+      # delta, never an absolute. Without a live test server (a bare
       # `spin test <file>`) the case skips — a mail assertion that cannot run is
       # visibly skipped, not silently green.
       #
@@ -415,7 +415,7 @@ module Snails
       #   end
       def assert_emails(count)
         if ENV["APP_BASE_URL"].to_s.empty?
-          raise SkipSignal, "assert_emails (no live gate — run bin/test)"
+          raise SkipSignal, "assert_emails (no live test server — run bin/test)"
         end
 
         before = mail_log_entries.length
@@ -427,11 +427,11 @@ module Snails
       end
 
       # the run's recorded deliveries so far, in send order: one hash per
-      # delivery with `"to"` (array), `"from"`, and `"subject"`. The gate engine
+      # delivery with `"to"` (array), `"from"`, and `"subject"`. The test runner
       # empties the log before boot; a case reads `emails.last` after an
       # `assert_emails` block rather than asserting absolutes.
       #
-      # @return [Array[Hash]] parsed log rows; empty without a gate
+      # @return [Array[Hash]] parsed log rows; empty without a test server
       def emails
         mail_log_entries
       end
@@ -469,7 +469,7 @@ module Snails
         tables.each { |table| Sqlx::Database.exec("DELETE FROM " + table) }
       end
 
-      # Per-case isolation — empty the process-local cache, so cached values
+      # Per-case isolation — empty the per-process cache, so cached values
       # and rate-limit windows do not carry into the next case.
       def reset_cache
         Snails.cache.clear
@@ -537,8 +537,8 @@ module Snails
   end
 
   # DB wiring for this target — the server configures its own connection in
-  # main.rb, which the harness graph never loads. Done only when the gate
-  # handed over an adapter source (sqlite DATABASE_PATH, or pg PG_URL):
+  # main.rb, which the harness graph never loads. Done only when the test
+  # runner handed over an adapter source (sqlite DATABASE_PATH, or pg PG_URL):
   # the small core harness and HTTP-only apps run without a database.
   if ENV["DATABASE_PATH"] || ENV["PG_URL"]
     Sqlx::Database.configure_default!

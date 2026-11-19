@@ -1,7 +1,7 @@
 # Per-case DB isolation — the core harness base empties the
 # tables a case class declares (`tables`) before each fresh instance, so
 # no case sees another case's writes. Runs on an in-file sqlite database;
-# no gate environment required. The boot chain comes first because `Sqlx::Database`
+# no test environment required. The boot order comes first because `Sqlx::Database`
 # is the app's DB adapter (config/database.rb, required by boot).
 require_relative "../boot"
 require_relative "../snails-core/snails/harness"

@@ -1,7 +1,7 @@
 require_relative "test_helper"
 require_relative "harness_runner"
 
-# The golden fixture is the cross-repo reference for the P0 record shape —
+# The golden fixture is the cross-repo reference for the P0 record format —
 # request, job, process, and app events with their context, fields, and
 # resource attributes. It is not an OTLP batch; the transport is P1.
 class LoggerGoldenTest < TestBase
@@ -11,7 +11,7 @@ class LoggerGoldenTest < TestBase
     raise("expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual
   end
 
-  # All four events become records in the contract shape, with resource and
+  # All four events become records in the contract format, with resource and
   # context kept separate.
   def test_golden_fixture_builds_the_p0_records
     entries = JSON.parse(File.read(FILE))

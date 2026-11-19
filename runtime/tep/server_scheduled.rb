@@ -14,7 +14,7 @@ module Tep
 
       # listen and serve, one fiber per connection on the cooperative scheduler.
       # A port already in use stops the process with exit(1); `workers` above
-      # one preforks that many servers of the same shape; `quiet` only
+      # one preforks that many servers with the same configuration; `quiet` only
       # suppresses the banner. Nothing in the app entry calls this: a
       # measurement run constructs the server and invokes it directly.
       #
@@ -28,8 +28,9 @@ module Tep
         @workers = workers
         sfd = Sock.sphttp_listen(port, workers > 1 ? 1 : 0)
         if sfd < 0
-          # Loud + nonzero exit: the one plausible cause on a sane host is
-          # another process bound to the port, and a quiet return made the
+          # Fails with a clear message and a nonzero exit: the one plausible
+          # cause on a sane host is another process bound to the port, and a
+          # quiet return made the
           # binary look like it started and immediately vanished.
           $stderr.puts Tep.display_name + ": cannot bind to port " +
                        port.to_s + " (already in use?)"

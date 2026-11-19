@@ -14,7 +14,7 @@ module Tep
 
       # listen and serve, one green thread per connection. A port already in use
       # stops the process with exit(1); `workers` above one preforks that many
-      # servers of the same shape; `quiet` only suppresses the banner.
+      # servers with the same configuration; `quiet` only suppresses the banner.
       #
       # @param port [Integer] the port to bind
       # @param workers [Integer] server process count; above one, prefork

@@ -2,7 +2,7 @@ require_relative "test_helper"
 require_relative "harness_runner"
 
 # Snails::Cron (core) — the five-field cron expression behind a
-# recurring schedule. Pinned here: the path from text to the due occurrence
+# recurring schedule. Cases here cover: the path from text to the due occurrence
 # and the next one, the day-of-month/day-of-week OR, leap-day and long-gap
 # searches, aliases, and the rejections that must happen when the schedule is
 # declared.

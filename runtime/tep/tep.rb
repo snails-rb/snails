@@ -29,7 +29,7 @@ require_relative "server_threaded"
 require_relative "server_scheduled"
 
 module Tep
-  # Type-seeding: pin parameter types for transport methods the dispatch
+  # Type-seeding: declare parameter types for transport methods the dispatch
   # path may not exercise from every angle.
   _tep_seed_res = Response.new
   _tep_seed_res.set_cookie("", "", str_hash)
@@ -38,8 +38,8 @@ module Tep
   _tep_seed_res.streamer.pump(_tep_seed_stream)
   _tep_seed_stream.write("")
 
-  # Pin the String param type on a method nothing calls: without a
-  # String-typed call site spinel defaults the param to int and the C
+  # Declare the String parameter type on a method nothing calls: without a
+  # String-typed call site, spinel defaults the parameter to int and the C
   # compile fails when the body uses it as a string. The call is a
   # side-effect-free read of the (empty) registry, so load time is fine.
   Tep::Broadcast.subscribers_for("")

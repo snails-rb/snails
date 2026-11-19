@@ -5,7 +5,7 @@ require_relative "../harness_runner"
 # plus the pg half of the contention contract (a lock wait failure is
 # `Sqlx::Busy`, the same type sqlite's busy handler raises). SQLite has no
 # FOR UPDATE and no second connection in this adapter, so both run in the pg
-# gate only — the shared cases live in sqlx_request_cache_test.rb.
+# test run only — the shared cases live in sqlx_request_cache_test.rb.
 Sqlx::Database.configure(ENV["PG_URL"].to_s)
 
 class PgLockingReadTest < TestBase

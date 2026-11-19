@@ -5,8 +5,8 @@
 ## Start it
 
 ```text
-[snails] pins ok (spinel=858dde41b snails=v0.48.0)
-[snails] /tmp/manual-demo/.spinel/toolchain in sync (spinel 858dde41b)
+[snails] pins ok
+[snails] /tmp/manual-demo/.spinel/toolchain in sync
 [snails] /tmp/manual-demo snails-core in sync
 build manual-demo (up to date)
 [snails] serving manual-demo on http://127.0.0.1:3000
@@ -15,7 +15,7 @@ manual-demo (spinel) listening on http://0.0.0.0:3000, pid 74898
   one green thread per connection; OS workers: main + one per core (SPINEL_WORKERS=N sets the total); processes: 1
 ```
 
-The first lines check the pin, sync the vendored framework, and compile. The next two say where it listens and where the log goes. [Logging](21-logging.md) covers the record format.
+The first lines check the pin, sync the framework copy, and compile. The next two say where it listens and where the log goes. [Logging](21-logging.md) covers the record format.
 
 The server does not watch files. After an edit, stop it and run `bin/dev` again; the rebuild is cached, so only what changed is recompiled. When the build is already fresh and you only want to restart the process, `bin/dev --skip-build` serves the existing binary.
 

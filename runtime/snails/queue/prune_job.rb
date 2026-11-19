@@ -1,12 +1,12 @@
-# The queue retention job: delete finished queue rows and ledger occurrences
-# past the retention window, in bounded batches so a backlog stays short.
+# The queue retention job: delete finished queue rows and occurrence-table
+# rows past the retention window, in bounded batches so a backlog stays short.
 #
 # Retention is a policy call, so core never schedules this job; an app opts in
 # with its own `ActiveJob.recurring` line and may replace `RETENTION`.
 module Snails
   module Queue
     class PruneJob < ActiveJob::Base
-      # How long finished rows and ledger occurrences are kept.
+      # How long finished rows and occurrence-table rows are kept.
       RETENTION = 7.days
 
       # The most rows one delete removes. A pass repeats while a full
@@ -14,10 +14,10 @@ module Snails
       # lock for its whole drain.
       PRUNE_BATCH_SIZE = 1000
 
-      # one prune run: both tables share the window, so a queue and its ledger
-      # never disagree about what is old. Each table repeats its bounded delete
-      # until a short batch says the backlog is gone. Carries no payload (the
-      # callback passes nil).
+      # one prune run: both tables share the window, so the queue and its
+      # occurrence table never disagree about what is old. Each table repeats
+      # its bounded delete until a short batch says the backlog is gone.
+      # Carries no payload (the callback passes nil).
       #
       # @param data [Object, nil] unused — a recurring job carries none
       # @return [void]
@@ -36,7 +36,7 @@ module Snails
         end
       end
 
-      # The ledger's half of the same sweep — occurrences carry no status,
+      # The occurrence table's half of the same sweep — rows carry no status,
       # so every row past the window goes.
       def self.prune_occurrence_rows(before)
         while true

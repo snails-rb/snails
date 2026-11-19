@@ -1,7 +1,7 @@
 require_relative "../test_helper"
 require_relative "../harness_runner"
 
-# A pool checkout that cannot get a free connection must fail loudly inside
+# A pool checkout that cannot get a free connection must raisely inside
 # the wait budget, not park the request forever. One connection and a short
 # budget keep the case deterministic; the holder sleeps long enough for the
 # timeout to fire. Configure in `setup` so this file's short budget does not

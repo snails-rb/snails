@@ -6,7 +6,7 @@
 # A server process calls `after_fork` after any prefork and `register_flush` before
 # its loops start; the level defaults to `:debug` in development, `:info` elsewhere.
 module Snails
-  # the process-wide logger. Memoized so the slots set in config/environment.rb
+  # the process-wide logger. Memoized so the settings set in config/environment.rb
   # land on the same object every call writes through.
   #
   # @return [Logger] the shared logger
@@ -15,7 +15,7 @@ module Snails
   end
 
   # the runtime's one logger. Apps call the five level methods — with `event:`
-  # when the call is a structured event — and configure the slots above.
+  # when the call is a structured event — and configure the settings above.
   class Logger
     def initialize
       @level = nil
@@ -27,7 +27,7 @@ module Snails
       @host_name = nil
       # The local write is one unit: concurrent requests and worker threads
       # must not interleave lines. Rendering happens before this lock and the
-      # transport hand-off after it, so neither a slow formatter nor a
+      # transport delivery after it, so neither a slow formatter nor a
       # delivery waiting on the database freezes the other threads' logging.
       @write_lock = Mutex.new
     end
@@ -43,7 +43,7 @@ module Snails
       Snails.env.development? ? :debug : :info
     end
 
-    # pin the level, overriding the mode's default.
+    # set the level, overriding the mode's default.
     #
     # @param name [Symbol] one of `:debug`, `:info`, `:warn`, `:error`, `:fatal`
     # @raise [ArgumentError] name is not a known severity
@@ -161,8 +161,8 @@ module Snails
     end
 
     # the object that receives structured records, or nil when the logger only
-    # writes locally. The slot is owned by `Snails::Logger::Delivery`, which
-    # also isolates a unit delivery failure.
+    # writes locally. The transport setting is owned by
+    # `Snails::Logger::Delivery`, which also isolates a unit delivery failure.
     #
     # @return [untyped] the current transport
     def transport
@@ -172,7 +172,7 @@ module Snails
     # replace the record destination. The contract is `deliver(records)` with an
     # Array of `Record`; nil disables remote delivery. A unit delivery failure
     # is reported locally and does not stop the app; control and fatal
-    # exceptions still propagate. Validation and the hand-off live in
+    # exceptions still propagate. Validation and delivery live in
     # `Delivery`.
     #
     # @param value [untyped] an object answering `deliver`, or nil
@@ -203,8 +203,8 @@ module Snails
       @progname = name
     end
 
-    # the host that names the process in resource attributes. An unset slot
-    # answers `ENV["HOSTNAME"]` at read time, so a deployment can set the
+    # the host that names the process in resource attributes. When unset, it
+    # returns `ENV["HOSTNAME"]` at read time, so a deployment can set the
     # environment variable without touching the app config.
     #
     # @return [String] the configured host name, possibly empty
@@ -340,7 +340,7 @@ module Snails
       write_level(:fatal, message, event, fields, exception)
     end
 
-    # The rank orders severities so the gate is one comparison: a line is
+    # The rank orders severities so the check is one comparison: a line is
     # written when its rank is at or above the level's.
     def severity_rank(severity)
       case severity
@@ -363,7 +363,7 @@ module Snails
     # a named record. `fields:` and `exception:` describe a named event, so
     # supplying them without `event:` raises instead of silently falling
     # back to `app.log` — the caller's intent would be lost in a record the
-    # destination cannot filter by. The check runs before the level gate so
+    # destination cannot filter by. The check runs before the level check so
     # the mistake surfaces in every mode.
     def write_level(severity, message, event, fields, exception)
       if event.nil?
@@ -383,7 +383,7 @@ module Snails
     end
 
     # One named record at the level's severity. The arguments are validated
-    # before the level gate, so a malformed event raises in every mode rather
+    # before the level check, so a malformed event raises in every mode rather
     # than only when the level happens to write it. An info event is dropped
     # when the app set `level = :warn`. The record carries the request id,
     # matched controller/action, and job context as reserved fields; the
@@ -410,7 +410,7 @@ module Snails
     # replacement keeps working) and still becomes an `app.log` record for
     # the transport. The render runs before the lock and the lock covers the
     # write alone, so a line being formatted does not hold up the other
-    # request threads and a formatter may be called concurrently. The record
+    # green threads and a formatter may be called concurrently. The record
     # reaches the transport after the lock is released, so a transport
     # waiting on the database never holds up other threads' logging.
     def write_line(severity, message)
@@ -423,7 +423,7 @@ module Snails
 
     # A structured event renders through the record formatter and then
     # reaches the transport, under the same split: the render first, the
-    # write under the lock, the hand-off after it.
+    # write under the lock, delivery after it.
     def write_record(record)
       write_output_line(@record_formatter.call(record, @progname))
       deliver(record)
@@ -440,7 +440,7 @@ module Snails
       end
     end
 
-    # `Delivery` owns the transport and the hand-off. The logger only turns a
+    # `Delivery` owns the transport and delivery. The logger only turns a
     # returned non-fatal outcome into its local line, so the external side can
     # gain buffering and retries without changing this class. Called with no
     # write lock held: the transport may wait on the database, and that wait

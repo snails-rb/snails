@@ -53,7 +53,7 @@ module ActionMailer
       end
     end
 
-    # The string-keyed payload a store-backed queue carries.
+    # The string-keyed payload a database-backed queue carries.
     def delivery_payload
       {
         "to" => @to,

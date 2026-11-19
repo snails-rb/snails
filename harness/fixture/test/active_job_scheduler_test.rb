@@ -2,7 +2,7 @@ require_relative "test_helper"
 require_relative "harness_runner"
 require_relative "test_database"
 
-# ActiveJob::Scheduler (core) — the periodic registry and loop. Pinned here:
+# ActiveJob::Scheduler (core) — the periodic registry and loop. Cases here cover:
 # a registered callback runs once per occurrence — the interval form's window
 # start, or the cron form's scheduled time; a fresh registration adopts the
 # occurrence that covers its first pass without running it, so a late start
@@ -78,7 +78,7 @@ class JobSchedulerTest < TestBase
   # uses: a fresh registration adopts the CURRENT window on its first
   # pass without running it, then runs exactly once per new window, and
   # windows no run lived through are skipped rather than backfilled.
-  def test_window_change_gates_and_runs_once_per_window
+  def test_window_change_runs_once_per_window
     boundary = Time.utc(2026, 10, 26, 0, 0, 0).to_i
     ActiveJob::Scheduler.register_interval(300, ->(_occurrence) { mark })
 
@@ -203,7 +203,7 @@ end
 FixtureRunner.run(JobSchedulerTest, [
   "test_run_due_callbacks_is_private",
   "test_register_interval_rejects_non_positive_seconds",
-  "test_window_change_gates_and_runs_once_per_window",
+  "test_window_change_runs_once_per_window",
   "test_a_fresh_registration_starts_at_the_next_window",
   "test_cron_entry_runs_once_per_occurrence",
   "test_a_fresh_cron_registration_waits_for_the_next_occurrence",

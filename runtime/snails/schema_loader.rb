@@ -1,4 +1,4 @@
-# The schema loader: the harness gate applies `db/schema.sql` before boot
+# The schema loader: the test runner applies `db/schema.sql` before boot
 # through the same official client `migrate apply` uses (sqlite3 or psql).
 #
 # The server never runs DDL. A file at the legacy `config/` layout raises

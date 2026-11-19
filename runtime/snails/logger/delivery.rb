@@ -4,7 +4,7 @@
 # over without letting a transport failure become an app failure.
 #
 # A batch flushes at `MAX_RECORDS` or once per `FLUSH_INTERVAL_SECONDS`; the HTTP
-# call runs in `Snails::LogDeliveryJob`, never on a request thread.
+# call runs in `Snails::LogDeliveryJob`, never on a green thread.
 module Snails
   class Logger
     class Delivery
@@ -69,7 +69,7 @@ module Snails
         @buffer = []
         @buffer_lock = Mutex.new
         @flush_registered = false
-        # One-shot note state: the first busy hand-off after a successful one
+        # One-shot note state: the first busy delivery after a successful one
         # reports locally; repeats stay quiet so a long stall does not write a
         # line per flush.
         @blocked = false
@@ -128,7 +128,7 @@ module Snails
         ActiveJob::Scheduler.register_interval(FLUSH_INTERVAL_SECONDS, ->(_occurrence) { Snails.logger.flush })
       end
 
-      # append one record to the buffer and hand the batch off when it is full.
+      # append one record to the buffer and deliver the batch when it is full.
       #
       # A non-fatal transport failure is returned for the logger to report
       # locally. A busy database keeps the batch for the next flush (a warning,
@@ -155,7 +155,7 @@ module Snails
         hand_off(batch)
       end
 
-      # hand the current buffer over now, even when it is not full. The
+      # deliver the current buffer now, even when it is not full. The
       # scheduler calls it every `FLUSH_INTERVAL_SECONDS`; a shutting-down
       # process may call it once more. With no transport the buffer is dropped:
       # the local lines already exist, and keeping the records would send them
@@ -184,9 +184,10 @@ module Snails
       # front of the buffer and the next flush retries it. Any other failure
       # drops the batch — the transport gets no retry loop of its own.
       #
-      # The transport call runs inside a connection scope: a batch can hand off
-      # from a thread that holds none (a request thread writing its
-      # `request.completed` record after its request scope ended). A connection
+      # The transport call runs inside a connection scope: a batch can be
+      # delivered from a thread that holds none (a green thread writing its
+      # `request.completed` record after its request scope ended). A
+      # connection
       # is checked out only when the transport reaches the database — the
       # default OTLP transport encodes and enqueues, so it does not hold a pool
       # connection. A caller already inside a scope re-enters it unchanged; a
@@ -206,7 +207,7 @@ module Snails
       end
 
       # Put a busy batch back at the front of the buffer, preserving order, and
-      # report the outcome. The buffer is drained on every hand-off, so a
+      # report the outcome. The buffer is drained on every delivery, so a
       # retained batch cannot pile up without bound: a first busy after a
       # success is a warning that the batch is waiting, and repeats stay quiet.
       def keep_batch(records)

@@ -1,5 +1,5 @@
 ok test_five_rows_in_rest_order
-ok test_controller_carried_on_every_row
+ok test_every_route_row_includes_the_controller
 ok test_controller_class_instantiates
 ok test_format_given_lands_on_every_row
 ok test_format_omitted_is_nil

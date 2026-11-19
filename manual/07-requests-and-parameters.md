@@ -4,7 +4,7 @@ A controller reads one request object and one params hash. The hash is built fro
 
 ## How params are built
 
-JSON, urlencoded, and multipart bodies all reach the controller as the same String-keyed hash. Nested fields keep their shape:
+JSON, urlencoded, and multipart bodies all reach the controller as the same String-keyed hash. Nested fields keep their structure:
 
 ```ruby
 # POST /posts/42/comments?page=2, body: {"comment": {"body": "hello"}}
@@ -14,7 +14,7 @@ params["comment"]["body"] # => "hello"
 params["post_id"]       # => "42"       from the route
 ```
 
-A JSON object is flattened by field name and nested back the same way, so `{"user": {"name": "Sue"}}` and an urlencoded `user[name]=Sue` build the same tree. A JSON array has no slot in the body reader, so its elements are folded into the same `[]` key and the last one wins; send a nested object when every element must survive.
+A JSON object is flattened by field name and nested back the same way, so `{"user": {"name": "Sue"}}` and an urlencoded `user[name]=Sue` build the same tree. A JSON array cannot be represented in the body reader, so its elements are folded into the same `[]` key and the last one wins; send a nested object when every element must survive.
 
 Request params are mutable and String-keyed. `params[:id]` is always `nil`; read `params["id"]`.
 
@@ -24,7 +24,7 @@ Path captures arrive as Strings. The generated model declares its integer column
 @post = Post.find(params["id"])
 ```
 
-A non-decimal value such as `"1-welcome"` raises `Sqlx::CastError`, which the dispatcher answers as `400 Bad Request`. A TEXT or UUID primary key is not declared as an integer column, so it stays an exact string lookup.
+A non-decimal value such as `"1-welcome"` raises `Sqlx::CastError`, which the framework answers as `400 Bad Request`. A TEXT or UUID primary key is not declared as an integer column, so it stays an exact string lookup.
 
 A route can carry a format extension. `GET /posts.json` matches the `/posts` route and sets `params["format"]` to `"json"`; the extension is not part of the path captures.
 
@@ -68,9 +68,9 @@ request.raw_post         # the same text without touching the cursor
 
 Do not read the body in a `before_action`; parsing has already consumed it into `params`, and a second read from a rewound cursor sees the same bytes.
 
-## Shape input before it reaches a model
+## Narrow input before it reaches a model
 
-`ActionController::Params` is the narrowing surface over the plain hash. Call it at the controller boundary, where a bad request is still cheap to reject:
+`ActionController::Params` narrows the plain hash before it reaches a model. Call it in the controller, where a bad request is still cheap to reject:
 
 ```ruby
 class SignupForm
@@ -81,7 +81,7 @@ class SignupForm
 end
 ```
 
-`require_key` raises `ActionController::ParameterMissing` when the key is absent or its value is a blank string. The dispatcher turns that exception into a 400 with `{"error":"bad_request"}`, so a missing field never reaches the model as `nil`. `sub` and `str` are the lenient alternatives: an absent key returns `{}` or the fallback you passed.
+`require_key` raises `ActionController::ParameterMissing` when the key is absent or its value is a blank string. The framework turns that exception into a 400 with `{"error":"bad_request"}`, so a missing field never reaches the model as `nil`. `sub` and `str` are the lenient alternatives: an absent key returns `{}` or the fallback you passed.
 
 `permit` keeps a declared subset and drops everything else:
 

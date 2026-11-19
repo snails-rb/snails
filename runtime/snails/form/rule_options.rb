@@ -1,5 +1,5 @@
 # The declaration contract for `validates` — the rule-name allowlist,
-# the option shapes, and each rule's required options. A separate file
+# the option forms, and each rule's required options. A separate file
 # because it is the declaration surface's validator, not the runtime
 # engine; the methods stay private on the form class so an app cannot
 # reach past `validates`.
@@ -22,7 +22,7 @@ module Snails
 
     # merge_rule_options — one rule's options with the call-level
     # defaults. A rule-level key wins; `true` becomes the defaults hash
-    # when there is one, and stays `true` otherwise. An invalid shape
+    # when there is one, and stays `true` otherwise. An invalid form
     # is passed through so `check_rule_options` rejects it.
     def self.merge_rule_options(options, defaults)
       return options if defaults.empty?
@@ -54,7 +54,7 @@ module Snails
     end
 
     # check_rule_options — the declaration contract for one rule entry:
-    # the rule-name allowlist, `true` vs option-hash shape, common
+    # the rule-name allowlist, `true` vs option-hash form, common
     # option types, and each rule's required options. Everything a typo
     # could break is rejected here instead of surfacing as a silently
     # skipped rule later. `length` returns a normalized copy with

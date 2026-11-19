@@ -1,5 +1,5 @@
 # Codec for a schema-less json/jsonb column that stores serialized TEXT. `decode`
-# reads back what `encode` wrote, so a value passing through is never reshaped.
+# reads back what `encode` wrote, so a value passing through is never changed.
 # `encodable?` rejects values JSON cannot represent — Time, non-finite Float, or any
 # object the json gem would stringify — because the gem's `strict: true` is accepted
 # and ignored by the bundled native package.

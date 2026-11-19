@@ -4,9 +4,9 @@ require_relative "harness_runner"
 # Delivery seam (core) — the registry is read per delivery, not bound at
 # compile time: a registered provider receives `deliver` instead of
 # deliveries growing, re-registration swaps it, the explicit capture
-# collects in memory, and nothing registered is a loud miss (the next
+# collects in memory, and nothing registered is a error (the next
 # delivery raises — a mail that silently goes nowhere is worse). The
-# stamped test-mode registration (DeliveryLog) is replaced per case here
+# generated test-mode registration (DeliveryLog) is replaced per case here
 # and asserted by delivery_log_test.
 class DeliverySeamTest < TestBase
   def assert_equal(expected, actual, msg = nil)

@@ -123,9 +123,9 @@ module ActionDispatch
       @env = {}
       env.each { |k, v| @env[k] = v } unless env.nil?
       @headers = nil
-      # The `@params` slot is initialized for the same kind of reason:
+      # The `@params` field is initialized for the same kind of reason:
       # `Request.for` copies into it (`params.each { |k, v| r.params[k] = v }`),
-      # which READS the slot before anything writes it. Unset, that read is nil
+      # which READS the field before anything writes it. Unset, that read is nil
       # on an interpreted run and a null pointer under spinel AOT — the write
       # then dereferences it and the test binary segfaults with no output.
       #
@@ -287,7 +287,7 @@ module ActionDispatch
     #   stringified
     # @return [Request] the built request
     def self.for(env, params = {})
-      # `initialize` copies the env into the wide `@env` slot; a caller's
+      # `initialize` copies the env into the wide `@env` hash; a caller's
       # narrow literal never lands there directly.
       r = new(env)
       # The params hash is copied because its own default is an empty literal:

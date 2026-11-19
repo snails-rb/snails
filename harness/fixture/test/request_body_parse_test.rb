@@ -7,7 +7,7 @@ require_relative "harness_runner"
 # multipart body), or a missing required parameter must not surface as a 500;
 # each is the client's mistake, answered as such. The socket cases run the
 # threaded server's real handle_connection, so the parser, the body drain, and
-# the dispatcher's answer are exercised together.
+# the framework's answer are exercised together.
 class RequestBodyParseTest < TestBase
   def assert_equal(expected, actual)
     raise("expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual
@@ -94,7 +94,7 @@ class RequestBodyParseTest < TestBase
     bytes[cut + 4, bytes.length - cut - 4]
   end
 
-  # The multipart shape a browser posts: the boundary, one named text part,
+  # The multipart request a browser posts: the boundary, one named text part,
   # and the closing delimiter.
   def multipart_body
     "--AaB03x\r\n" +

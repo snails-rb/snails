@@ -2,7 +2,7 @@ require_relative "test_helper"
 require_relative "harness_runner"
 
 # Snails::Logger::Delivery (core) — the external half of logging. It owns the
-# transport slot, hands one record over, and returns a non-fatal failure
+# transport setting, delivers one record, and returns a non-fatal failure
 # instead of raising; the logger turns that into a local line.
 class LoggerDeliveryTest < TestBase
   class Capture
@@ -34,8 +34,8 @@ class LoggerDeliveryTest < TestBase
     end
   end
 
-  # Answers "the database is locked" once, then accepts — the shape of a
-  # hand-off that lands inside a stalled write.
+  # Answers "the database is locked" once, then accepts — the pattern of a
+  # delivery that lands inside a stalled write.
   class BusyOnceTransport
     def initialize
       @batches = []
@@ -71,7 +71,7 @@ class LoggerDeliveryTest < TestBase
     end
   end
 
-  # A transport with process-local state (the OTLP session) answers the
+  # A transport with per-process state (the OTLP session) answers the
   # after-fork hook so the child does not inherit the parent's socket.
   class ForkAwareTransport
     def initialize
@@ -142,10 +142,10 @@ class LoggerDeliveryTest < TestBase
     assert_equal true, failure.message.include?("transport down")
   end
 
-  # When a DB lock blocks the hand-off, the batch is not dropped; it moves to
+  # When a DB lock blocks the delivery, the batch is not dropped; it moves to
   # the next flush. Expectation: the return value is a single RetainedBatch,
   # and the next flush sends that batch.
-  def test_a_busy_hand_off_keeps_the_batch_for_the_next_flush
+  def test_a_busy_delivery_retains_the_batch_for_the_next_flush
     busy = BusyOnceTransport.new
     delivery = Snails::Logger::Delivery.new
     delivery.transport = busy
@@ -180,9 +180,9 @@ class LoggerDeliveryTest < TestBase
     assert_equal nil, second
   end
 
-  # The transport slot rejects a value that does not answer the contract at
+  # The transport setter rejects a value that does not answer the contract at
   # assignment time.
-  def test_validates_the_transport_slot
+  def test_transport_setter_rejects_an_invalid_value
     delivery = Snails::Logger::Delivery.new
     message = assert_argument_error(-> { delivery.transport = Object.new })
     assert_equal true, message.include?("answering deliver")
@@ -194,8 +194,8 @@ class LoggerDeliveryTest < TestBase
     assert_equal nil, delivery.transport
   end
 
-  # The logger's transport accessor exposes the Delivery slot as is.
-  def test_logger_delegates_the_transport_slot
+  # The logger's transport accessor exposes the Delivery transport as is.
+  def test_logger_returns_the_delivery_transport
     logger = Snails::Logger.new
     capture = Capture.new
 
@@ -205,7 +205,7 @@ class LoggerDeliveryTest < TestBase
     assert_equal nil, logger.transport
   end
 
-  # A transport with process-local state gets the after-fork hook; one
+  # A transport with per-process state gets the after-fork hook; one
   # without the hook is left alone.
   def test_after_fork_notifies_a_transport_that_answers_the_hook
     delivery = Snails::Logger::Delivery.new
@@ -225,9 +225,9 @@ FixtureRunner.run(LoggerDeliveryTest, [
   "test_without_a_transport_answers_nil",
   "test_delivers_one_record_as_a_batch",
   "test_returns_a_non_fatal_failure",
-  "test_a_busy_hand_off_keeps_the_batch_for_the_next_flush",
+  "test_a_busy_delivery_retains_the_batch_for_the_next_flush",
   "test_repeated_busy_reports_once",
-  "test_validates_the_transport_slot",
-  "test_logger_delegates_the_transport_slot",
+  "test_transport_setter_rejects_an_invalid_value",
+  "test_logger_returns_the_delivery_transport",
   "test_after_fork_notifies_a_transport_that_answers_the_hook"
 ])

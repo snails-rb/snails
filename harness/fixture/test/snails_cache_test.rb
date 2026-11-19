@@ -1,8 +1,8 @@
 require_relative "test_helper"
 require_relative "harness_runner"
 
-# `Snails.cache` — the process-local store shared by cached values, counters,
-# and invalidation. These cases pin the public contract: fetch caches a
+# `Snails.cache` — the per-process store shared by cached values, counters,
+# and invalidation. These cases cover the public contract: fetch caches a
 # block's result (including nil and an empty string), a TTL expires
 # lazily, `increment` keeps the window opened by its first write, and
 # `delete`/`clear` invalidate.

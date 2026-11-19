@@ -7,8 +7,8 @@ The harness runs against a real server on purpose. Stubs and mocks are easier to
 ## Run everything
 
 ```text
-[snails] pins ok (spinel=858dde41b snails=v0.48.0)
-[snails] /tmp/manual-demo/.spinel/toolchain in sync (spinel 858dde41b)
+[snails] pins ok
+[snails] /tmp/manual-demo/.spinel/toolchain in sync
 [snails] /tmp/manual-demo snails-core in sync
 build manual-demo (up to date)
 ok   adapter_test.rb
@@ -35,7 +35,7 @@ ok   posts_test.rb (cached)
 1/1 passed
 ```
 
-A wrong path is refused loudly — it prints the list of case files and exits non-zero instead of quietly running everything.
+A wrong path fails with a clear error: it prints the list of case files and exits non-zero instead of quietly running everything.
 
 ## Write a test
 
@@ -97,9 +97,9 @@ End a case early with `skip("reason")`; the runner prints `skip` and does not fa
 
 Each case file has a `.expected` sibling holding its `ok` lines. The runner diffs against it, so an intentional change to a case's name or output means updating that file in the same change. A new file gets an `.expected` beside it.
 
-The test process does not start a job worker loop, so a job enqueued from a case runs at the call site. `ActiveJob.schedule` needs a worker loop and raises in that process; schedule work from a server action instead.
+The test process does not start a worker loop, so a job enqueued from a case runs at the call site. `ActiveJob.schedule` needs a worker loop and raises in that process; schedule work from a server action instead.
 
-`harness/test.env` holds server-only environment for the gate. Put a test-only `SECRET_KEY_BASE` there when the app signs values; never a production key. The test process keeps its own environment.
+`harness/test.env` holds server-only environment for the test server. Put a test-only `SECRET_KEY_BASE` there when the app signs values; never a production key. The test process keeps its own environment.
 
 A failed build or boot keeps the server log and names its path. `bin/test --verbose` prints the full log. [Troubleshooting](27-troubleshooting.md) covers the common failure lines.
 

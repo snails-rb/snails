@@ -5,14 +5,14 @@ When a new Snails ships, you change the version line in `pins.toml` and run one 
 ## The pin file
 
 ```toml
-# Core pin — a release version (vX.Y.Z), or a full commit for an edge pin.
-# The vendored snails-core/ must match it.
-SNALS_REV="v0.48.0"
+# Framework pin — a release version (vX.Y.Z), or a full commit for an edge pin.
+# The snails-core/ copy must match it.
+SNALS_REV="vX.Y.Z"
 
-# Compiler pin — the revision this core release was verified with.
-SPINEL_REV="858dde41b"
+# Compiler pin — the revision this framework release was verified with.
+SPINEL_REV="<spinel-rev>"
 
-# Build source — "pin" vendors SNALS_REV; "checkout" vendors the core
+# Build source — "pin" copies SNALS_REV; "checkout" copies the framework
 # checkout's working tree, so a build compiles it as it stands.
 SNALS_SOURCE="pin"
 
@@ -21,7 +21,7 @@ SNALS_SOURCE="pin"
 APP_NAME="demo"
 ```
 
-`SNALS_REV` is the line that normally moves. `SPINEL_REV` is the compiler revision the core release was verified with; a release that changes its compiler declares a new value, and you update that line to match. `snails pins check` validates the pair and names the expected value when the two disagree.
+Replace `vX.Y.Z` and `<spinel-rev>` with the release and compiler revision you pin. `SNALS_REV` is the line that normally moves. `SPINEL_REV` is the compiler revision the framework release was verified with; a release that changes its compiler declares a new value, and you update that line to match. `snails pins check` validates the pair and names the expected value when the two disagree.
 
 `APP_NAME` never moves — it is your app's name, not the framework's (see [Your App's Structure](05-your-app-structure.md)).
 
@@ -32,7 +32,7 @@ APP_NAME="demo"
 `snails pins check` reads the pin and tells you whether the project and the pin agree:
 
 ```text
-[snails] pins ok (spinel=858dde41b snails=v0.48.0)
+[snails] pins ok
 ```
 
 Exit code 0 means everything matches; a mismatch prints what disagrees and exits non-zero, so it works as a pre-flight on its own. `snails pins path` prints the file it read.
@@ -41,13 +41,13 @@ Exit code 0 means everything matches; a mismatch prints what disagrees and exits
 
 1. Set `SNALS_REV` to the version you are moving to.
 2. If the release declares a new compiler revision, set `SPINEL_REV` to that value.
-3. Run `snails sync` — it fetches the core into `snails-core/`, downloads or reuses the pinned compiler, and re-seeds the generated files.
+3. Run `snails sync` — it fetches the framework into `snails-core/`, downloads or reuses the pinned compiler, and refreshes the files under `gen/`.
 4. Run `snails pins check` and `bin/test`. The check catches a mismatched pair; the test suite catches a change your app depends on.
 
 `snails sync --check` reports the same comparison without writing anything:
 
 ```text
-[snails] /tmp/manual-demo/.spinel/toolchain in sync (spinel=858dde41b)
+[snails] /tmp/manual-demo/.spinel/toolchain in sync
 [snails] /tmp/manual-demo snails-core in sync
 ```
 
@@ -57,15 +57,10 @@ Keep the CLI at or above the version you pin. When the release is newer than the
 
 ## Go back
 
-Set `SNALS_REV` back to the version you came from, restore the matching `SPINEL_REV`, run `snails sync`, and run `bin/test`. The vendored `snails-core/` is replaced by the older release, so a failed upgrade is one pin edit away from a known state.
+Set `SNALS_REV` back to the version you came from, restore the matching `SPINEL_REV`, run `snails sync`, and run `bin/test`. The `snails-core/` copy is replaced by the older release, so a failed upgrade is one pin edit away from a known state.
 
 `SNALS_SOURCE="checkout"` follows the working tree rather than a release. To move a checkout project back to a published release, set `SNALS_SOURCE="pin"` and the release's `SNALS_REV` before syncing.
 
-## What changed in 1.1
-
-Two queue behaviors changed in 1.1. A row the running binary cannot execute — the stored job name has no class in this binary, or the payload is not valid JSON — is now a delivery failure: the row returns to pending with a growing delay (30 seconds, doubling to 10 minutes) and becomes failed after ten attempts. It is not failed on the first attempt any more. A row still marked running after an hour is recorded failed and is not queued again; a process that dies mid-run leaves a failed row to inspect rather than a row another worker silently starts over. Job bodies still have no automatic retry.
-
 [Background Jobs](15-background-jobs.md) describes both paths.
-
 
 [Deploying](25-deploying.md) covers the image rebuild that follows a pin change; [Troubleshooting](27-troubleshooting.md) covers a sync that refuses the declaration.

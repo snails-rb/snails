@@ -7,7 +7,7 @@ module ActionMailer
     end
   end
 
-  # The test gate's capture: append one JSON line per delivery to
+  # The test runner's capture: append one JSON line per delivery to
   # `tmp/mail-capture.jsonl` without the body, which can carry reset tokens.
   module DeliveryLog
     # Spin-root relative; the harness reads the same file as `../tmp/...`.

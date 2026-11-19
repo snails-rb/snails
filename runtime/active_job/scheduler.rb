@@ -12,7 +12,7 @@ module ActiveJob
     POLL_INTERVAL = 0.05
 
     # the periodic callbacks the scheduler runs, one entry per registration.
-    # Process-local like the job queue: every server process runs its own
+    # In-process like the job queue: every server process runs its own
     # scheduler, so a callback that must not double-run across processes takes a
     # lease of its own.
     #
@@ -22,7 +22,7 @@ module ActiveJob
     # later passes record each run before the callback.
     #
     # A Hash per entry rather than an array triple: an element write
-    # (`entry["last_occurrence"] = …`) is a shape the compiler handles; an index
+    # (`entry["last_occurrence"] = …`) is a form the compiler handles; an index
     # write (`entry[1] = …`) is not.
     PERIODIC = []
 
@@ -152,7 +152,7 @@ module ActiveJob
 
     # the occurrence that covers `now` for one entry, as epoch seconds: the
     # interval window's start, or the cron expression's latest scheduled time at
-    # or before it. The loop's gate and the enqueue key are this one value — the
+    # or before it. The loop's check and the enqueue key are this one value — the
     # entry records it, and the callback receives it.
     def self.occurrence_at_or_before(entry, now)
       if entry["cron"] != nil

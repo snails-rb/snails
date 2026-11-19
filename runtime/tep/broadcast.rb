@@ -1,4 +1,4 @@
-# Tep::Broadcast — process-local fan-out: `publish` writes to every subscriber
+# Tep::Broadcast — in-process fan-out: `publish` writes to every subscriber
 # on a topic, raw bytes for mode 0 or text frames for WebSocket.
 #
 # Every registry read and write takes `broadcast_lock`, and `publish` releases

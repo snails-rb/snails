@@ -7,14 +7,14 @@ require_relative "../harness_runner"
 # under a stream of short writes a waiter can sleep through every gap and time
 # out while the database commits steadily. The adapter installs a fair handler
 # instead: retry every millisecond, give up when the wall-clock budget is
-# spent. The cases here pin the wait, the budget, the typed `Sqlx::Busy` a
-# spent budget raises, and a log hand-off inside a write transaction.
+# spent. The cases here cover the wait, the budget, the typed `Sqlx::Busy` a
+# spent budget raises, and a log delivery inside a write transaction.
 class SqliteWriteFairnessTest < TestBase
   WRITERS = 4
   PER_WRITER = 5
 
   # A transport that answers with a queue-style INSERT, like the default log
-  # transport — the shape that makes a hand-off wait on the database.
+  # transport — the pattern that makes a delivery wait on the database.
   class DatabaseWritingTransport
     def deliver(records)
       Sqlx::Base.write("INSERT INTO t (name) VALUES (?)", [ "log" ])
@@ -157,8 +157,8 @@ class SqliteWriteFairnessTest < TestBase
     assert_equal 1, count_rows
   end
 
-  # Even when a log batch hand-off happens inside a write transaction (queue
-  # INSERT), it is handled on the same lease. Expectation: the hand-off joins
+  # Even when a log batch delivery happens inside a write transaction (queue
+  # INSERT), it is handled on the same lease. Expectation: the delivery joins
   # the transaction, commits with it, and the local line is also kept.
   def test_logging_inside_a_write_transaction_commits_with_it
     Snails.logger.transport = nil

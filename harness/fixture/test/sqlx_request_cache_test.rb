@@ -4,7 +4,7 @@ require_relative "test_database"
 
 # The request-cache contract, shared by both backends. The same case file
 # runs in the sqlite workspace (file database) and the pg workspace
-# (scratch database from PG_URL), and both gates count the same SQL/CACHE
+# (scratch database from PG_URL), and both test runs count the same SQL/CACHE
 # trace markers — one contract, one engine, one set of cases. RH_SQL_TRACE
 # makes each real execution print "SQL" and each replay "CACHE" to stderr.
 TestDatabase.configure!("sqlx_request_cache")

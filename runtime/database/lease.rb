@@ -34,7 +34,7 @@ module Sqlx
     # run the block inside a connection lease scope and hand back its value. The
     # scope does not touch the pool by itself: the first database access checks
     # a connection out (see `ensure_connection`), so a request, job, or log
-    # hand-off that never reaches the database never leases a connection. A
+    # delivery that never reaches the database never leases a connection. A
     # thread already inside a scope re-enters it: the outer connection and
     # request cache carry on, so a nested block can neither rebind nor unbind
     # its outer scope. Before `configure` there is nothing to lease, so the

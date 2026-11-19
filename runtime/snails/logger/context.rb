@@ -154,7 +154,7 @@ module Snails
       # set the job values a worker loop carries while it runs one job, and
       # reset the DB accumulator. The job's `ensure` calls `end_job` so a reused
       # worker thread never leaks the previous job's identity or DB time. A
-      # process-local job has no row id or attempt, so both may be nil; the
+      # in-process job has no row id or attempt, so both may be nil; the
       # logger then omits those fields.
       #
       # @param name [String] the job's class name

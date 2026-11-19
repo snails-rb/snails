@@ -1,6 +1,6 @@
 # Querying
 
-`Sqlx` models are class-level table objects: every read and write is a class method, conditions are plain hashes, and a missing row is an exception rather than a `nil` you discover three calls later. There is no relation object and no query builder — the method names below are the whole surface.
+`Sqlx` models are class-level table objects: every read and write is a class method, conditions are plain hashes, and a missing row is an exception rather than a `nil` you discover three calls later. There is no relation object and no query builder — the methods below are the whole API.
 
 ## Conditions
 
@@ -72,7 +72,7 @@ Post.upsert_all!([{ slug: "a", title: "A" }, { slug: "b", title: "B" }], unique_
 
 `create!` returns the stored row and fills a declared `created_at`/`updated_at` the caller left out. `update!` returns the re-read row, fills `updated_at`, and raises `RecordNotFound` when the id does not exist — an unknown id can never become a silent insert. `delete!` returns the deleted-row count; an unknown id is `0`, because the caller's lookup already decides whether that is a 404.
 
-`update_all!` and `delete_all!` take `nil` conditions to mean the whole table. They return the number of rows changed. They do not stamp `updated_at`; pass it when the batch should move it. `upsert_all!` inserts rows and rewrites the row a conflict collides with; `unique_by:` names the columns of the conflict target, every row must carry the same keys, and every `unique_by` column must be one of them. At least one column outside `unique_by` must remain to update, or the entry raises instead of turning into a skip-duplicates insert. The return is the number of rows inserted or rewritten.
+`update_all!` and `delete_all!` take `nil` conditions to mean the whole table. They return the number of rows changed. They do not update `updated_at`; pass it when the batch should move it. `upsert_all!` inserts rows and rewrites the row a conflict collides with; `unique_by:` names the columns of the conflict target, every row must carry the same keys, and every `unique_by` column must be one of them. At least one column outside `unique_by` must remain to update, or the entry raises instead of turning into a skip-duplicates insert. The return is the number of rows inserted or rewritten.
 
 `create!` and the bulk writes accept `nil` values (SQL NULL) and `Time` values (stored as UTC). A declared JSON column accepts the logical value and encodes it for you.
 

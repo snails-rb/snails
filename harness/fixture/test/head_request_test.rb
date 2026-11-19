@@ -68,7 +68,7 @@ class HeadRequestTest < TestBase
     bytes
   end
 
-  # One request line, host, and close — the shape a monitor or proxy sends
+  # One request line, host, and close — the request a monitor or proxy sends
   # when it wants only the headers.
   def raw_request(verb, path)
     verb + " " + path + " HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
@@ -130,7 +130,7 @@ class HeadRequestTest < TestBase
 
   # A HEAD on a path no route matches answers 404 with the same content
   # length the GET miss would get, and no body: a route miss is its own
-  # branch in the dispatcher, so it needs its own proof.
+  # branch in the request dispatch, so it needs its own proof.
   def test_head_on_an_unmatched_path_is_404_without_a_body
     get_bytes = exchange(raw_request("GET", "/no-such-route")) { |fd| serve_threaded(fd) }
     head_bytes = exchange(raw_request("HEAD", "/no-such-route")) { |fd| serve_threaded(fd) }
@@ -149,7 +149,7 @@ class HeadRequestTest < TestBase
   end
 
   # The action sees the request it was sent: HEAD stays HEAD through the
-  # dispatcher instead of being rewritten to GET on the way in.
+  # request dispatch instead of being rewritten to GET on the way in.
   def test_head_reaches_the_action_as_head
     HarnessCurrentProbeController.reset
     res = Tep::Response.new
@@ -174,7 +174,7 @@ class HeadRequestTest < TestBase
   end
 
   # The route table carries GET rows only: HEAD reaches a route through the
-  # dispatcher's mapping, not through a second declaration an app would have
+  # request dispatch's mapping, not through a second declaration an app would have
   # to keep in step with the first.
   def test_route_table_declares_no_head_rows
     head_rows = 0

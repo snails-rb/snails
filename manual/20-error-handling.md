@@ -1,8 +1,8 @@
 # Error Handling
 
-A missing record is a 404, a malformed request is a 400, and an unhandled exception is a 500. The dispatcher owns those defaults so a controller does not repeat them; the app decides when a different response — a JSON error document, a conflict status, a redirect — is the better answer.
+A missing record is a 404, a malformed request is a 400, and an unhandled exception is a 500. The framework owns those defaults so a controller does not repeat them; the app decides when a different response — a JSON error document, a conflict status, a redirect — is the better answer.
 
-## What the dispatcher answers
+## What the framework answers
 
 | Failure | Status | Body |
 |---|---:|---|
@@ -59,11 +59,11 @@ For a case that belongs to one action, use a normal `begin`/`rescue` in that act
 | `Sqlx::RecordInvalid` | app code constructs it for a failed record |
 | `Sqlx::ValueTooLong` | app code constructs it for an over-long value |
 
-`RecordInvalid` and `ValueTooLong` have no core raiser. They exist so an app can use one error vocabulary and one rescue list; constructing them is the app's choice.
+`RecordInvalid` and `ValueTooLong` are never raised by the framework. They exist so an app can use one error vocabulary and one rescue list; constructing them is the app's choice.
 
 `Sqlx::Busy` means the unit did not commit, so retry the whole transaction or job. `Sqlx::ConnectionFailed` may leave the unit's outcome unknown — the statement may have committed — so retry the whole unit, never one statement inside it. `ConnectionTimeout` means the statement did not run, so the same retry rule applies.
 
-There is no `rescue_from`. Registration is a plain method override, which keeps the dispatch path readable and makes the order of rescues explicit. `ActionController::UnpermittedParameters` and `ActionController::UnknownFormat` exist for rescue clauses but nothing in the framework raises them.
+There is no `rescue_from`. Registration is a plain method override, which keeps the request path readable and makes the order of rescues explicit. `ActionController::UnpermittedParameters` and `ActionController::UnknownFormat` exist for rescue clauses but nothing in the framework raises them.
 
 ## Failures in the background
 

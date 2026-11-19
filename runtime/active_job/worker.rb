@@ -20,13 +20,13 @@ module ActiveJob
     # side — the adapter's claim is atomic so rows are split between them, but
     # the global FIFO order is only guaranteed at one. Each worker thread holds
     # its own Sqlx::Database lease, so `DATABASE_POOL_SIZE` must cover worker
-    # threads plus request threads. The loop holds no queue knowledge: each
+    # threads plus green threads. The loop holds no queue knowledge: each
     # iteration asks whether a drain is due (`drain_due?` — the process queue is
     # due when work is waiting, the DB adapter samples its rows ~1s) and drains
-    # through the same slot. A job runs outside any request's
+    # through the same adapter. A job runs outside any request's
     # `Sqlx::Database.with_connection`, so touching a model without one would
     # borrow whichever handle a request happened to be using. Nothing is retried
-    # and nothing survives a restart on the process-local queue; the DB rows are
+    # and nothing survives a restart on the in-memory queue; the DB rows are
     # the restart-surviving half.
     #
     # @return [void]

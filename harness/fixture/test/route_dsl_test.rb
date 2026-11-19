@@ -48,7 +48,7 @@ class RouteDslTest < TestBase
   end
 
   # The row carries the controller class and instantiates through it.
-  def test_controller_class_travels_on_the_row
+  def test_route_row_stores_the_controller_class
     row = Snails::RouteTable.get("/servers", ApplicationController)
     assert_equal ApplicationController, row.controller
     assert_equal true, row.controller.new.is_a?(ApplicationController)
@@ -95,7 +95,7 @@ FixtureRunner.run(RouteDslTest, [
   "test_put_defaults_to_update",
   "test_delete_defaults_to_destroy",
   "test_explicit_action_overrides_default",
-  "test_controller_class_travels_on_the_row",
+  "test_route_row_stores_the_controller_class",
   "test_helper_rows_carry_no_format",
   "test_fixture_table_row_is_built_by_the_helper"
 ])

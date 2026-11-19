@@ -65,7 +65,7 @@ post.created_at.to_fs(:db)           # "2026-11-12 08:00:00.000000" (UTC)
 post.created_at.to_fs(:iso8601)      # "2026-11-12T08:00:00.000+00:00"
 ```
 
-`Snails.time_zone` is the process zone. Set it once in `config/environment.rb`; `Snails.app.time_zone` reads it back. `in_time_zone` renders the same instant elsewhere without changing the process slot, so concurrent requests can present different zones:
+`Snails.time_zone` is the process zone. Set it once in `config/environment.rb`; `Snails.app.time_zone` reads it back. `in_time_zone` renders the same instant elsewhere without changing the process time zone, so concurrent requests can present different zones:
 
 ```ruby
 time.in_time_zone("Seoul")           # fixed-offset Time, +09:00
@@ -116,10 +116,10 @@ end
 render(json: post)
 ```
 
-`as_json` runs for a model even inside a Hash value, so a nested record uses the same shape. A `Time` inside that Hash still becomes an ISO 8601 string. A `Date` is not a Time: it falls to `to_s` and renders as `"2026-11-12"`.
+`as_json` runs for a model even inside a Hash value, so a nested record uses the same structure. A `Time` inside that Hash still becomes an ISO 8601 string. A `Date` is not a Time: it falls to `to_s` and renders as `"2026-11-12"`.
 
 `render json:` sets `Content-Type: application/json; charset=utf-8` unless the call names another type. `render("text", content_type: ...)` is the pre-encoded body form; `render(json: value, content_type: ...)` overrides the header but still encodes the value.
 
 JSON columns use the same codec on the database side: a declared `json_columns` entry encodes on write and decodes on read, so app code never calls the codec itself. See [Columns and Types](11-columns-and-types.md).
 
-The process zone applies to every read, including a job that runs without a request. If a job formats a time for a user, render it in that user's zone with `in_time_zone` rather than changing the process slot.
+The process zone applies to every read, including a job that runs without a request. If a job formats a time for a user, render it in that user's zone with `in_time_zone` rather than changing the process time zone.

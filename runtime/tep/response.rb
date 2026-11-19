@@ -1,5 +1,5 @@
 # Tep::Response — what the handler writes back: a status, string-keyed
-# headers, a body, and the WebSocket / streaming slots. The framework adds
+# headers, a body, and the WebSocket and streaming fields. The framework adds
 # Content-Length and Connection when serializing.
 module Tep
   class Response
@@ -20,7 +20,7 @@ module Tep
       @halted      = false
       @file_path   = +""
       # `Set-Cookie` is a header that can repeat, so it cannot live in a
-      # single Hash slot. Each entry is one fully-formatted Set-Cookie line,
+      # single Hash field. Each entry is one fully-formatted Set-Cookie line,
       # emitted verbatim by the writer.
       @set_cookies = [""]
       # pop, not clear/delete_at: the type-seed removal idiom hits a
@@ -30,7 +30,7 @@ module Tep
       @set_cookies.pop
       @streamer    = Streamer.new   # default no-op; only used when @streaming
       @streaming   = false
-      # WebSocket upgrade slots. When @upgrading_ws is set (by
+      # WebSocket upgrade fields. When @upgrading_ws is set (by
       # start_websocket, from the /cable handler), Tep::Server::Threaded's
       # write path emits the 101 Switching Protocols handshake and then
       # drives Tep::WebSocket::Connection's recv loop instead of writing a

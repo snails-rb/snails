@@ -13,7 +13,7 @@ Common
   new           Create a project
   generate      Generate code (g)
   migrate       Manage schema migrations
-  sync          Update the vendored framework
+  sync          Update the framework copy
 
 Project
   pins          Check pin declarations or print the pins file
@@ -36,7 +36,7 @@ Inside a project, bin/dev runs the server and bin/test runs the test suite.
 Run 'snails help --all' for internal commands.
 ```
 
-`snails help --all` adds the commands the build, CI, and generated `bin/` scripts use: `harness`, `verify-pin`, `verify-pins`, `pins-path`, `verify-scaffold`, and the `gen-*` generators. Those are implementation surfaces; you normally reach them through `bin/dev`, `bin/test`, or `snails sync`.
+`snails help --all` adds the commands the build, CI, and generated `bin/` scripts use: `harness`, `verify-pin`, `verify-pins`, `pins-path`, `verify-scaffold`, and the `gen-*` generators. Those are internal commands; you normally reach them through `bin/dev`, `bin/test`, or `snails sync`.
 
 ## Create a project
 
@@ -46,7 +46,7 @@ snails new demo --scaffold
 snails new demo --database=postgresql --scaffold
 ```
 
-`new` copies the project template, vendors the pinned framework, seeds the harness, and prints the next commands. `--scaffold` overlays the posts-and-comments example; `--database` selects sqlite or PostgreSQL.
+`new` copies the project template, installs the pinned framework, creates the test harness, and prints the next commands. `--scaffold` overlays the posts-and-comments example; `--database` selects sqlite or PostgreSQL.
 
 ## Everyday commands
 
@@ -76,10 +76,10 @@ Examples:
 `snails pins check` reads `pins.toml` and confirms the framework and toolchain pair:
 
 ```text
-[snails] pins ok (spinel=858dde41b snails=v0.48.0)
+[snails] pins ok
 ```
 
-`snails pins path` prints the nearest pins file. `snails sync` vendors the framework and toolchain declared by that file; `snails sync --check` reports whether the tree is in step without writing.
+The line also prints the pinned compiler revision and framework version. `snails pins path` prints the nearest pins file. `snails sync` copies the framework and toolchain declared by that file; `snails sync --check` reports whether the tree is in step without writing.
 
 ## Doctor
 
@@ -87,7 +87,7 @@ Examples:
 
 ```text
 [snails] doctor: /tmp/manual-demo
-  ok    CLI v1.0.0-rc.1 (rev c5fc693)
+  ok    CLI
   ok    pins.toml (/tmp/manual-demo/pins.toml)
   ok    pin declaration
   ok    APP_NAME: manual-demo
@@ -104,7 +104,7 @@ Examples:
 [snails] 13 ok, 0 warning, 0 failed
 ```
 
-A skipped check is not a failure; `SECRET_KEY_BASE` is required only when the app signs values. A warning names the command that repairs the state. Exit code 1 means at least one check failed.
+The CLI line also prints the installed version and revision. A skipped check is not a failure; `SECRET_KEY_BASE` is required only when the app signs values. A warning names the command that repairs the state. Exit code 1 means at least one check failed.
 
 ## Build and deploy
 
@@ -139,10 +139,10 @@ Commands:
            pending (read-only)
 ```
 
-`snails --version` prints the release and the commit it was built from:
+`snails --version` prints the release and the commit it was built from (the values below are placeholders):
 
 ```text
-snails v0.48.0 (rev c59adfa)
+snails <version> (rev <commit>)
 ```
 
 [Local Development](22-local-development.md) covers the scripts around the CLI; [Updating Snails](26-updating-snails.md) covers the pin and `sync`.

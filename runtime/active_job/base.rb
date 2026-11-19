@@ -1,25 +1,26 @@
-# The job API: class-oriented enqueue and schedule, the adapter slot, and
-# `recurring`. `perform` runs on the job class, never an instance; a stored
-# name must resolve through `Object.const_get`. Adapter names must stay unique
-# program-wide, and adapters must serialize their own mutable state.
+# The job API: class-oriented enqueue and schedule, the queue adapter
+# setting, and `recurring`. `perform` runs on the job class, never an instance;
+# a stored name must resolve through `Object.const_get`. Adapter names must
+# stay unique program-wide, and adapters must serialize their own mutable
+# state.
 
 module ActiveJob
-  # the hand-off entry: the job class is the argument (its `job_name` keys the
+  # the enqueue entry: the job class is the argument (its `job_name` keys the
   # entry) and the work derives from the class — one call form,
   # `perform(payload)`, so a payload-less job still declares the parameter and
   # ignores it.
   #
-  # The proc is what keeps the process-local queue expressible on a
+  # The proc is what keeps the in-memory queue expressible on a
   # target with one element type per container — every entry is
   # `() -> void` whatever it closed over, so jobs of any arity share one
   # Array. The selected adapter takes it from here: `ProcessQueue` keeps
-  # the proc; a store-backed adapter stores the name and payload and
+  # the proc; a database-backed adapter stores the name and payload and
   # ignores the proc; the drain resolves them itself (`Object.const_get`).
   # With an executor registered the work is queued and this returns
   # immediately; with none it runs at the call site. A bounded adapter may
-  # refuse the hand-off when its queue is full (the process queue drops the
+  # refuse the enqueue when its queue is full (the process queue drops the
   # new job and reports locally) — a request path must not assume every
-  # hand-off became queued work.
+  # enqueue became queued work.
   #
   # @param job_class [Class] the job class — `job_name` + `perform(data)`
   # @param payload [Object, nil] the serializable arguments for a
@@ -43,14 +44,14 @@ module ActiveJob
     end
   end
 
-  # hand off a delayed one-off run: the same class-oriented hand-off as
+  # enqueue a delayed one-off run: the same class-oriented enqueue as
   # `enqueue`, but the work waits until `at` (`Time`) instead of running at the
   # next drain. The adapter stores the run time (`enqueue_at`), and a drain runs
   # the job once the clock passes it. With no executor registered this raises: a
   # schedule needs one, and running it at the call site would ignore the delay —
   # the same silent-loss rule `enqueue` follows, kept strict here.
   #
-  # `at` carries its own contract: the Time slot refuses a non-Time
+  # `at` carries its own contract: the typed Time parameter refuses a non-Time
   # argument at the build or the call boundary (the ext layer reopens
   # Time — ext/time.rb), so no in-body guard stands here.
   #
@@ -66,17 +67,17 @@ module ActiveJob
     if executor_registered
       queue_adapter.enqueue_at(job_class.job_name, -> { job_class.perform(payload) }, payload, at)
     else
-      raise "schedule needs an executor — a scheduled job with none would be silently lost"
+      raise "schedule needs a worker loop — a scheduled job with none would be silently lost"
     end
   end
 
-  # The adapter slot: the selected adapter class, empty for the default
-  # (`ProcessQueue`). The app selects one at boot, before the server starts,
-  # with `queue_adapter=` — any class carrying the adapter interface (the file
-  # header).
+  # The queue adapter setting: the selected adapter class, empty for the
+  # default (`ProcessQueue`). The app selects one at boot, before the server
+  # starts, with `queue_adapter=` — any class carrying the adapter interface
+  # (the file header).
   QUEUE_ADAPTER = []
 
-  # the adapter class every hand-off and drain goes through: the selected one,
+  # the adapter class every enqueue and drain goes through: the selected one,
   # or `ProcessQueue` when none was selected.
   #
   # @return [Class] the selected adapter class
@@ -124,7 +125,7 @@ module ActiveJob
     EXECUTORS << "1"
   end
 
-  # The recurring registrations, one Hash per entry (the `PERIODIC` shape) —
+  # The recurring registrations, one Hash per entry (the `PERIODIC` entry form) —
   # `recurring` appends here and the periodic callback carries the entry, so
   # the registry is what boot-time introspection and the contract tests read.
   RECURRING = []
@@ -140,13 +141,13 @@ module ActiveJob
   # same callback still run the job once. There is no handler catalog: a
   # cross-process drain resolves the stored name itself — `Object.const_get` —
   # so the registration's class is what must be compiled in. The job body runs
-  # as a zero-argument proc (a process-local adapter runs it as the job). Call
+  # as a zero-argument proc (an in-memory adapter runs it as the job). Call
   # it after the adapter is selected. Times are UTC: the interval grid is based
   # on epoch seconds, and a cron expression is evaluated in UTC. A new
   # registration starts at the next occurrence: an occurrence that passed while
   # no process was alive is not caught up. One job name registers once: a second
   # call for the same `job_name` raises, whatever its expression, because the
-  # name is the key every adapter and the occurrence ledger deduplicate on. For
+  # name is the key every adapter and the occurrence table deduplicate on. For
   # several runs a day, put them in one cron expression (`0 6,18 * * *`). This
   # check runs at declaration and therefore applies to every adapter; the
   # adapter's own occurrence key remains the cross-process guard.
@@ -175,7 +176,7 @@ module ActiveJob
     end
     name = job_class.job_name
     # One registration per name: the name is the dispatch key the adapters and
-    # the occurrence ledger deduplicate on, so a second call is a declaration
+    # the occurrence table deduplicate on, so a second call is a declaration
     # mistake rather than a second schedule. Check before any registry write so
     # the rejected call leaves no entry behind.
     RECURRING.each do |existing|
@@ -211,10 +212,10 @@ module ActiveJob
   end
 
   # one run of a recurring job: with an executor registered the enqueue goes
-  # through the adapter with the occurrence the scheduler fired for; with none
+  # through the adapter with the occurrence the scheduler computed; with none
   # the body runs at the call site, the `enqueue` rule (a queue nobody drains is
-  # a silent loss). The occurrence is the value the scheduler's gate used, so
-  # the enqueue key and the gate cannot disagree, even on an injected clock.
+  # a silent loss). The occurrence is the value the scheduler's check used, so
+  # the enqueue key and the check cannot disagree, even on an injected clock.
   #
   # Private on purpose: `recurring` is the public declaration; this run
   # helper is free to change without notice.
@@ -237,11 +238,12 @@ module ActiveJob
   # forgot a body raises with the contract named, wherever it was driven from.
   class Base
     # the key the job registers and is dispatched under: the recurring
-    # registration's name, the adapter's handler catalog entry, and the name a
-    # store-backed drain resolves back to the class all use it. The base derives
-    # it from the class name (`name`); a job overrides this method when the key
-    # must differ — for cross-process dispatch the key must stay a constant path
-    # (`Object.const_get` resolves it on the store-backed drain).
+    # registration's name, the adapter's handler catalog entry, and the name
+    # a database-backed drain resolves back to the class all use it. The base
+    # derives it from the class name (`name`); a job overrides this method when
+    # the key must differ — for cross-process dispatch the key must stay a
+    # constant path (`Object.const_get` resolves it on the database-backed
+    # drain).
     #
     # @return [String] the job's name — the class name by default; not
     #   input, and not validated: a name no constant carries is a lookup
@@ -257,11 +259,11 @@ module ActiveJob
 
     # the job body, a class method: every runtime-driven path calls it with one
     # argument — `data` is the decoded payload, nil for a payload-less job — so
-    # one call shape covers both (`recurring`'s callback, `enqueue`, a store-backed
-    # drain); a job that takes no arguments still declares the parameter and
-    # ignores it. The runtime never instantiates a job. The base raises so a job
-    # that forgot the body raises with the contract named instead of a bare
-    # `NoMethodError` at its first run.
+    # one call form covers both (`recurring`'s callback, `enqueue`, a
+    # database-backed drain); a job that takes no arguments still declares the
+    # parameter and ignores it. The runtime never instantiates a job. The base
+    # raises so a job that forgot the body raises with the contract named
+    # instead of a bare `NoMethodError` at its first run.
     #
     # @param data [Object, nil] the decoded payload, nil for a payload-less job
     # @return [void] the body's result is not used

@@ -29,13 +29,13 @@ class QueueLimitJob < ActiveJob::Base
   end
 end
 
-# ActiveJob queue adapter (core) — the slot, the adapter interface, and
-# the loop protocol the worker drives. Pinned here: with no selection the
-# default is the process-local queue; `queue_adapter=` takes any class —
-# an app-defined adapter included — and every hand-off goes through the
-# slot (`enqueue` derives the name and the work from the job class); the
+# ActiveJob queue adapter (core) — the adapter setting, the interface, and
+# the loop protocol the worker drives. Cases here cover: with no selection the
+# default is the in-memory queue; `queue_adapter=` takes any class —
+# an app-defined adapter included — and every enqueue goes through the
+# selected adapter (`enqueue` derives the name and the work from the job class); the
 # protocol (`drain_due?` answers, `drain` runs under the caller's lease)
-# dispatches through the slot for
+# dispatches through the selected adapter for
 # both the default and the app adapter (the class-value dispatch form).
 class JobQueueAdapterTest < TestBase
   def setup
@@ -69,7 +69,7 @@ class JobQueueAdapterTest < TestBase
   end
 
   # One worker-loop pass — the body of the drain loop without
-  # the sleep: drain through the slot under the loop's own
+  # the sleep: drain through the selected adapter under the loop's own
   # Sqlx::Database lease.
   def run_loop_once
     if ActiveJob.queue_adapter.drain_due?
@@ -77,7 +77,7 @@ class JobQueueAdapterTest < TestBase
     end
   end
 
-  # With no selection the slot resolves to the process-local queue:
+  # With no selection the setter resolves to the in-memory queue:
   # enqueue lands in `PENDING` and nothing runs.
   def test_default_adapter_is_the_process_queue
     ActiveJob.register_executor
@@ -87,9 +87,9 @@ class JobQueueAdapterTest < TestBase
   end
 
   # The open setter takes an app-defined adapter class: the same enqueue
-  # lands in its own store, the process-local queue stays empty, and
+  # lands in its own store, the in-memory queue stays empty, and
   # nothing runs before the adapter's drain.
-  def test_app_adapter_is_selected_through_the_slot
+  def test_queue_adapter_setter_selects_an_app_adapter
     ActiveJob.queue_adapter = SinkQueueAdapter
     ActiveJob.register_executor
     ActiveJob.enqueue(AdapterMarkJob, { "n" => 2 })
@@ -100,7 +100,7 @@ class JobQueueAdapterTest < TestBase
     assert_equal 0, marks
   end
 
-  # Reselecting `ProcessQueue` restores the default path — the slot is a
+  # Reselecting `ProcessQueue` restores the default path — the setter is a
   # plain overwrite, not a one-way switch.
   def test_reselecting_the_process_queue
     ActiveJob.queue_adapter = SinkQueueAdapter
@@ -131,7 +131,7 @@ class JobQueueAdapterTest < TestBase
   end
 
   # The loop protocol on the app adapter: the same pass drives it through
-  # the slot — an app adapter owns its drain interval and its drain body.
+  # the setter — an app adapter owns its drain interval and its drain body.
   def test_loop_protocol_runs_an_app_adapter_job
     ActiveJob.queue_adapter = SinkQueueAdapter
     ActiveJob.register_executor
@@ -142,9 +142,9 @@ class JobQueueAdapterTest < TestBase
     assert_equal 0, SinkQueueAdapter::SUBMITTED.length
   end
 
-  # Schedule routes through the slot with its run time: the app adapter
+  # Schedule routes through the selected adapter with its run time: the app adapter
   # records the delayed submission (nothing runs before its drain).
-  def test_schedule_hands_the_run_time_to_the_adapter
+  def test_schedule_passes_the_run_time_to_the_adapter
     ActiveJob.queue_adapter = SinkQueueAdapter
     ActiveJob.register_executor
     at = Time.now.utc + 900
@@ -241,8 +241,8 @@ class JobQueueAdapterTest < TestBase
   end
 end
 
-# An app-defined adapter — the extension the open slot exists for.
-# `enqueue` stores the three hand-off values; `drain` runs the stored
+# An app-defined adapter — the extension the open setter exists for.
+# `enqueue` stores the three enqueue values; `drain` runs the stored
 # work, so the job body's mark proves the dispatch path reached here.
 class SinkQueueAdapter
   SUBMITTED = []
@@ -272,12 +272,12 @@ end
 
 FixtureRunner.run(JobQueueAdapterTest, [
   "test_default_adapter_is_the_process_queue",
-  "test_app_adapter_is_selected_through_the_slot",
+  "test_queue_adapter_setter_selects_an_app_adapter",
   "test_reselecting_the_process_queue",
   "test_loop_protocol_runs_a_process_job",
   "test_loop_protocol_runs_a_payload_job",
   "test_loop_protocol_runs_an_app_adapter_job",
-  "test_schedule_hands_the_run_time_to_the_adapter",
+  "test_schedule_passes_the_run_time_to_the_adapter",
   "test_a_scheduled_job_waits_for_its_time",
   "test_a_due_scheduled_job_runs_on_the_drain",
   "test_the_process_queue_drops_new_jobs_at_the_limit",

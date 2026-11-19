@@ -38,9 +38,9 @@ module Snails
       # @param payload [Object, nil] the serializable arguments (nil for
       #   a payload-less job)
       # @param scheduled_at [Time] when the row becomes due — now for a
-      #   plain hand-off, the run time for a delayed one, the interval's
+      #   plain enqueue, the run time for a delayed one, the interval's
       #   start for a recurring occurrence
-      # @param now [Time] the created/updated stamp for the row
+      # @param now [Time] the created/updated timestamp for the row
       # @return [void]
       def self.enqueue!(name, payload, scheduled_at, now)
         create!({ name: name, payload: payload, status: "pending",
@@ -55,7 +55,7 @@ module Snails
       # COMMITTED: a second claim that waited on the row lock re-evaluates the
       # outer condition and sees `running` instead of claiming again.
       #
-      # The row shape lets a caller record a delivery failure whose payload
+      # The row format lets a caller record a delivery failure whose payload
       # cannot be decoded: building the Job record raises before a record
       # exists, but the claimed id, name, and attempts are already in hand.
       #
@@ -92,11 +92,11 @@ module Snails
       # does not use a record, and a delivery failure's payload may not be
       # decodable — a re-read would fail on the very row being updated.
 
-      # record a finished run on its row: the status and the finish stamp make the
-      # row the execution history.
+      # record a finished run on its row: the status and the finish timestamp
+      # make the row the execution history.
       #
       # @param id [Integer] the row's id
-      # @param now [Time] the finish stamp
+      # @param now [Time] the finish timestamp
       # @return [void]
       def self.mark_succeeded!(id, now)
         update_all!({ id: id }, { status: "succeeded", finished_at: now, updated_at: now })
@@ -110,7 +110,7 @@ module Snails
       # @param id [Integer] the row's id
       # @param scheduled_at [Time] when the row becomes claimable again
       # @param error [String] why the run was deferred
-      # @param now [Time] the updated stamp
+      # @param now [Time] the updated timestamp
       # @return [void]
       def self.mark_deferred!(id, scheduled_at, error, now)
         update_all!({ id: id }, { status: "pending", started_at: nil,
@@ -123,7 +123,7 @@ module Snails
       #
       # @param id [Integer] the row's id
       # @param error [String] the failure message
-      # @param now [Time] the finish stamp
+      # @param now [Time] the finish timestamp
       # @return [void]
       def self.mark_failed!(id, error, now)
         update_all!({ id: id }, { status: "failed", finished_at: now, updated_at: now, last_error: error })

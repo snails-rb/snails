@@ -6,15 +6,15 @@ require_relative "test_database"
 # `Snails.time_zone =` and everything local lands there: the clock, a stored
 # UTC text read through a model, and the JSON spelling. The fixture boots in
 # UTC, where a dropped `getlocal` or a UTC-only renderer reads as green (an
-# instant compares equal either way), so these cases pin the same stored
-# instant while the slot says Seoul.
+# instant compares equal either way), so these cases cover the same stored
+# instant while the process time zone says Seoul.
 class ProcessZoneRenderTest < TestBase
   # The model for the DB case: one declared datetime column, built through
   # the core `from_row`.
-  class ZoneStamp < Sqlx::Base
+  class ZoneTime < Sqlx::Base
     %w[id at].each { |n| define_method(n) { read_attribute(n) } }
 
-    def self.table_name = "zone_stamps"
+    def self.table_name = "zone_times"
     def self.only_columns = [:id, :at]
     def self.datetime_columns = %w[at]
   end
@@ -22,9 +22,9 @@ class ProcessZoneRenderTest < TestBase
   # setup owns a fresh table per case.
   def setup
     TestDatabase.configure!("process_zone_render")
-    TestDatabase.drop_tables!("zone_stamps")
-    TestDatabase.exec("CREATE TABLE zone_stamps (id INTEGER PRIMARY KEY, at DATETIME)")
-    TestDatabase.exec("INSERT INTO zone_stamps (id, at) VALUES (1, '2024-01-02 03:04:05.000006')")
+    TestDatabase.drop_tables!("zone_times")
+    TestDatabase.exec("CREATE TABLE zone_times (id INTEGER PRIMARY KEY, at DATETIME)")
+    TestDatabase.exec("INSERT INTO zone_times (id, at) VALUES (1, '2024-01-02 03:04:05.000006')")
   end
 
   def assert_equal(expected, actual, msg = nil)
@@ -54,10 +54,10 @@ class ProcessZoneRenderTest < TestBase
   # zone, not in UTC.
   def test_model_datetime_read_lands_in_the_pinned_zone
     Snails.time_zone = "Seoul"
-    rows = Sqlx::Base.rows_by_sql("SELECT id, at FROM zone_stamps WHERE id = ?", [1])
-    stamp = ZoneStamp.from_row(rows[0])
-    assert_equal Time.utc(2024, 1, 2, 3, 4, 5, 6), stamp.at
-    assert_equal 32400, stamp.at.utc_offset
+    rows = Sqlx::Base.rows_by_sql("SELECT id, at FROM zone_times WHERE id = ?", [1])
+    record = ZoneTime.from_row(rows[0])
+    assert_equal Time.utc(2024, 1, 2, 3, 4, 5, 6), record.at
+    assert_equal 32400, record.at.utc_offset
     Snails.time_zone = "UTC"
   end
 

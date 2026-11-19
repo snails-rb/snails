@@ -39,7 +39,7 @@ class QueueBodyNameErrorJob < ActiveJob::Base
 end
 
 # ActiveJob::DatabaseQueue (core) — the DB-backed adapter's row
-# lifecycle. Pinned here: an enqueue writes one pending row and runs
+# lifecycle. Cases here cover: an enqueue writes one pending row and runs
 # nothing; a drain claims a row (one atomic UPDATE), resolves the stored
 # name back to a class (`Object.const_get`), runs it with the decoded
 # payload, and records the outcome on the same row; failures land on the
@@ -47,7 +47,7 @@ end
 # unreadable payload) waits there until its attempt limit turns it into a
 # failed row; a claim from a dead process is recorded failed after the
 # window and never re-queued; a recurring callback queues once per interval
-# start through the ledger, while a one-off schedule keeps every distinct
+# start through the occurrence table, while a one-off schedule keeps every distinct
 # payload. The setup rebuilds the queue tables from the shipped DDL
 # template each case — the template and the model declarations are one
 # contract, checked below.
@@ -122,7 +122,7 @@ class DatabaseQueueAdapterTest < TestBase
   end
 
   # An enqueue is a row write, not a run: with an executor registered the
-  # hand-off returns immediately and the payload travels as JSON text.
+  # enqueue returns immediately and the payload travels as JSON text.
   def test_enqueue_writes_one_pending_row_and_runs_nothing
     ActiveJob.register_executor
     ActiveJob.enqueue(QueueSinkJob, { "n" => 7 })
@@ -313,7 +313,7 @@ class DatabaseQueueAdapterTest < TestBase
     assert_equal "running", scalar("SELECT status FROM snails_queue_jobs WHERE payload = '{\"n\":6}'")
   end
 
-  # Without a registered executor the hand-off runs at the call site — a
+  # Without a registered executor the job runs at the call site — a
   # queue nobody drains would be a silent loss, so there is no row and
   # no wait.
   def test_without_an_executor_the_call_site_runs_the_job
@@ -322,25 +322,25 @@ class DatabaseQueueAdapterTest < TestBase
     assert_equal nil, scalar("SELECT status FROM snails_queue_jobs")
   end
 
-  # The recurring hand-off is idempotent per interval start: the
-  # ledger's (job name, interval start) key drops the second call, so
+  # The recurring enqueue is idempotent per interval start: the
+  # occurrence table's (job name, interval start) key drops the second call, so
   # several processes running the same callback still queue one row — the
   # first caller answers true, the duplicate false.
   def test_enqueue_once_is_idempotent_per_interval_start
-    slot = Time.now.utc
-    first = ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, slot)
-    second = ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, slot)
+    interval_start = Time.now.utc
+    first = ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, interval_start)
+    second = ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, interval_start)
     assert_equal true, first
     assert_equal false, second
     assert_equal 1, scalar("SELECT COUNT(*) FROM snails_queue_jobs")
     assert_equal "pending", scalar("SELECT status FROM snails_queue_jobs")
   end
 
-  # The occurrence lands on the ledger in the same transaction as the
-  # queue row — one ledger row per callback, stored as a time value.
+  # The occurrence lands in the occurrence table in the same transaction as the
+  # queue row — one occurrence row per callback, stored as a time value.
   def test_enqueue_once_records_the_occurrence
-    slot = Time.now.utc
-    ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, slot)
+    interval_start = Time.now.utc
+    ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, interval_start)
     table = Snails::Queue::Occurrence.table_name
     assert_equal 1, scalar("SELECT COUNT(*) FROM " + table)
     assert_equal "QueueSinkJob", scalar("SELECT job_name FROM " + table)
@@ -359,7 +359,7 @@ class DatabaseQueueAdapterTest < TestBase
   end
 
   # A value outside the contract (not a Time) never reaches a row: the
-  # typed slot refuses it at the boundary (the untyped JSON number
+  # typed Time parameter refuses it at the boundary (the untyped JSON number
   # gets a TypeError from the call, and a literal would not compile).
   def test_enqueue_once_rejects_a_value_that_is_not_a_time
     rejected = false
@@ -397,13 +397,13 @@ class DatabaseQueueAdapterTest < TestBase
   end
 
   # A recurring occurrence and a one-off schedule at the same instant
-  # are different keys: the ledger and the queue row never collide, so
+  # are different keys: the occurrence table and the queue row never collide, so
   # both stand.
   def test_a_recurring_occurrence_and_a_one_off_schedule_coexist
-    slot = Time.now.utc
-    ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, slot)
+    interval_start = Time.now.utc
+    ActiveJob::DatabaseQueue.enqueue_once("QueueSinkJob", -> { QueueJobSink::RAN << 0 }, nil, interval_start)
     ActiveJob.register_executor
-    ActiveJob.schedule(QueueSinkJob, slot, { "n" => 9 })
+    ActiveJob.schedule(QueueSinkJob, interval_start, { "n" => 9 })
     assert_equal 2, scalar("SELECT COUNT(*) FROM snails_queue_jobs")
   end
 
@@ -419,7 +419,7 @@ class DatabaseQueueAdapterTest < TestBase
   end
 
   # Once due, a scheduled row runs on the same path as a plain
-  # hand-off, payload included.
+  # enqueue, payload included.
   def test_a_due_scheduled_row_runs_on_the_drain
     ActiveJob.register_executor
     ActiveJob.schedule(QueueSinkJob, Time.now.utc - 1, { "n" => 3 })
@@ -443,7 +443,7 @@ class DatabaseQueueAdapterTest < TestBase
   end
 
   # Every schedule call writes a row — one-off queues carry no
-  # deduplication at all (the ledger is recurring traffic only).
+  # deduplication at all (the occurrence table holds recurring traffic only).
   def test_one_off_schedules_are_not_deduplicated
     ActiveJob.register_executor
     at = Time.now.utc + 3600
@@ -513,7 +513,7 @@ class DatabaseQueueAdapterTest < TestBase
 
   # The shipped DDL template and the hand-written model declarations
   # are two halves of one contract: the template is what generate
-  # stamps into an app, the declarations are what builds its rows —
+  # writes into an app, the declarations are what builds its rows —
   # a column drifting out of either shows up here.
   def test_the_template_and_the_model_declare_the_same_columns
     assert_equal Snails::Queue::Job.only_columns.map { |c| c.to_s }.sort, table_columns("snails_queue_jobs").sort
@@ -531,7 +531,7 @@ class DatabaseQueueAdapterTest < TestBase
   # A full row builds through those declarations: the time columns
   # come back as Time, the payload as its logical JSON value — the
   # codec never surfaces as storage text.
-  def test_a_full_row_builds_through_the_declarations
+  def test_a_full_row_is_built_from_the_declarations
     ActiveJob.register_executor
     ActiveJob.enqueue(QueueSinkJob, { "n" => 4 })
     row = Snails::Queue::Job.find_by_sql("SELECT * FROM snails_queue_jobs")[0]
@@ -582,6 +582,6 @@ FixtureRunner.run(DatabaseQueueAdapterTest, [
   "test_a_full_batch_keeps_the_next_drain_due",
   "test_concurrent_worker_threads_share_the_queue_without_double_claiming",
   "test_the_template_and_the_model_declare_the_same_columns",
-  "test_a_full_row_builds_through_the_declarations",
+  "test_a_full_row_is_built_from_the_declarations",
   "test_perform_claimed_is_private"
 ])

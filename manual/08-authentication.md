@@ -93,7 +93,7 @@ Each writes the `WWW-Authenticate` header, a 401 status, and a plain-text body. 
 
 ## What the framework owns
 
-The framework owns the header parsing and the 401 response shape. Your app owns the credential store and the comparison. A token lookup is a model query like any other:
+The framework owns the header parsing and the 401 response format. Your app owns the credential store and the comparison. A token lookup is a model query like any other:
 
 ```ruby
 def current_account

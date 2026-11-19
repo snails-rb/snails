@@ -17,7 +17,7 @@ module Snails
       # too, so an app string call and a framework event spell an instant alike.
       #
       # The calendar fields hold for a whole second, and `strftime` on a local
-      # time serializes across request threads in this runtime (measured: its
+      # time serializes across green threads in this runtime (measured: its
       # call rate stays flat from one thread to 32), so the date, clock, and
       # zone text are rendered once per second and reused. Only the fractional
       # second is per call.

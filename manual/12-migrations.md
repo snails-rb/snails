@@ -4,7 +4,7 @@ You change the database schema the explicit way: write a numbered file under `db
 
 ## Start from the baseline
 
-`snails new --scaffold` stamps the template's tables as the first migration — a UTC-numbered baseline — and tells you the next step:
+`snails new --scaffold` writes the template's tables into the first migration — a UTC-numbered baseline — and tells you the next step:
 
 ```text
 20261111210824_baseline.sql

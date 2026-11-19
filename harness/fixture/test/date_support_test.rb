@@ -17,7 +17,7 @@ class DateSupportTest < TestBase
   end
 
   # A declaration typo names a column outside only_columns: record building must
-  # fail loud instead of leaving the value raw.
+  # fail raises instead of leaving the value raw.
   class BadDateModel < Sqlx::Base
     def self.table_name = "events"
     def self.only_columns = [:id, :title]
@@ -94,7 +94,7 @@ class DateSupportTest < TestBase
 
   # A declared date column outside the projection is a declaration typo:
   # record building raises instead of silently leaving the value raw.
-  def test_date_declaration_outside_projection_loud
+  def test_date_declaration_outside_projection_raises
     begin
       BadDateModel.from_row({ "id" => 1, "title" => "x" })
     rescue ArgumentError => error
@@ -112,5 +112,5 @@ FixtureRunner.run(DateSupportTest, [
   "test_date_roundtrips_through_writes_and_reads",
   "test_date_condition_and_literal_render_the_stored_text",
   "test_date_renders_as_json_text",
-  "test_date_declaration_outside_projection_loud"
+  "test_date_declaration_outside_projection_raises"
 ])

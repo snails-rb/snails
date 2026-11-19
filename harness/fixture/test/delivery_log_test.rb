@@ -1,19 +1,19 @@
 require_relative "test_helper"
 require_relative "../snails-core/snails/harness"
 
-# Gate mail capture (core) — the stamped config/environment.rb (carried
+# Mail capture (core) — the generated config/environment.rb (carried
 # by this fixture) registers DeliveryLog in test mode, so deliveries
 # append one JSON line (to/from/subject, never the body) to the
 # project's `tmp/mail-capture.jsonl` and nothing is transmitted. The
 # reader side (assert_emails/emails, snails-core/snails/harness.rb) reads the same
-# file from the harness target's cwd (`../tmp/...`); the gate engine
+# file from the harness target's cwd (`../tmp/...`); the test runner
 # empties it before boot. Registration semantics (explicit capture,
 # providers, the unregistered raise) live in delivery_seam_test.
 class DeliveryLogTest < Snails::Harness::IntegrationTest
   # The writer's path is spin-root relative ("tmp/..."), the reader's is
-  # harness-dir relative ("../tmp/...") — the same file in a real gate
-  # layout. This workspace has both cwds available, so each side is
-  # pinned from its own anchor.
+  # harness-dir relative ("../tmp/...") — the same file in a real test
+  # run. This workspace has both cwds available, so each side is
+  # checked from its own base path.
   LOG_PATH = "tmp/mail-capture.jsonl"
   READER_PATH = "../tmp/mail-capture.jsonl"
 
@@ -23,11 +23,11 @@ class DeliveryLogTest < Snails::Harness::IntegrationTest
     File.delete(READER_PATH) if File.exist?(READER_PATH)
   end
 
-  test "the stamped environment registers the capture in test mode" do
+  test "the generated environment registers the capture in test mode" do
     assert_equal ActionMailer::DeliveryLog, ActionMailer::Base.delivery_method
   end
 
-  test "the gate records deliveries into the project tmp log" do
+  test "the test runner records deliveries into the project tmp log" do
     now_message = ActionMailer::Message.new({ to: "now@example.com", subject: "now", body: "b" })
     later_message = ActionMailer::Message.new({ to: "later@example.com", subject: "later", body: "b" })
 
@@ -63,7 +63,7 @@ class DeliveryLogTest < Snails::Harness::IntegrationTest
     assert_equal "one", emails[0]["subject"]
   end
 
-  test "assert_emails skips without a live gate" do
+  test "assert_emails skips without a live test server" do
     assert_emails 1 do
       assert_equal 1, 1
     end

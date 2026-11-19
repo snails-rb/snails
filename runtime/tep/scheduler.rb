@@ -27,7 +27,7 @@ module Tep
     # soonest-due one.
     #
     # The poll must not block while some fiber is already time-due -- that wait
-    # is pure latency on every hand-off to a freshly spawned fiber.
+    # is pure latency on every switch to a freshly spawned fiber.
     #
     # @param poll_timeout_ms [Integer] upper bound in milliseconds for the I/O
     #   poll, forced to 0 when a fiber is already due

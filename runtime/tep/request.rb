@@ -7,7 +7,7 @@ module Tep
     # the transport's own body cap. 8 MiB follows the application-level default
     # Plug/Phoenix uses (8 MB); nginx (1 MiB), Django (2.5 MB), and Express (100
     # KB) are stricter, ASP.NET Core (30 MB) is looser. A larger Content-Length
-    # is refused with 413 before any of it is read, so one client cannot pin a
+    # is refused with 413 before any of it is read, so one client cannot hold a
     # worker by advertising a body the server would hold in memory.
     MAX_BODY_BYTES = 8 * 1024 * 1024
 
@@ -140,7 +140,7 @@ module Tep
       @req_headers["content-type"].downcase.start_with?("application/json")
     end
 
-    # whether the body arrived in a shape the runtime could not read: JSON that
+    # whether the body arrived in a form the runtime could not read: JSON that
     # does not parse or that is not an object, or a multipart body with no
     # boundary or one that stops part-way. `Snails::Main.dispatch` turns it into
     # a 400, so a broken payload is refused instead of running the action
@@ -259,10 +259,10 @@ module Tep
 
     # a parsed JSON object into @req_params and @body_fields, spelled the way a
     # form posts it: `{"blob": {"filename": "a.png"}}` becomes `blob[filename]`,
-    # the key shape `Snails::Main.request_params` already nests from a multipart
+    # the key structure `Snails::Main.request_params` already nests from a multipart
     # body's fields. Scalars arrive as `to_s`, null as "".
     #
-    # An array has no slot in either flat hash: its elements are walked
+    # An array cannot be represented in either flat hash: its elements are walked
     # into the same `prefix[]` key, so the last one wins.
     #
     # @param prefix [String] the key path built so far ("" at the top)

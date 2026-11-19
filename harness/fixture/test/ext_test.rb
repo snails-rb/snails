@@ -6,7 +6,7 @@ require_relative "harness_runner"
 # Enumerable/Array collection helpers, Hash key transforms, Object
 # blank-value predicates (the slice that needed the spinel Object-reopen
 # fix — see snails-core/ext/object.rb), and Time date helpers (the slice that
-# accepted the Time-slot boundary contract — snails-core/ext/time.rb).
+# accepted the typed Time boundary contract — snails-core/ext/time.rb).
 class ExtTest < TestBase
   def assert_equal(expected, actual, msg = nil)
     raise(msg || "expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual
@@ -34,9 +34,9 @@ class ExtTest < TestBase
     assert_equal "Foo Bar", "foo_bar".titleize
   end
 
-  # camelCase from underscore text: the JSON-key shape (`host_info` →
+  # camelCase from underscore text: the JSON key format (`host_info` →
   # `hostInfo`), the upper form, an already-camel key left alone, word
-  # casing after separators, namespaces, and the loud mode guard.
+  # casing after separators, namespaces, and the strict mode check.
   def test_string_camelize
     assert_equal "hostInfo", "host_info".camelize(:lower)
     assert_equal "HostInfo", "host_info".camelize
@@ -141,8 +141,8 @@ class ExtTest < TestBase
   # Query rendering: scalar pairs, a namespace, nested hashes and scalar
   # arrays, nil as a bare key, empty nested values dropped, pairs sorted
   # per level, insertion order kept under a `key[]` namespace (the
-  # `Hash#to_query` shape), and a loud refusal of the unmodeled
-  # Array-of-collections shape.
+  # `Hash#to_query` form), and a refusal with an error of the unmodeled
+  # Array-of-collections form.
   def test_hash_to_query
     assert_equal "name=David&nationality=Danish", { name: "David", nationality: "Danish" }.to_query
     assert_equal "user%5Bname%5D=David", { name: "David" }.to_query("user")

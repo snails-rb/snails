@@ -4,7 +4,7 @@ require_relative "../test_database"
 
 # SQLite pool opening: every pool shard opens its own handles. All shards must
 # read a valid handle even when their first requests arrive together — the
-# process-wide open out-buffer is one static slot.
+# process-wide open out-buffer is one static buffer.
 class DatabaseOpenRaceTest < TestBase
   def assert_equal(expected, actual)
     raise("expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual

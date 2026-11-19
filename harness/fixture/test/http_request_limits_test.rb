@@ -83,7 +83,7 @@ class HttpRequestLimitsTest < TestBase
     assert_equal "HTTP/1.0 413 Payload Too Large", status_line(bytes)
   end
 
-  # A duplicated Content-Length is the classic request-smuggling shape: two
+  # A duplicated Content-Length is the classic request-smuggling pattern: two
   # parsers can disagree on which value frames the body. The parser refuses the
   # request instead of letting the last value win.
   def test_a_duplicate_content_length_is_refused_with_400
@@ -136,7 +136,7 @@ class HttpRequestLimitsTest < TestBase
 
   # A body one byte over the cap is refused before reading; a body exactly at
   # the cap is still allowed through to the read, which the same stand-in then
-  # times out — the contrast pins the boundary as `>`.
+  # times out — the contrast fixes the boundary as `>`.
   def test_the_cap_boundary_allows_exactly_the_maximum
     over = Tep::Request.new
     over.req_headers["content-length"] = (Tep::Request::MAX_BODY_BYTES + 1).to_s
@@ -148,7 +148,7 @@ class HttpRequestLimitsTest < TestBase
   end
 
   # A header with whitespace before the colon, an obs-fold continuation, a
-  # line without a colon, or an empty name is malformed. Each is a shape an
+  # line without a colon, or an empty name is malformed. Each is a request an
   # upstream proxy can read differently than this parser, so none may be
   # silently ignored.
   def test_malformed_header_lines_are_refused_with_400

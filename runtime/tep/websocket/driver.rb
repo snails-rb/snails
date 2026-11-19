@@ -1,5 +1,5 @@
 # Tep::WebSocket::Driver -- per-connection state, outbound writers, and
-# the handler slots the recv loop dispatches into.
+# the handlers the recv loop dispatches into.
 #
 # Built after the handshake completes and before the recv loop starts.
 # Event handlers are objects installed with `set_on_*`, not blocks.
@@ -7,8 +7,8 @@ module Tep
   module WebSocket
     class Driver
       attr_accessor :fd, :max_frame_size, :subprotocol
-      # One slot per wire event; each starts as a no-op base handler so a
-      # dispatch never has to nil-check its slot.
+      # One handler per wire event; each starts as a no-op base handler so a
+      # dispatch never has to nil-check its handler.
       attr_accessor :h_open, :h_message, :h_close, :h_ping, :h_pong, :h_error
 
       def initialize(fd)

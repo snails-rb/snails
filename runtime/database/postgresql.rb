@@ -846,8 +846,9 @@ module Sqlx
       stmt.dead = true
     end
 
-    # Placeholder binding: render the value for the 1-based `?` slot into its SQL
-    # text NOW and store the text. The params array only ever holds Strings —
+    # Placeholder binding: render the value for the 1-based `?` placeholder
+    # into its SQL text NOW and store the text. The params array only ever
+    # holds Strings —
     # storing raw hetero values trips the AOT's one-type-per-array rule (a write
     # binds ints, texts, times and nil side by side). Substitution splices the
     # stored text verbatim, so a bind after prepare still reaches the server.
@@ -947,7 +948,8 @@ module Sqlx
     end
 
     # Page-level seeding is a sqlite backup concept; the PG adapter takes its
-    # schema and data from the application's deployment. Loud beats a silent no-op.
+    # schema and data from the application's deployment. A clear error beats a
+    # silent no-op.
     def self.seed_from_file(src_path)
       raise "Sqlx::Database.seed_from_file: unsupported in the PG adapter — schema and data belong to the application"
     end
@@ -964,9 +966,9 @@ module Sqlx
     # at the top of this file is the contract; these are free to change
     # without notice.
 
-    # Render one raw value into its `?` slot — pre-rendered to text for the same
-    # one-type rule as above. nil renders NULL, a Time the stored form; dispatch
-    # lives in `render_param`.
+    # Render one raw value into its `?` placeholder — pre-rendered to text for
+    # the same one-type rule as above. nil renders NULL, a Time the stored
+    # form; dispatch lives in `render_param`.
     def self.bind_value(stmt, idx, v)
       return nil unless stmt.pending == true
 

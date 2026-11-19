@@ -38,7 +38,7 @@ A model exists but `db/schema.sql` does not. Run `snails migrate dump` to write 
 
 ### A required parameter answers 400
 
-`ActionController::Params.require_key` raises `ParameterMissing` for an absent or blank value, and the dispatcher turns it into `{"error":"bad_request"}`. If a blank string is a valid value for that field, use `str` or `provided` instead of `require_key`. See [Requests and Parameters](07-requests-and-parameters.md).
+`ActionController::Params.require_key` raises `ParameterMissing` for an absent or blank value, and the framework turns it into `{"error":"bad_request"}`. If a blank string is a valid value for that field, use `str` or `provided` instead of `require_key`. See [Requests and Parameters](07-requests-and-parameters.md).
 
 ### A date, boolean, or JSON column raises while a record is built
 
@@ -68,7 +68,7 @@ The database is under contention. `Sqlx::Busy` is a SQLite lock wait past `DATAB
 
 `pins.toml` declares the schema belongs to another system, so `load`, `apply`, and `dump` refuse to write DDL. Apply the change in the owning system and use `snails migrate check` to confirm the app sees the expected state. See [Deploying](25-deploying.md).
 
-### A scheduled job raises `schedule needs an executor`
+### A scheduled job raises `schedule needs a worker loop`
 
 `ActiveJob.schedule` was called in a process with no worker loop — a test case, or an app that never started a server. Schedule it from a server action, or use `enqueue` when the work can run at the call site. See [Background Jobs](15-background-jobs.md).
 
@@ -78,7 +78,7 @@ The database is under contention. `Sqlx::Busy` is a SQLite lock wait past `DATAB
 
 ### A JSON response is the object's string form
 
-`render(json: record)` uses `record.as_json` when the record defines it; otherwise the encoder falls back to `to_s`. Give the model an `as_json` that returns the payload shape. See [Time, Dates, and JSON](17-time-dates-and-json.md).
+`render(json: record)` uses `record.as_json` when the record defines it; otherwise the encoder falls back to `to_s`. Give the model an `as_json` that returns the payload format. See [Time, Dates, and JSON](17-time-dates-and-json.md).
 
 ### The first `snails new` stops in a compiler build
 

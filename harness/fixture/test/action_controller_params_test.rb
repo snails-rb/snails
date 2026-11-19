@@ -2,10 +2,10 @@ require_relative "test_helper"
 require_relative "harness_runner"
 
 # ActionController::Params.permit (core) — the strong-parameters filter
-# over the plain request-params Hash. The cases pin the shapes a
+# over the plain request-params Hash. The cases cover the forms a
 # controller filter uses: named scalars, nested hashes kept whole,
-# listed keys inside hashes and arrays, and the loud refusal of a filter
-# shape the function does not model.
+# listed keys inside hashes and arrays, and the refusal with an error of a filter
+# input the function does not model.
 class ParamsTest < TestBase
   def assert_equal(expected, actual, msg = nil)
     raise(msg || "expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual
@@ -46,7 +46,7 @@ class ParamsTest < TestBase
   # A `{}` filter keeps the nested Hash as-is (JSON leaves are already
   # permitted); an Array filter keeps only the listed keys of a Hash and
   # maps each Hash element of an Array through the same list.
-  def test_permit_shapes_nested_hash_and_array_filters
+  def test_permit_handles_nested_hash_and_array_filters
     permitted = ActionController::Params.permit(
       {
         "uuid" => "u",
@@ -89,7 +89,7 @@ class ParamsTest < TestBase
   # entry, a nested spec that is neither `{}` nor an Array, and a list
   # item that is not a Symbol. The filters signature stays untyped on
   # purpose: a concrete union declaration refuses the String-filter case
-  # below at build time (sp_PolyArray slot), so the untyped declaration is
+  # below at build time (sp_PolyArray element type), so the untyped declaration is
   # what keeps this guard contract testable.
   def test_permit_rejects_unmodeled_input
     assert_equal true, argument_error? { ActionController::Params.permit("x", []) }, "non-Hash source"
@@ -103,7 +103,7 @@ end
 
 FixtureRunner.run(ParamsTest, [
   "test_permit_keeps_named_scalars",
-  "test_permit_shapes_nested_hash_and_array_filters",
+  "test_permit_handles_nested_hash_and_array_filters",
   "test_permit_passes_non_hash_array_elements",
   "test_permit_rejects_unmodeled_input"
 ])

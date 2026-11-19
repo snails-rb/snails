@@ -37,7 +37,7 @@ module Sqlx
     # label names: an unrecognized raw value is a data question and does not
     # raise.
     #
-    # @param value [Integer] the slot read from the column
+    # @param value [Integer] the stored value read from the column
     # @return [String?] the label, or nil when no entry claims the
     #   value
     # @example
@@ -59,10 +59,10 @@ module Sqlx
     # returning false forever. An unknown raw value returns false; `label`
     # stays the reader for data questions.
     #
-    # @param raw [Integer] the slot read from the column
+    # @param raw [Integer] the stored value read from the column
     # @param label [Symbol, String] the declaration label to compare —
-    #   a stored-value spelling reads the same slot, like `value`
-    # @return [Boolean] true when the slot holds the label's value,
+    #   a stored-value spelling reads the same stored value, like `value`
+    # @return [Boolean] true when the stored value equals the label's value,
     #   false for a different or unknown raw
     # @raise [ArgumentError] the label is not in the declaration
     # @example
@@ -74,12 +74,12 @@ module Sqlx
 
     # Converts a label to the Integer an INSERT or UPDATE stores. An unknown
     # name raises — the enum type's contract, not a `to_i` fallback that would
-    # silently store 0. The standard bang writer reads its slot through this,
-    # so a redeclared or renumbered enum cannot leave a writer pinned to a stale
+    # silently store 0. The standard bang writer converts through this, so a
+    # redeclared or renumbered enum cannot leave a writer bound to a stale
     # literal.
     #
     # @param text [Symbol, String] the label, or its stored-value
-    #   spelling — both read the same slot
+    #   spelling — both read the same stored value
     # @return [Integer] the stored value for the label
     # @raise [ArgumentError] the name is not in the declaration
     # @example
@@ -98,7 +98,7 @@ module Sqlx
     # this declaration's writer for one column: hands the mapping it already
     # owns to a bound writer, so the call site reads `STATUS.writer(...)` from
     # the same receiver the readers use instead of passing the declaration back
-    # in. Core owns the UPDATE shape because it never varies by model (the same
+    # in. Core owns the UPDATE statement because it never varies by model (the same
     # `SET <column> = ?, updated_at = ? WHERE id = ?` every time) — the
     # hand-rolled per-model helper is where the SQL drifts and where each model
     # invents its own helper name.
@@ -118,7 +118,7 @@ module Sqlx
   end
 
   # The bound writer behind `Enum#writer` — one column of one table. It owns
-  # the UPDATE shape so the model carries no per-field write helper; the
+  # the UPDATE statement so the model carries no per-field write helper; the
   # label -> stored-value conversion stays with the bound declaration, so
   # the write's mapping is single-sourced the way reads are.
   class EnumWriter
@@ -135,10 +135,10 @@ module Sqlx
     end
 
     # the single-column UPDATE: stores the label's value on the bound column,
-    # stamps `updated_at` with the current UTC time, and matches the row by
+    # sets `updated_at` with the current UTC time, and matches the row by
     # primary key. An unknown label raises through the bound declaration's
     # strict `value` before any SQL runs, so a redeclared enum cannot leave a
-    # writer pinned to a stale slot. A row the id does not match is a silent
+    # writer bound to a stale stored value. A row the id does not match is a silent
     # no-op, the way the per-model helpers this replaces behaved — the bang
     # promises the write attempt, not that a row existed. The target table
     # carries `updated_at`; one without it raises from the driver. The write
@@ -147,7 +147,7 @@ module Sqlx
     #
     # @param id [Integer] the primary key of the row to update
     # @param label [Symbol, String] the label to store, or its
-    #   stored-value spelling — both read the same declaration slot
+    #   stored-value spelling — both read the same declaration value
     # @return [nil]
     # @raise [ArgumentError] the label is not in the declaration
     # @example

@@ -47,7 +47,7 @@ module Sqlx
     end
 
     # The built-in timestamp columns: the default `datetime_columns` pair
-    # and the names `create!`/`update!` stamp on write. A table without them
+    # and the names `create!`/`update!` set on write. A table without them
     # stays legal — record building passes them by instead of raising.
     TIMESTAMP_COLUMNS = [ "created_at", "updated_at" ]
 
@@ -137,7 +137,7 @@ module Sqlx
     # declaration stubs still make a bare base call raise.
     #
     # @param row [Hash{String => Object}] one name-keyed row — the
-    #   `rows_by_sql` shape: the projected column names as keys, the
+    #   `rows_by_sql` format: the projected column names as keys, the
     #   adapter's native values (Integer, Float, String, nil for NULL)
     # @return [Object] the built record
     # @raise [NotImplementedError] the model declared no `only_columns`
