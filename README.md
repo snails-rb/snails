@@ -10,15 +10,15 @@
 [![ci](https://github.com/snails-rb/snails/actions/workflows/ci.yml/badge.svg)](https://github.com/snails-rb/snails/actions/workflows/ci.yml)
 [![release](https://img.shields.io/github/v/release/snails-rb/snails?display_name=release&label=version)](https://github.com/snails-rb/snails/releases/latest)
 
-Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions, drops the Ruby runtime, and compiles the app into one native binary. One process uses every core, with about 3× the throughput and more than 10× lower peak memory under load than Rails in cluster mode.
+Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions, drops the Ruby runtime, and compiles the app, the framework, and the HTTP server into one native binary. One process, multi-threaded, across all cores: no worker processes, no GVL. On the benchmark, Snails serves about 3× the requests per second of Rails in cluster mode, with more than 10× lower peak memory under load.
 
-The repo is split into the framework (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). An app copies `runtime/` into itself as `snails-core/` and pins the revision in `pins.toml`.
-
-The public API is stable.
+Snails is at 1.x, and the public API is stable. 2.0 and 3.0 will keep the same conventions.
 
 ## Why Snails
 
 Snails keeps the Rails conventions an API needs and removes the layers that add runtime overhead: the view layer, Active Record, and gem compatibility. The design trade is explained in [The Snails Design](https://snails-rb.org/blog/the-snails-design/); [Coming from Rails](manual/04-coming-from-rails.md) covers what carries over and what replaces the rest.
+
+The story behind this choice is in [Why I didn't rewrite my Rails app in Rust](https://snails-rb.org/blog/why-i-didnt-rewrite-my-rails-app-in-rust/). A Snails app uses about 20 MB RSS, with a 4.3 MB binary; the node uses 362 MB and has 589 MB available.
 
 ## Install
 
@@ -41,13 +41,20 @@ Keep the CLI at or above the framework version you pin. To upgrade an existing i
 
 ## Benchmark
 
-The comparison against Rails is maintained in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode, with peak memory more than 10× lower under load, and about 11.9× the throughput of a default Rails app. A separate single-row database read is about 3.1× faster than Rails, close to the microbenchmark ratio.
+The Rails comparison lives in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode. Peak memory is more than 10× lower under load, and throughput is about 11.9× that of a default Rails app. A separate single-row database read is about 3.1× faster than Rails, close to the microbenchmark ratio.
 
 Reproduce from that repository with `bin/bench`, `bin/bench-scenario`, `bin/boottime`, and `bin/imagesize`. The result tables are under [`results/`](https://github.com/snails-rb/snails-benchmark/tree/main/results).
 
-## Manual
+## Start here
 
 The manual is the product documentation for developers building an app. It lives in [`manual/`](manual/) and is published at [snails-rb.org](https://snails-rb.org/).
+
+- [Welcome to Snails](manual/01-welcome-to-snails.md)
+- [Getting Started](manual/02-getting-started.md)
+- [Coming from Rails](manual/04-coming-from-rails.md)
+- [Performance](manual/29-performance.md)
+
+## Manual
 
 **The Basics**
 
@@ -93,7 +100,9 @@ The manual is the product documentation for developers building an app. It lives
 - [FAQ](manual/28-faq.md)
 - [Performance](manual/29-performance.md)
 
-## Layout
+## Development
+
+Snails is split into the framework (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). An app copies `runtime/` into itself as `snails-core/` and pins the revision in its own `pins.toml`.
 
 ```
 runtime/        # app-agnostic framework code — copied into a consuming app as snails-core/
@@ -107,8 +116,6 @@ manual/         # product documentation (English)
 LICENSE         # MIT
 ```
 
-## Development
-
 The repository's own checks are shell scripts under `scripts/`. Run them from the repository root:
 
 ```sh
@@ -117,7 +124,7 @@ bash scripts/test-cli.sh
 bash scripts/test-migrate.sh
 ```
 
-`.github/workflows/ci.yml` is the pull-request gate: the Linux amd64 suite on sqlite. `platform-ci.yml` runs on main and adds PostgreSQL, macOS, arm64, and the app image. The scripts resolve and materialize the pinned spinel toolchain themselves; a global `spinel` install is not required.
+`.github/workflows/ci.yml` is the pull-request gate for code changes: the Linux amd64 suite on sqlite. `platform-ci.yml` runs on main and adds PostgreSQL, macOS, arm64, and the app image. The scripts resolve and materialize the pinned spinel toolchain themselves; a global `spinel` install is not required.
 
 ## Contributing
 
