@@ -768,6 +768,8 @@ chk "the install result is on stdout" $? 0
 # exact line that puts it there.
 grep -qF "add it for this shell: export PATH=\"$WORK/ibin:\$PATH\"" inst.out
 chk "the PATH note names the export command" $? 0
+grep -q "then create a project" inst.out
+chk "the next step follows the PATH note" $? 0
 [[ -f "$WORK/ihome/dist/$FAKE/REV" && "$(cat "$WORK/ihome/dist/$FAKE/REV")" == "$FAKE" ]]
 chk "the dist lands under SNAILS_HOME" $? 0
 [[ "$(readlink "$WORK/ibin/snails")" == "$WORK/ihome/dist/$FAKE/bin/snails" ]]
