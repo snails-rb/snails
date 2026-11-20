@@ -327,7 +327,10 @@ check_pending_migrations
 #    regenerates nothing.
 if ((SKIP_BUILD == 0)); then
   run_generators "$CLI" "$SPIN_ROOT" >&2
-  ( cd "$SPIN_ROOT" && spin build ) >&2
+  if ! ( cd "$SPIN_ROOT" && spin build ) >&2; then
+    echo "[snails] if a compiler or library is missing, 'snails doctor' names it — packages: https://snails-rb.org/manual/getting-started/#requirements" >&2
+    exit 1
+  fi
 fi
 
 BINS=("$SPIN_ROOT"/bin/*.rb)
