@@ -292,10 +292,7 @@ fi
 #    migration added since the last run. `spin build` writes build/bin/<name>
 #    (the single bin/*.rb target names the binary).
 run_generators "$CLI" "$SPIN_ROOT" >&2
-if ! ( cd "$SPIN_ROOT" && spin build ) >&2; then
-  echo "[snails] if a compiler or library is missing, 'snails doctor' names it — packages: https://snails-rb.org/manual/getting-started/#requirements" >&2
-  exit 1
-fi
+( cd "$SPIN_ROOT" && spin build ) >&2
 
 BINS=("$SPIN_ROOT"/bin/*.rb)
 [[ ${#BINS[@]} -eq 1 ]] || { echo "[snails] expected exactly one bin/*.rb target: ${BINS[*]:-none}" >&2; exit 1; }
