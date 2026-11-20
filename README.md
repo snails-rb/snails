@@ -12,7 +12,7 @@
 
 Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions, drops the Ruby runtime, and compiles the app, the framework, and the HTTP server into one native binary. One process, multi-threaded, across all cores: no worker processes, no GVL. On the benchmark, Snails serves about 3× the requests per second of Rails in cluster mode, with more than 10× lower peak memory under load.
 
-Snails is at 1.x, and the public API is stable. 2.0 and 3.0 will keep the same conventions.
+Snails is at 1.x, and the public API is stable. The conventions are the compatibility promise, and they won't change.
 
 ## Why Snails
 
