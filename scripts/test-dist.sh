@@ -764,6 +764,12 @@ chk "the download progress is on stderr" $? 0
 # contract gives it — that script owns the string, this checks it arrived.
 grep -q "\[snails\] dist $FAKE -> " inst.out
 chk "the install result is on stdout" $? 0
+# The test PATH does not carry SNAILS_BIN_DIR, so the note must name the
+# exact line that puts it there.
+grep -qF "add it for this shell: export PATH=\"$WORK/ibin:\$PATH\"" inst.out
+chk "the PATH note names the export command" $? 0
+grep -q "then create a project" inst.out
+chk "the next step follows the PATH note" $? 0
 [[ -f "$WORK/ihome/dist/$FAKE/REV" && "$(cat "$WORK/ihome/dist/$FAKE/REV")" == "$FAKE" ]]
 chk "the dist lands under SNAILS_HOME" $? 0
 [[ "$(readlink "$WORK/ibin/snails")" == "$WORK/ihome/dist/$FAKE/bin/snails" ]]
@@ -780,6 +786,52 @@ chk "the re-run is announced" $? 0
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" SNAILS_HOME="$WORK/ihome3" SNAILS_BIN_DIR="$WORK/ibin3" \
   bash "$INSTALL" --rev "$FAKE" >/dev/null 2>&1
 chk "install.sh --rev installs a named rev" $? 0
+
+# 9a. A transient release-download failure is retried. The fixture answers
+#     503 to the first two tarball requests, then serves it, so a single-shot
+#     installer would fail here.
+FLAKY_PORT="${FLAKY_PORT:-8395}"
+(cd serve && exec python3 "$ROOT/scripts/fixtures/flaky-server.py" "$FLAKY_PORT" 2 "snails-dist-$FAKE.tar.gz" >/dev/null 2>&1) &
+FLAKY_PID=$!
+for _ in {1..25}; do
+  curl -fsS -o /dev/null "http://127.0.0.1:$FLAKY_PORT/__ready" 2>/dev/null && break
+  sleep 0.2
+done
+curl -fsS -o /dev/null "http://127.0.0.1:$FLAKY_PORT/__ready"
+chk "the flaky dist server is ready" $? 0
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$FLAKY_PORT" SNAILS_HOME="$WORK/ihome-flaky" SNAILS_BIN_DIR="$WORK/ibin-flaky" \
+  bash "$INSTALL" --rev "$FAKE" > inst-flaky.out 2> inst-flaky.err
+chk "install.sh retries a transient download" $? 0
+[[ -f "$WORK/ihome-flaky/dist/$FAKE/REV" ]]
+chk "the retried dist lands under SNAILS_HOME" $? 0
+kill "$FLAKY_PID" 2>/dev/null || true
+
+# 9b. The CLI's own fetch retries too. `snails new` downloads the pinned
+#     toolchain and `sync` downloads a pin through cli/download.sh, so a
+#     transient failure must not stop the first project. The cache for this
+#     rev is cleared first, or the sync would answer from it.
+FLAKY_SYNC_PORT="${FLAKY_SYNC_PORT:-8396}"
+(cd serve && exec python3 "$ROOT/scripts/fixtures/flaky-server.py" "$FLAKY_SYNC_PORT" 2 "snails-dist-$FAKE.tar.gz" >/dev/null 2>&1) &
+FLAKY_SYNC_PID=$!
+for _ in {1..25}; do
+  curl -fsS -o /dev/null "http://127.0.0.1:$FLAKY_SYNC_PORT/__ready" 2>/dev/null && break
+  sleep 0.2
+done
+curl -fsS -o /dev/null "http://127.0.0.1:$FLAKY_SYNC_PORT/__ready"
+chk "the flaky sync server is ready" $? 0
+cat > flaky-pins.toml <<CONF
+SPINEL_REV="1d26ef6"
+SNALS_REV="$FAKE"
+CONF
+mk_contract_app flakyapp
+rm -rf "$XDG_CACHE_HOME/snails/dist/$FAKE"
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$FLAKY_SYNC_PORT" \
+  dist/bin/snails sync flakyapp --pins flaky-pins.toml > flaky-sync.out 2> flaky-sync.err
+chk "dist-mode sync retries a transient download" $? 0
+grep -q "flakyapp synced (core ${FAKE:0:7}" flaky-sync.out
+chk "the retried sync is announced" $? 0
+kill "$FLAKY_SYNC_PID" 2>/dev/null || true
+
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" SNAILS_HOME="$WORK/ihome-bad" SNAILS_BIN_DIR="$WORK/ibin-bad" \
   bash "$INSTALL" --rev "$BAD" > inst-bad.out 2>&1
 chk "install.sh refuses a checksum mismatch" $? 1
