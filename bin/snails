@@ -201,6 +201,12 @@ source "$SNAILS_ROOT/cli/pins.sh"
 # shellcheck source=cli/download.sh
 source "$SNAILS_ROOT/cli/download.sh"
 
+# The build engines export Homebrew's keg-only library paths before they
+# compile. Doctor's build probes use the same paths, so a brew-only OpenSSL
+# is not reported missing.
+# shellcheck source=cli/native-libs.sh
+source "$SNAILS_ROOT/cli/native-libs.sh"
+
 # Temp trees (pinned core copies, --check staging) removed on exit.
 TMPDIRS=()
 cleanup() {
@@ -711,9 +717,34 @@ cmd_pins() {
   esac
 }
 
+# doctor_probe_library <label> <header> <package> <library> <hint> — compile
+# and link a one-line program against one library. pkg-config supplies the
+# same flags the build engines use; without a .pc file, the plain -l<library>
+# is the fallback and the default search paths decide. Prints the result line
+# and returns the status so the caller can count it.
+doctor_probe_library() {
+  local label="$1" header="$2" package="$3" library="$4" hint="$5"
+  local cc="${CC:-cc}" cflags="" libs=""
+  local -a flags=()
+  if command -v pkg-config >/dev/null 2>&1; then
+    cflags="$(pkg-config --cflags "$package" 2>/dev/null || true)"
+    libs="$(pkg-config --libs "$package" 2>/dev/null || true)"
+  fi
+  [[ -n $libs ]] || libs="-l$library"
+  # shellcheck disable=SC2206 # pkg-config output is a flag list on purpose
+  flags=($cflags $libs)
+  if printf '#include <%s>\nint main(void) { return 0; }\n' "$header" \
+      | "$cc" -x c - "${flags[@]}" -o /dev/null >/dev/null 2>&1; then
+    printf '  ok    %s\n' "$label"
+    return 0
+  fi
+  printf '  fail  %s not found — %s\n' "$label" "$hint"
+  return 1
+}
+
 # doctor — read-only checks that answer "why is this app not building?"
 cmd_doctor() {
-  local app_root="" verbose=0 out="" adapter="" pins="" ok=0 warn=0 failed=0
+  local app_root="" verbose=0 out="" adapter="" pins="" ok=0 warn=0 failed=0 build_hint=0
   local app_name="" snals_source="" env="" db_target="" db_dir=""
   while (($#)); do
     case "$1" in
@@ -899,6 +930,76 @@ cmd_doctor() {
         warn=$((warn + 1))
       fi
     fi
+  fi
+
+  # The first bin/dev or bin/test compiles the app. Name a missing build
+  # package here, where the answer is one line, instead of leaving the
+  # linker's first error as the answer.
+  export_native_library_paths
+  local cc="${CC:-cc}" cc_works=0
+  # A compiler command can exist and still be unusable (macOS leaves a stub
+  # until the Command Line Tools are installed), so compile a program.
+  if printf 'int main(void) { return 0; }\n' | "$cc" -x c - -o /dev/null >/dev/null 2>&1; then
+    cc_works=1
+    printf '  ok    C compiler (%s)\n' "$cc"
+    ok=$((ok + 1))
+  else
+    printf '  fail  C compiler (%s) is not usable — install build-essential (Debian/Ubuntu) or Xcode Command Line Tools (macOS)\n' "$cc"
+    failed=$((failed + 1))
+    build_hint=1
+  fi
+  local os_name
+  os_name="$(uname -s)"
+  if command -v pkg-config >/dev/null 2>&1; then
+    printf '  ok    pkg-config\n'
+    ok=$((ok + 1))
+  elif [[ $os_name == Darwin ]]; then
+    printf '  fail  pkg-config not found — install it with: brew install pkg-config\n'
+    failed=$((failed + 1))
+    build_hint=1
+  else
+    # The documented Linux packages put headers and libraries on the default
+    # paths; pkg-config is only needed for Homebrew kegs or a source build.
+    printf '  warn  pkg-config not found — only needed for a source toolchain build\n'
+    warn=$((warn + 1))
+  fi
+  if ((cc_works)); then
+    if doctor_probe_library "OpenSSL" "openssl/ssl.h" "openssl" "ssl" \
+        "install libssl-dev (Debian/Ubuntu) or brew install openssl (macOS)"; then
+      ok=$((ok + 1))
+    else
+      failed=$((failed + 1))
+      build_hint=1
+    fi
+    if [[ $adapter == pg ]]; then
+      if doctor_probe_library "libpq" "libpq-fe.h" "libpq" "pq" \
+          "install libpq-dev (Debian/Ubuntu) or brew install libpq (macOS)"; then
+        ok=$((ok + 1))
+      else
+        failed=$((failed + 1))
+        build_hint=1
+      fi
+    else
+      if doctor_probe_library "SQLite" "sqlite3.h" "sqlite3" "sqlite3" \
+          "install libsqlite3-dev (Debian/Ubuntu); macOS ships it with the SDK"; then
+        ok=$((ok + 1))
+      else
+        failed=$((failed + 1))
+        build_hint=1
+      fi
+    fi
+    if doctor_probe_library "jemalloc" "jemalloc/jemalloc.h" "jemalloc" "jemalloc" \
+        "install libjemalloc-dev (Debian/Ubuntu) or brew install jemalloc (macOS)"; then
+      ok=$((ok + 1))
+    else
+      failed=$((failed + 1))
+      build_hint=1
+    fi
+  else
+    printf '  skip  C libraries (no C compiler)\n'
+  fi
+  if ((build_hint)); then
+    printf '  hint  install the packages above, then rerun — https://snails-rb.org/manual/getting-started/#requirements\n'
   fi
 
   printf '[snails] %d ok, %d warning, %d failed\n' "$ok" "$warn" "$failed"

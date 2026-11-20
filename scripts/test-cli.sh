@@ -241,6 +241,15 @@ chk "doctor fails production without a key" $? 1
 grep -q 'SECRET_KEY_BASE is not set' doctor-prod.out
 chk "doctor names the missing production secret" $? 0
 
+# The first bin/dev or bin/test compiles, so a missing compiler must be a
+# doctor finding with the package that provides it.
+CC=no-such-cc bash "$CLI" doctor app > doctor-cc.out 2>&1
+chk "doctor fails without a C compiler" $? 1
+grep -q 'C compiler (no-such-cc) is not usable' doctor-cc.out
+chk "doctor names the missing compiler" $? 0
+grep -q 'getting-started/#requirements' doctor-cc.out
+chk "doctor links the build requirements" $? 0
+
 # 2b. app-root resolution: every app-root command accepts its omission and
 # resolves the same way — nearest database configuration at or above $PWD. A
 # move off $PWD is announced; a $PWD outside every app refuses with the fix.
