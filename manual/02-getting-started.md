@@ -14,6 +14,8 @@ The installer puts `snails` on your `PATH` and keeps the release under `~/.local
 mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_prefix=v]'
 ```
 
+The installer links `snails` into `~/.local/bin`. If that directory is not on `PATH`, it prints the `export PATH` line to run.
+
 A project calls the CLI through its own `bin/` scripts most days. Run `snails` with no arguments to see every command it offers.
 
 ## Create a project
