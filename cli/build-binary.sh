@@ -62,10 +62,7 @@ APP_NAME="$(pins_get "$pins_file" APP_NAME "[snails]")" || exit 1
 "$SNAILS_CLI" sync "$APP_ROOT" >/dev/null
 run_generators "$SNAILS_CLI" "$APP_ROOT"
 
-if ! (cd "$APP_ROOT" && "$SNAILS_CLI" exec spin build); then
-  echo "[snails] if a compiler or library is missing, 'snails doctor' names it — packages: https://snails-rb.org/manual/getting-started/#requirements" >&2
-  exit 1
-fi
+(cd "$APP_ROOT" && "$SNAILS_CLI" exec spin build)
 [[ -x "$APP_ROOT/build/bin/$APP_NAME" ]] || {
   echo "[snails] spin build did not produce build/bin/$APP_NAME" >&2
   exit 1
