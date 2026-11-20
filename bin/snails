@@ -936,12 +936,15 @@ cmd_doctor() {
   # package here, where the answer is one line, instead of leaving the
   # linker's first error as the answer.
   export_native_library_paths
-  local cc="${CC:-cc}"
-  if command -v "$cc" >/dev/null 2>&1; then
+  local cc="${CC:-cc}" cc_works=0
+  # A compiler command can exist and still be unusable (macOS leaves a stub
+  # until the Command Line Tools are installed), so compile a program.
+  if printf 'int main(void) { return 0; }\n' | "$cc" -x c - -o /dev/null >/dev/null 2>&1; then
+    cc_works=1
     printf '  ok    C compiler (%s)\n' "$cc"
     ok=$((ok + 1))
   else
-    printf '  fail  C compiler (%s) not found — install build-essential (Debian/Ubuntu) or Xcode Command Line Tools (macOS)\n' "$cc"
+    printf '  fail  C compiler (%s) is not usable — install build-essential (Debian/Ubuntu) or Xcode Command Line Tools (macOS)\n' "$cc"
     failed=$((failed + 1))
     build_hint=1
   fi
@@ -953,7 +956,7 @@ cmd_doctor() {
     failed=$((failed + 1))
     build_hint=1
   fi
-  if command -v "$cc" >/dev/null 2>&1; then
+  if ((cc_works)); then
     if doctor_probe_library "OpenSSL" "openssl/ssl.h" "openssl" "ssl" \
         "install libssl-dev (Debian/Ubuntu) or brew install openssl (macOS)"; then
       ok=$((ok + 1))

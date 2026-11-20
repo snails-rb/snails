@@ -245,7 +245,7 @@ chk "doctor names the missing production secret" $? 0
 # doctor finding with the package that provides it.
 CC=no-such-cc bash "$CLI" doctor app > doctor-cc.out 2>&1
 chk "doctor fails without a C compiler" $? 1
-grep -q 'C compiler (no-such-cc) not found' doctor-cc.out
+grep -q 'C compiler (no-such-cc) is not usable' doctor-cc.out
 chk "doctor names the missing compiler" $? 0
 grep -q 'getting-started/#requirements' doctor-cc.out
 chk "doctor links the build requirements" $? 0
