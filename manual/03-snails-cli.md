@@ -109,7 +109,7 @@ The line also prints the pinned compiler revision and framework version. `snails
 [snails] 18 ok, 0 warning, 0 failed
 ```
 
-The CLI line also prints the installed version and revision. The last five lines are the build prerequisites: the first `bin/dev` or `bin/test` compiles the app, so a missing compiler or library is a failure here, and the line names the package that provides it. A skipped check is not a failure; `SECRET_KEY_BASE` is required only when the app signs values. A warning names the command that repairs the state. Exit code 1 means at least one check failed.
+The CLI line also prints the installed version and revision. The last five lines are the build prerequisites: the first `bin/dev` or `bin/test` compiles the app, so a missing compiler or library is a failure here, and the line names the package that provides it. `pkg-config` is required on macOS; on Linux it is a warning, because the documented packages are on the default search paths. A skipped check is not a failure; `SECRET_KEY_BASE` is required only when the app signs values. A warning names the command that repairs the state. Exit code 1 means at least one check failed.
 
 ## Build and deploy
 

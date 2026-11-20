@@ -948,13 +948,20 @@ cmd_doctor() {
     failed=$((failed + 1))
     build_hint=1
   fi
+  local os_name
+  os_name="$(uname -s)"
   if command -v pkg-config >/dev/null 2>&1; then
     printf '  ok    pkg-config\n'
     ok=$((ok + 1))
-  else
-    printf '  fail  pkg-config not found — install pkg-config (Debian/Ubuntu) or brew install pkg-config (macOS)\n'
+  elif [[ $os_name == Darwin ]]; then
+    printf '  fail  pkg-config not found — install it with: brew install pkg-config\n'
     failed=$((failed + 1))
     build_hint=1
+  else
+    # The documented Linux packages put headers and libraries on the default
+    # paths; pkg-config is only needed for Homebrew kegs or a source build.
+    printf '  warn  pkg-config not found — not needed for the documented Linux packages; install it for a source toolchain build\n'
+    warn=$((warn + 1))
   fi
   if ((cc_works)); then
     if doctor_probe_library "OpenSSL" "openssl/ssl.h" "openssl" "ssl" \
