@@ -195,10 +195,18 @@ grep -q 'release title: snails v9.9.9' ver-dry.out
 chk "the release title is the version" $? 0
 grep -q 'channel: stable' ver-dry.out
 chk "a stable version is announced as the stable channel" $? 0
-grep -q 'Pin: `SNALS_REV="v9.9.9"`' ver-out/release-notes.md
-chk "the notes open with the pin to record" $? 0
-grep -q 'Install the latest release' ver-out/release-notes.md
-chk "a stable release installs without naming a rev" $? 0
+grep -q '## Upgrade' ver-out/release-notes.md
+chk "the notes open with the app upgrade steps" $? 0
+grep -Fq "Set \`SNALS_REV\` in your app's \`pins.toml\`:" ver-out/release-notes.md
+chk "the upgrade section names the file and the line to change" $? 0
+grep -Fq 'SNALS_REV="v9.9.9"' ver-out/release-notes.md
+chk "the upgrade section shows the pin value" $? 0
+grep -Fq 'snails sync' ver-out/release-notes.md
+chk "the upgrade section names the pick-up command" $? 0
+grep -q 'snails pins check' ver-out/release-notes.md
+chk "the upgrade section points at the compiler pin check" $? 0
+grep -q 'install or update the CLI' ver-out/release-notes.md
+chk "a stable release installs or updates the CLI without naming a version" $? 0
 
 bash "$PUB" HEAD --version v9.9.9-rc.1 --dry-run --out ver-rc-out > ver-rc.out 2>&1
 chk "--version dry-run builds a prerelease" $? 0
@@ -206,6 +214,8 @@ grep -q 'channel: prerelease' ver-rc.out
 chk "a prerelease is announced as its own channel" $? 0
 grep -q -- "install.sh | bash -s -- --version v9.9.9-rc.1" ver-rc-out/release-notes.md
 chk "a prerelease installs by version" $? 0
+grep -Fq 'SNALS_REV="v9.9.9-rc.1"' ver-rc-out/release-notes.md
+chk "a prerelease shows its pin value" $? 0
 
 bash "$PUB" HEAD --dry-run --out unv-out > unv.out 2>&1
 chk "a dry run without --version builds the assets" $? 0
@@ -215,6 +225,8 @@ grep -q 'channel: unversioned' unv.out
 chk "an unversioned release is announced as its own channel" $? 0
 grep -q 'does not take Latest' unv-out/release-notes.md
 chk "the unversioned body says it does not take Latest" $? 0
+grep -Fq "SNALS_REV=\"$REV\"" unv-out/release-notes.md
+chk "an unversioned release pins the full rev" $? 0
 grep -q '## Changes' unv-out/release-notes.md
 chk "the generated body carries a change list" $? 0
 

@@ -23,10 +23,11 @@
 # consumer pin that names it.
 #
 # A release reads version-first: the title is the version (or the rev for
-# an edge release), and the body opens with the pin and the install
-# command, followed by the change list since the previous version, and
-# closes with GitHub's Full Changelog compare link (`--notes-file` replaces
-# the generated body with hand-written notes).
+# an edge release), and the body opens with the app upgrade steps (the
+# pins.toml line to set, then `snails sync`) and the CLI install command,
+# followed by the change list since the previous version, and closes with
+# GitHub's Full Changelog compare link (`--notes-file` replaces the
+# generated body with hand-written notes).
 #
 # Channel flags make "the recommended install" a property of the release
 # instead of the newest one. A stable version takes Latest; a prerelease
@@ -388,13 +389,17 @@ if [[ -n $notes_file ]]; then
   cp "$notes_file" "$notes_out"
 else
   {
-    printf 'Pin: `SNALS_REV="%s"`\n\n' "$consumer_pin"
+    printf '## Upgrade\n\n'
+    printf 'Set `SNALS_REV` in your app'"'"'s `pins.toml`:\n\n```toml\nSNALS_REV="%s"\n```\n\n' "$consumer_pin"
+    printf 'Then run:\n\n```sh\nsnails sync\n```\n\n'
+    printf '`snails pins check` reports a compiler pin mismatch and names the `SPINEL_REV` to set.\n'
+    printf '\n## Install the CLI\n\n'
     if [[ $channel == stable ]]; then
-      printf 'Install the latest release:\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash\n```\n'
+      printf 'This release is Latest, so install or update the CLI with:\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash\n```\n'
     elif [[ -n $version ]]; then
-      printf 'Install this prerelease by its version (it does not take Latest):\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash -s -- --version %s\n```\n' "$version"
+      printf 'This prerelease does not take Latest, so install the CLI by version:\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash -s -- --version %s\n```\n' "$version"
     else
-      printf 'Install this unversioned release by its rev (it does not take Latest):\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash -s -- --rev %s\n```\n' "$rev_full"
+      printf 'This edge release does not take Latest, so install the CLI by revision:\n\n```sh\ncurl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash -s -- --rev %s\n```\n' "$rev_full"
     fi
     prev="$(previous_version_tag "$rev_full" "$version" "$skip_same_base")"
     printf '\n## Changes\n\n'
