@@ -18,7 +18,7 @@ Snails is at 1.x, and the public API is stable. The conventions are the compatib
 
 Snails keeps the Rails conventions an API needs and removes the layers that add runtime overhead: the view layer, Active Record, and gem compatibility. The design trade is explained in [The Snails Design](https://snails-rb.org/blog/the-snails-design/); [Coming from Rails](manual/04-coming-from-rails.md) covers what carries over and what replaces the rest.
 
-The story behind this choice is in [Why I didn't rewrite my Rails app in Rust](https://snails-rb.org/blog/why-i-didnt-rewrite-my-rails-app-in-rust/). A Snails app uses about 20 MB RSS, with a 4.3 MB binary; the node uses 362 MB and has 589 MB available.
+The story behind this choice is in [Why I didn't rewrite my Rails app in Rust](https://snails-rb.org/blog/why-i-didnt-rewrite-my-rails-app-in-rust/). A migrated production app runs at about 20 MB RSS from a 4.3 MB binary; the same node uses 362 MB, leaving 589 MB available.
 
 ## Install
 
@@ -37,7 +37,9 @@ snails new demo
 
 Keep the CLI at or above the framework version you pin. To upgrade an existing install, run the install command again; it replaces the linked CLI.
 
-`snails new` downloads the pinned compiler for Linux amd64/arm64 or macOS Apple Silicon/Intel. `bin/dev` and `bin/test` compile the app, so install the packages under [Requirements](manual/02-getting-started.md#requirements) before the first run. [Getting Started](manual/02-getting-started.md) has the full flow.
+The installer links `snails` into `~/.local/bin`. If it warns that the directory is not on `PATH`, open a new terminal or run the `export PATH` line it prints.
+
+`snails new` downloads the pinned compiler for Linux amd64/arm64 or macOS Apple Silicon/Intel. `bin/dev` and `bin/test` compile the app, so install the packages under [Requirements](manual/02-getting-started.md#requirements) before the first run; the first build takes about two minutes, and later runs reuse it. [Getting Started](manual/02-getting-started.md) has the full flow.
 
 ## Benchmark
 
