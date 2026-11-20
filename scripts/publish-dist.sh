@@ -24,8 +24,9 @@
 #
 # A release reads version-first: the title is the version (or the rev for
 # an edge release), and the body opens with the pin and the install
-# command, followed by the change list since the previous version
-# (`--notes-file` replaces the generated body with hand-written notes).
+# command, followed by the change list since the previous version, and
+# closes with GitHub's Full Changelog compare link (`--notes-file` replaces
+# the generated body with hand-written notes).
 #
 # Channel flags make "the recommended install" a property of the release
 # instead of the newest one. A stable version takes Latest; a prerelease
@@ -401,11 +402,11 @@ else
       prev_rev="$(git -C "$ROOT" rev-parse --verify "${prev}^{commit}")"
       printf 'Since `%s` (`%s`):\n\n' "$prev" "${prev_rev:0:12}"
       git -C "$ROOT" log --no-merges --format='- %s' "$prev..$rev_full"
+      printf '\n**Full Changelog**: [%s...%s](https://github.com/%s/compare/%s...%s)\n' \
+        "$prev" "$tag" "$dist_repo" "$prev" "$tag"
     else
-      printf 'No version tag is reachable — run `git fetch --tags` to anchor this list. Until then the list covers the whole history.\n\n'
       git -C "$ROOT" log --no-merges --format='- %s' "$rev_full"
     fi
-    printf '\nReleases are immutable: a pin name gets one asset set, never a replaced one. `pins.toml` is the pin'"'"'s spinel declaration; the dist ships only inside the release tarball.\n'
   } > "$notes_out"
 fi
 echo "[publish-dist] built $notes_out"

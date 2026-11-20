@@ -269,6 +269,10 @@ grep -q 'Since `v0.1.0`' tags-stable/release-notes.md
 chk "a stable body starts at the previous version" $? 0
 grep -q "Since \`v0.1.0\` (\`$v010_rev\`)" tags-stable/release-notes.md
 chk "the Since line names the anchor's commit" $? 0
+grep -Fq '**Full Changelog**: [v0.1.0...v0.2.0](https://github.com/snails-rb/snails/compare/v0.1.0...v0.2.0)' tags-stable/release-notes.md
+chk "a stable body closes with the GitHub compare link" $? 0
+! grep -q 'Releases are immutable' tags-stable/release-notes.md
+chk "the body carries no internal release policy" $? 0
 bash tagsrepo/scripts/publish-dist.sh "$rc1_rev" --version v0.2.0-rc.1 --dry-run --out tags-rc-first > tags-rc-first.out 2>&1
 chk "a candidate body builds from its rev" $? 0
 grep -q 'Since `v0.1.0`' tags-rc-first/release-notes.md
@@ -277,6 +281,8 @@ bash tagsrepo/scripts/publish-dist.sh HEAD --version v0.2.0-rc.3 --dry-run --out
 chk "a prerelease body builds in a tagged repo" $? 0
 grep -q 'Since `v0.2.0-rc.2`' tags-rc/release-notes.md
 chk "a prerelease body starts at the previous candidate" $? 0
+grep -Fq '**Full Changelog**: [v0.2.0-rc.2...v0.2.0-rc.3](https://github.com/snails-rb/snails/compare/v0.2.0-rc.2...v0.2.0-rc.3)' tags-rc/release-notes.md
+chk "a prerelease body closes with the compare link between candidates" $? 0
 
 # 3e. a stable release older than a published one is refused: it would take
 #     Latest and move the recommended install backwards. Edge releases stay
@@ -293,6 +299,9 @@ bash tagsrepo/scripts/publish-dist.sh HEAD --dry-run --out tags-unv > tags-unv.o
 chk "an unversioned publish of the same rev is allowed" $? 0
 grep -q 'channel: unversioned' tags-unv.out
 chk "the allowed publish is announced as unversioned" $? 0
+tags_rev="$(git -C tagsrepo rev-parse HEAD)"
+grep -Fq "**Full Changelog**: [v0.2.0...rev-$tags_rev](https://github.com/snails-rb/snails/compare/v0.2.0...rev-$tags_rev)" tags-unv/release-notes.md
+chk "an unversioned body closes with the compare link to its rev tag" $? 0
 
 # 3c. version tags are immutable: neither a local tag nor one already
 #     on origin may be reused. A synthetic checkout with an origin (a
