@@ -960,7 +960,7 @@ cmd_doctor() {
   else
     # The documented Linux packages put headers and libraries on the default
     # paths; pkg-config is only needed for Homebrew kegs or a source build.
-    printf '  warn  pkg-config not found — not needed for the documented Linux packages; install it for a source toolchain build\n'
+    printf '  warn  pkg-config not found — only needed for a source toolchain build\n'
     warn=$((warn + 1))
   fi
   if ((cc_works)); then
