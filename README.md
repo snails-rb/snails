@@ -25,7 +25,6 @@ The story behind this choice is in [Why I didn't rewrite my Rails app in Rust](h
 ```sh
 curl -fsSL https://raw.githubusercontent.com/snails-rb/snails/main/install.sh | bash
 snails new demo
-demo/bin/test
 ```
 
 Or let mise manage the CLI:
@@ -39,7 +38,14 @@ Keep the CLI at or above the framework version you pin. To upgrade an existing i
 
 The installer links `snails` into `~/.local/bin` and does not edit your shell profile. If it warns that the directory is not on `PATH`, run the `export PATH` line it prints.
 
-`snails new` downloads the pinned compiler for Linux amd64/arm64 or macOS Apple Silicon/Intel. `bin/dev` and `bin/test` compile the app, so install the packages under [Requirements](manual/02-getting-started.md#requirements) before the first run; the first build takes about two minutes, and later runs reuse it. [Getting Started](manual/02-getting-started.md) has the full flow.
+`snails new` downloads the pinned compiler for Linux amd64/arm64 or macOS Apple Silicon/Intel. `bin/dev` and `bin/test` compile the app, so install the packages under [Requirements](manual/02-getting-started.md#requirements) before the first build. Then run the project's tests:
+
+```sh
+cd demo
+bin/test
+```
+
+The first build takes about two minutes; later runs reuse it. [Getting Started](manual/02-getting-started.md) has the full flow.
 
 ## Benchmark
 
