@@ -24,6 +24,10 @@ module ActionController
   # before_action filter chain live here; subclasses define their actions and
   # filter registrations.
   class API
+    # Request attributes. `request_format` is the response format the matched
+    # route forces (`:json` when it names none), assigned by the dispatcher
+    # before the action. The dispatcher does not assign `request_method` or
+    # `request_path`; read `request.request_method` and `request.path` instead.
     attr_accessor :request_method, :request_path, :request_format
 
     # the request params an action reads (`params["id"]`). The value lives in
@@ -44,6 +48,11 @@ module ActionController
       @_params
     end
 
+    # Sets the request params. The dispatcher assigns them before the action;
+    # an action reads them through `params`.
+    #
+    # @param value [Hash{String => untyped}] the request params
+    # @return [Hash{String => untyped}] the assigned params
     def params=(value)
       @_params = value
     end
@@ -57,9 +66,9 @@ module ActionController
     # @param value [Symbol?] the action conditional filters check
     #   against
     attr_accessor :action_name
-    # true when the request's Accept is a bare `*/*`, an XMLHttpRequest or fetch
-    # that named none, which reads as "any format". The dispatcher sets it;
-    # false keeps every other request on the html path.
+    # the "any format" flag: true when the request's Accept is a bare `*/*` —
+    # an XMLHttpRequest or fetch that named none. The dispatcher does not set
+    # it today, so it stays false unless the app assigns it.
     #
     # @return [Boolean] true when the request accepted any format
     attr_accessor :accepts_any_format
@@ -69,6 +78,9 @@ module ActionController
     #
     # @return [Hash{String => String}] the matched route's segments
     attr_accessor :path_parameters
+    # the response state the dispatcher copies back after the action: HTTP
+    # status, body text, Location header value (nil when none), and content
+    # type.
     attr_reader   :status, :body, :location, :content_type
     # Cache-Control as two typed readers rather than one mixed Hash: an
     # Integer and a boolean in one container leaves every subscript with a
@@ -300,11 +312,10 @@ module ActionController
     end
 
     # the hash where an action adds a response header
-    # (`response.headers["Expires"] = ...`). The controller is its own buffered
-    # response, so `response` returns self and `headers` returns the
-    # extra-header hash.
-    # Those headers are buffered but not sent yet; they tune caching, not
-    # content.
+    # (`response.headers["Expires"] = ...`). The controller holds its own
+    # response state, so `response` returns self and `headers` returns the
+    # extra-header hash. The dispatcher copies those headers onto the response
+    # after the action.
     #
     # @return [API] the controller itself
     def response
@@ -313,25 +324,13 @@ module ActionController
 
     # ---- conditional GET: always stale ------------------------------
     #
-    # `fresh_when` / `stale?` answer "stale, render it". Neither side of the
-    # 304 comparison exists here: this controller has no request object (only
-    # `@request_format`), so there is nothing to read `If-None-Match` /
-    # `If-Modified-Since` from, and the extra-header hash above is buffered
-    # but never sent, so there is nothing to write validators to. Always
-    # rendering is semantically correct for every request — it just never
-    # earns the 304, so the cost is bandwidth, not behavior.
-    #
-    # One form per method (`fresh_when(subject)`, `stale?(etag:)`), each
-    # added when a call site asks, rather than one method with a union
-    # parameter the compiler cannot narrow.
+    # `fresh_when` / `stale?` answer "stale, render it". This runtime implements
+    # neither side of the 304 comparison: it does not read `If-None-Match` /
+    # `If-Modified-Since` and does not write validators. Always rendering is
+    # correct for every request; it only gives up the bandwidth a 304 saves.
 
     # the conditional-GET hook: it takes the subject a caller would send
-    # validators for and stores nothing, because this runtime never answers a
-    # 304 and always renders.
-    #
-    # The body is empty, not a bare `nil`: a `nil`-only body gives the
-    # compiler an optional type with nothing to infer its parameter from,
-    # where an empty body is a plain `void`.
+    # validators for and stores nothing, because this runtime always renders.
     #
     # @param subject [Object] the record the validators describe — named
     #   `subject` rather than `record` because a lowering passes the
@@ -350,33 +349,32 @@ module ActionController
       true
     end
 
-    # the Cache-Control writer: it stores the two facts and writes no header
-    # (see `headers`).
-    #
-    # Seconds, not a Duration: the lowering unwraps `1.year` at the call
-    # site, so the signature stays Integer. `stale_while_revalidate: 0`
-    # means "not stated", which keeps it Integer rather than nullable; the
-    # value itself is not stored.
+    # the Cache-Control writer: stores the max-age and the public flag. This
+    # runtime writes no Cache-Control header from them — send one through
+    # `headers` when the response needs it.
     #
     # @param seconds [Integer] the max-age to store, in seconds
     # @param public [Boolean] store the response as publicly cacheable
-    # @param stale_while_revalidate [Integer] seconds, or 0 for "not stated"
+    # @param stale_while_revalidate [Integer] seconds, or 0 for "not stated";
+    #   accepted and not stored
     # @return [void]
     def expires_in(seconds, public: false, stale_while_revalidate: 0)
       @cache_control_max_age = seconds
       @cache_control_public = public
     end
 
+    # the response headers an action adds. The dispatcher copies them onto the
+    # response after the action; a nil value is skipped.
+    #
+    # @return [Hash{String => String}] the extra headers
     def headers
       @headers
     end
 
     # a binary response body, buffered like `render`. `disposition` is accepted
-    # but not written out: the Content-Disposition header stays buffered like
-    # the ones in `headers` until the response ships.
+    # and not written: this runtime sets no Content-Disposition header.
     #
-    # @param disposition [String] accepted for the Content-Disposition
-    #   header, which is not written yet
+    # @param disposition [String] accepted for the call shape; not written
     # @return [void]
     def send_data(data, type: "application/octet-stream", disposition: "attachment")
       @body = data
