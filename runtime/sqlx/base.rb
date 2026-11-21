@@ -8,11 +8,10 @@ module Sqlx
 
     include Row
 
-    # the table this model reads from: one of the two declarations the core
-    # `find_by` assembles its SELECT from. A subclass declares it as a literal
-    # one-liner (spinel has no metaprogramming for accessors); the base raises
-    # so a model that forgot the declaration fails at the call instead of
-    # splicing nil into the SQL.
+    # the table this model reads from: one of the two declarations `find_by`
+    # assembles its SELECT from. A subclass declares it as a literal one-liner;
+    # the base raises, so a model that forgot the declaration fails at the call
+    # instead of splicing nil into the SQL.
     #
     # @return [String] the table name — code, not input, and not
     #   validated: an unknown table surfaces as a SQL error
@@ -27,11 +26,12 @@ module Sqlx
 
     # the columns this model reads: the projection half of the `find_by`
     # declaration pair, declared as a column-name array. It is a required
-    # declaration, not an optional filter — core assembles it into the SELECT
-    # list (every identifier quoted, so a reserved-word column like `order` is
-    # safe), and record building reads the projected names out of the row, so the
-    # list's order binds no read. The base raises so a model that forgot the
-    # declaration fails at the call instead of splicing nil into the SQL.
+    # declaration, not an optional filter — the inherited reads assemble it
+    # into the SELECT list (every identifier quoted, so a reserved-word column
+    # like `order` is safe), and record building reads the projected names out
+    # of the row, so the list's order binds no read. The base raises, so a
+    # model that forgot the declaration fails at the call instead of splicing
+    # nil into the SQL.
     #
     # @return [Array[Symbol, String]] the projected column names —
     #   code, not input, and not validated: an unknown column
@@ -197,23 +197,20 @@ module Sqlx
       new(**attrs)
     end
 
-    # every row of the model's table, in no implied order. Declared but not
-    # implemented, by decision: core owns the signature and the contract, not
-    # the SQL. Two call sites need it (a model's own `all` and one full-table
-    # read), and a public API is easier to add than to remove, so each model
-    # implements it over its own projection as in the example below.
+    # returns every row of the model's table, in no implied order. Declared but
+    # not implemented: the base raises, and each model implements it over its
+    # own projection, as in the example below.
     #
-    # @return [Array] every row of the table — an empty array when
-    #   the table has no rows (never nil); which row comes first
-    #   is implementation-defined, so a caller that needs order
-    #   writes its own SQL through `find_by_sql`
+    # @return [Array] every row of the table — an empty array when the table
+    #   has no rows (never nil); which row comes first is
+    #   implementation-defined, so a caller that needs order writes its own SQL
+    #   through `find_by_sql`
     # @raise [NotImplementedError] always, on the base (declaration only)
     # @example call
     #   Model.all
-    # @example standard implementation form — the walk lives in
-    #   the model so the element type matches the declared return type,
-    #   and the projection is the model's own; a single-call body
-    #   is one line when the line fits
+    # @example standard implementation form — the read lives in the model so
+    #   the element type matches the declared return type, and the projection
+    #   is the model's own
     #   def self.all = find_by_sql("SELECT " + SELECT_COLUMNS + " FROM samples")
     def self.all
       raise NotImplementedError, "all: subclasses must override"
