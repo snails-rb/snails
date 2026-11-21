@@ -24,11 +24,15 @@ module ActionController
   # before_action filter chain live here; subclasses define their actions and
   # filter registrations.
   class API
-    # Request attributes. `request_format` is the response format the matched
-    # route forces (`:json` when it names none), assigned by the dispatcher
-    # before the action. The dispatcher does not assign `request_method` or
-    # `request_path`; read `request.request_method` and `request.path` instead.
-    attr_accessor :request_method, :request_path, :request_format
+    # Not app API: the dispatcher does not assign either value. Read
+    # `request.request_method` and `request.path` instead.
+    #
+    # @api internal
+    attr_accessor :request_method, :request_path
+
+    # the response format the matched route forces (`:json` when it names
+    # none), assigned by the dispatcher before the action.
+    attr_accessor :request_format
 
     # the request params an action reads (`params["id"]`). The value lives in
     # `@_params`, outside the app-subclass namespace: an app-side `@params` is a
@@ -70,6 +74,7 @@ module ActionController
     # an XMLHttpRequest or fetch that named none. The dispatcher does not set
     # it today, so it stays false unless the app assigns it.
     #
+    # @api internal
     # @return [Boolean] true when the request accepted any format
     attr_accessor :accepts_any_format
     # the matched route's own segments (`{"length" => "1y"}` on `/top/1y`), not
