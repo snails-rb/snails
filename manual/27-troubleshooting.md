@@ -86,10 +86,16 @@ The database is under contention. `Sqlx::Busy` is a SQLite lock wait past `DATAB
 
 The source build runs a package smoke before caching. If OpenSSL or another package is missing, it stops and names the development packages; install them and retry.
 
-### The first `bin/dev` stops while compiling the app
+### The first build stops with `cc: not found`
 
-`sh: cc: not found` means the C compiler is missing. Install `build-essential` on Debian/Ubuntu or run `xcode-select --install` on macOS.
+The C compiler is missing. Install `build-essential` on Debian/Ubuntu or run `xcode-select --install` on macOS, then run `bin/dev` or `bin/test` again.
 
-The app build also links OpenSSL, SQLite, and jemalloc. A linker error such as `cannot find -lssl` names the missing development package; install the Linux or macOS packages under [Getting Started](02-getting-started.md#requirements) and run `bin/dev` again. On macOS, `bin/test` and `bin/dev` add the Homebrew `pkg-config` directory and the library directories (`openssl`, `jemalloc`, `libpq`, `postgresql`) themselves — no export is needed. `brew install postgresql` is keg-only and includes the server, `psql`, `pg_dump`, and libpq. The `PATH` and `DYLD_FALLBACK_LIBRARY_PATH` exports in Getting Started point at its prefix; a client-only `libpq` install is the alternative if you connect to a server elsewhere. `snails doctor` checks the database client and the toolchain but does not probe the linker.
+### The first build stops with a linker error
+
+A linker error such as `cannot find -lssl` names the missing development package. The build links OpenSSL, the database client (SQLite or libpq), and jemalloc. Install the Linux or macOS packages under [Getting Started](02-getting-started.md#requirements) and run the build again.
+
+On macOS, the build adds Homebrew's `pkg-config` and library directories for OpenSSL, jemalloc, libpq, and PostgreSQL, so the build needs no export.
+
+For libpq, `brew install postgresql` is keg-only and includes the server, `psql`, `pg_dump`, and libpq. The `PATH` and `DYLD_FALLBACK_LIBRARY_PATH` exports in Getting Started point at its prefix; a client-only `libpq` install is the alternative when you connect to a server elsewhere.
 
 When the symptom is not here, run `snails doctor` first — it checks the pin, the toolchain, the database, and the local clients before you go looking further.
