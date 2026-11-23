@@ -1,4 +1,4 @@
-ok test_run_due_callbacks_is_private
+ok test_run_once_is_private
 ok test_register_interval_rejects_non_positive_seconds
 ok test_window_change_runs_once_per_window
 ok test_a_fresh_registration_starts_at_the_next_window

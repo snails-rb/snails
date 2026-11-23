@@ -872,7 +872,7 @@ module Sqlx
 
     # Nullable-column reads: NULL stays nil rather than collapsing to "" / 0.
     # These probe the column's storage class first.
-    def self.column_int_opt(stmt, i)
+    def self.column_int_or_nil(stmt, i)
       if SQLite3.sqlite3_column_type(stmt, i) == SQLite3::NULL_TYPE
         nil
       else
@@ -880,7 +880,7 @@ module Sqlx
       end
     end
 
-    def self.column_float_opt(stmt, i)
+    def self.column_float_or_nil(stmt, i)
       if SQLite3.sqlite3_column_type(stmt, i) == SQLite3::NULL_TYPE
         nil
       else
@@ -888,7 +888,7 @@ module Sqlx
       end
     end
 
-    def self.column_text_opt(stmt, i)
+    def self.column_text_or_nil(stmt, i)
       SQLite3.sqlite3_column_text(stmt, i)
     end
 
@@ -899,12 +899,12 @@ module Sqlx
       text.nil? ? nil : text.to_time
     end
 
-    def self.column_time_opt(stmt, i)
-      text = column_text_opt(stmt, i)
+    def self.column_time_or_nil(stmt, i)
+      text = column_text_or_nil(stmt, i)
       text.nil? ? nil : text.to_time
     end
 
-    def self.column_bool_opt(stmt, i)
+    def self.column_bool_or_nil(stmt, i)
       if SQLite3.sqlite3_column_type(stmt, i) == SQLite3::NULL_TYPE
         nil
       else
@@ -959,7 +959,7 @@ module Sqlx
       n.to_i.to_s
     end
 
-    def self.escape_int_opt(n)
+    def self.escape_int_or_nil(n)
       n.nil? ? "NULL" : escape_int(n)
     end
 
@@ -969,15 +969,15 @@ module Sqlx
       escape_string(value.is_a?(Time) ? value.to_fs(:db) : value)
     end
 
-    def self.escape_time_opt(value)
-      escape_string_opt(value.is_a?(Time) ? value.to_fs(:db) : value)
+    def self.escape_time_or_nil(value)
+      escape_string_or_nil(value.is_a?(Time) ? value.to_fs(:db) : value)
     end
 
-    def self.escape_float_opt(f)
+    def self.escape_float_or_nil(f)
       f.nil? ? "NULL" : f.to_f.to_s
     end
 
-    def self.escape_bool_opt(b)
+    def self.escape_bool_or_nil(b)
       b.nil? ? "NULL" : escape_bool(b)
     end
 
@@ -1135,7 +1135,7 @@ module Sqlx
     end
 
     # Nullable-column writes: nil renders NULL.
-    def self.escape_string_opt(s)
+    def self.escape_string_or_nil(s)
       s.nil? ? "NULL" : escape_string(s)
     end
 
@@ -1172,12 +1172,12 @@ module Sqlx
     private_class_method :prepare, :step?, :finalize
     private_class_method :bind_int, :bind_text, :bind_bool, :bind_params
     private_class_method :column_int, :column_float, :column_text, :column_count
-    private_class_method :column_name, :column_int_opt, :column_float_opt
-    private_class_method :column_text_opt, :column_time, :column_time_opt
-    private_class_method :column_bool_opt, :column_bool, :column_value
-    private_class_method :escape_string, :escape_string_opt, :escape_int
-    private_class_method :escape_int_opt, :escape_time, :escape_time_opt
-    private_class_method :escape_float_opt, :escape_bool, :escape_bool_opt
+    private_class_method :column_name, :column_int_or_nil, :column_float_or_nil
+    private_class_method :column_text_or_nil, :column_time, :column_time_or_nil
+    private_class_method :column_bool_or_nil, :column_bool, :column_value
+    private_class_method :escape_string, :escape_string_or_nil, :escape_int
+    private_class_method :escape_int_or_nil, :escape_time, :escape_time_or_nil
+    private_class_method :escape_float_or_nil, :escape_bool, :escape_bool_or_nil
     private_class_method :escape_int_list
     private_class_method :capture_sql, :record_query
     private_class_method :cache_key_for, :cache_token_for

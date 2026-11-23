@@ -8,7 +8,7 @@ module ActiveJob
   def self.executor_registered: () -> bool
   def self.register_executor: () -> void
   def self.recurring: (Class job_class, ?(Integer | Snails::Duration)? interval, ?schedule: String?) -> void
-  def self.enqueue_recurring: (Hash[String, untyped] entry, Integer occurrence) -> void
+  private def self.enqueue_recurring: (Hash[String, untyped] entry, Integer occurrence) -> void
   def self.scheduled_at_for: (Integer interval, ?untyped now) -> Time
   def self.queue_adapter: () -> Class
   def self.queue_adapter=: (Class adapter) -> void

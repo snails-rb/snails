@@ -78,11 +78,11 @@ module Snails
     def self.resources(path, controller, format = nil, only = nil)
       check_only(only)
       rows = []
-      rows << ActionDispatch::Router::Route.new("GET", path, controller, :index, format) if action_wanted(only, :index)
-      rows << ActionDispatch::Router::Route.new("POST", path, controller, :create, format) if action_wanted(only, :create)
-      rows << ActionDispatch::Router::Route.new("GET", path + "/:id", controller, :show, format) if action_wanted(only, :show)
-      rows << ActionDispatch::Router::Route.new("PUT", path + "/:id", controller, :update, format) if action_wanted(only, :update)
-      rows << ActionDispatch::Router::Route.new("DELETE", path + "/:id", controller, :destroy, format) if action_wanted(only, :destroy)
+      rows << ActionDispatch::Router::Route.new("GET", path, controller, :index, format) if action_selected?(only, :index)
+      rows << ActionDispatch::Router::Route.new("POST", path, controller, :create, format) if action_selected?(only, :create)
+      rows << ActionDispatch::Router::Route.new("GET", path + "/:id", controller, :show, format) if action_selected?(only, :show)
+      rows << ActionDispatch::Router::Route.new("PUT", path + "/:id", controller, :update, format) if action_selected?(only, :update)
+      rows << ActionDispatch::Router::Route.new("DELETE", path + "/:id", controller, :destroy, format) if action_selected?(only, :destroy)
       rows
     end
 
@@ -111,7 +111,7 @@ module Snails
     # @param only [Array[Symbol], nil] the action subset `resources` will keep
     # @param name [Symbol] the action the row would declare
     # @return [Boolean] true when the row survives the subset
-    def self.action_wanted(only, name)
+    def self.action_selected?(only, name)
       return true if only.nil?
       j = 0
       while j < only.length
@@ -121,9 +121,9 @@ module Snails
       false
     end
 
-    # `check_only` / `action_wanted` back `resources` only — an app calls
+    # `check_only` / `action_selected?` back `resources` only — an app calls
     # `resources`, never these. Private on purpose: not supported for app
     # use, free to change or vanish without notice.
-    private_class_method :check_only, :action_wanted
+    private_class_method :check_only, :action_selected?
   end
 end

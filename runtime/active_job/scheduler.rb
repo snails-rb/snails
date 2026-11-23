@@ -111,18 +111,18 @@ module ActiveJob
       end
     end
 
-    # the scheduler loop: poll, run the due callbacks, and repeat.
+    # the scheduler loop: poll, run one pass, and repeat.
     # `Launcher.start` gives it its own thread; it never drains the queue. A
     # callback only enqueues its job (`ActiveJob.recurring`); `Worker.run`
-    # executes the queued job. A failure in the run is reported by
-    # `run_due_callbacks` and the next run still happens; a control or fatal
+    # executes the queued job. A structural failure in the pass is reported by
+    # `run_once` and the next pass still happens; a control or fatal
     # exception stops the loop and is reported here.
     #
     # @return [void]
     def self.run
       while true
         sleep(POLL_INTERVAL)
-        run_due_callbacks
+        run_once
       end
     rescue Exception => failure
       Snails.logger.error(
@@ -134,11 +134,11 @@ module ActiveJob
       raise
     end
 
-    # Run the due periodic callbacks without the sleep. `run_periodic`
-    # isolates each callback; this boundary isolates a structural failure in
-    # the run itself, so the scheduler loop only stops on a control or fatal
-    # exception. The scheduler calls it after each sleep.
-    def self.run_due_callbacks
+    # One scheduler pass without the sleep. `run_periodic` isolates each
+    # callback; this boundary isolates a structural failure in the pass
+    # itself, so the scheduler loop only stops on a control or fatal
+    # exception. The loop calls it after each sleep.
+    def self.run_once
       run_periodic
     rescue Exception => failure
       raise if Snails::ErrorBoundary.fatal?(failure)
@@ -163,6 +163,6 @@ module ActiveJob
     end
 
     # private on purpose: these serve `run_periodic` and the loop.
-    private_class_method :run_due_callbacks, :occurrence_at_or_before
+    private_class_method :run_once, :occurrence_at_or_before
   end
 end

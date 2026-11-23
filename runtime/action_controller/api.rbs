@@ -26,11 +26,9 @@ module ActionController
 
     def self.before_action: (*Symbol names, ?only: (Symbol | Array[Symbol])?, ?except: (Symbol | Array[Symbol])?) -> void
     def run_before_filters: () -> void
-    def filter_applies?: (Array[Symbol] only_list, Array[Symbol] except_list) -> bool
 
     def process_action: (Symbol action_name) -> void
     def send_action: (Symbol action_name) -> void
-    def default_render: () -> void
 
     def render: (
       ?String? body,

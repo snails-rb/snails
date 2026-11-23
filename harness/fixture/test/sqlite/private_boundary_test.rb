@@ -71,11 +71,11 @@ class PrivateBoundaryTest < TestBase
   # from outside is refused.
   def test_harness_request_builder_is_private
     begin
-      Snails::Harness.request_object(:get, "/")
+      Snails::Harness.build_request(:get, "/")
     rescue NoMethodError
       return
     end
-    raise "expected Snails::Harness.request_object to be private"
+    raise "expected Snails::Harness.build_request to be private"
   end
 
   # The status table sits behind `assert_response`; an app calling it from

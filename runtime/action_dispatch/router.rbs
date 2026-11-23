@@ -27,35 +27,35 @@ module ActionDispatch
       Array[::ActionDispatch::Router::Route] table
     ) -> ::ActionDispatch::Router::MatchResult?
 
-    def self.match_path: (
+    private def self.match_path: (
       String method,
       String path,
       Array[::ActionDispatch::Router::Route] table,
       String format
     ) -> ::ActionDispatch::Router::MatchResult?
 
-    def self.format_extension: (String ext) -> bool
+    private def self.format_extension: (String ext) -> bool
 
-    def self.match_pattern: (
+    private def self.match_pattern: (
       String pattern,
       String path,
       ?String int_params
     ) -> Hash[String, String]?
 
-    def self.glob_rest: (Array[String] path_parts, Integer from) -> String
-    def self.param_prefix_length: (String segment) -> Integer
-    def self.match_parts: (
+    private def self.glob_rest: (Array[String] path_parts, Integer from) -> String
+    private def self.param_prefix_length: (String segment) -> Integer
+    private def self.match_parts: (
       Array[String] pattern_parts,
       Array[String] path_parts,
       ?String int_params,
       ?String format
     ) -> Hash[String, String]?
 
-    def self.int_constrained: (
+    private def self.has_integer_constraint?: (
       String int_params,
       String name
     ) -> bool
 
-    def self.digits_only: (String s) -> bool
+    private def self.digits_only?: (String s) -> bool
   end
 end

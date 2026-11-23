@@ -1,13 +1,13 @@
 module Sqlx
   module Query
     def find_by_sql: (String sql, ?Array[untyped]? values) -> Array[untyped]
-    def one_by_sql: (String sql, ?Array[untyped]? values) -> untyped
+    private def one_by_sql: (String sql, ?Array[untyped]? values) -> untyped
     def row_by_sql: (String sql, ?Array[untyped]? values) -> Hash[String, untyped]?
-    def exists_by_sql: (String sql, ?Array[untyped]? values) -> bool
+    private def exists_by_sql: (String sql, ?Array[untyped]? values) -> bool
     def rows_by_sql: (String sql, ?Array[untyped]? values) -> Array[Hash[String, untyped]]
     def write: (String sql, ?Array[untyped]? values) -> Array[Hash[String, untyped]]
-    def values_for_placeholders: (String sql, Array[untyped]? values) -> Array[untyped]
-    def placeholder_count: (String sql) -> Integer
+    private def values_for_placeholders: (String sql, Array[untyped]? values) -> Array[untyped]
+    private def placeholder_count: (String sql) -> Integer
     def where_clause: (Hash[Symbol, untyped] conditions) -> String
     def projection: () -> String
     def find_by: (Hash[Symbol, untyped] conditions, ?order: Symbol?) -> untyped
