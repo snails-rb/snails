@@ -40,6 +40,31 @@ class FrameTest < TestBase
     assert_equal "close", result.outcome
   end
 
+  # A frame whose declared length is over the cap closes with 1009 from the
+  # header, before the payload arrives.
+  def test_frame_over_cap_closes_with_1009
+    s = [0x82, 0x80 | 126, 0x01, 0x2c].pack("C*")
+    result = Tep::WebSocket::Frame.parse_from_buf(s, 0, s.bytesize, 200)
+    assert_equal "close", result.outcome
+    assert_equal Tep::WebSocket::CLOSE_MESSAGE_TOO_BIG, result.close_code
+  end
+
+  # A frame whose length equals the cap parses.
+  def test_frame_at_cap_parses
+    s = [0x81, 0x80 | 2, 0, 0, 0, 0, 0x68, 0x69].pack("C*")
+    result = Tep::WebSocket::Frame.parse_from_buf(s, 0, s.bytesize, 2)
+    assert_equal "ok", result.outcome
+    assert_equal "hi", result.frame.payload
+  end
+
+  # The 64-bit length form must leave its top bit clear (RFC 6455 §5.2).
+  def test_length_with_top_bit_closes
+    s = [0x82, 0x80 | 127, 0x80, 0, 0, 0, 0, 0, 0, 0].pack("C*")
+    result = Tep::WebSocket::Frame.parse_from_buf(s, 0, s.bytesize)
+    assert_equal "close", result.outcome
+    assert_equal Tep::WebSocket::CLOSE_PROTOCOL_ERROR, result.close_code
+  end
+
   # The opcode classifiers sit behind `parse_from_buf`; an app calling one
   # from outside is refused.
   def test_opcode_helpers_are_private
@@ -56,5 +81,8 @@ FixtureRunner.run(FrameTest, [
   "test_parse_masked_text_frame",
   "test_reserved_opcode_closes",
   "test_fragmented_control_frame_closes",
+  "test_frame_over_cap_closes_with_1009",
+  "test_frame_at_cap_parses",
+  "test_length_with_top_bit_closes",
   "test_opcode_helpers_are_private"
 ])

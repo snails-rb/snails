@@ -64,13 +64,14 @@ module Tep
             # under-reports avail (a complete frame reads as "need") and
             # truncates the carried tail whenever XOR'd bytes form
             # multi-byte sequences.
-            r = Tep::WebSocket::Frame.parse_from_buf(inbuf, 0, inbuf.bytesize)
+            r = Tep::WebSocket::Frame.parse_from_buf(inbuf, 0, inbuf.bytesize, @driver.max_frame_size)
             if r.outcome == "need"
               break
             end
             if r.outcome == "close"
-              @driver.close(r.close_code, "protocol error")
-              dispatch_close(@driver, r.close_code, "protocol error")
+              reason = r.close_code == Tep::WebSocket::CLOSE_MESSAGE_TOO_BIG ? "frame too big" : "protocol error"
+              @driver.close(r.close_code, reason)
+              dispatch_close(@driver, r.close_code, reason)
               return
             end
             dispatch_frame(@driver, r.frame)

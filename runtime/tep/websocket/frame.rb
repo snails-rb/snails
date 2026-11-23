@@ -60,11 +60,13 @@ module Tep
       # @param s [String] binary String of received bytes
       # @param start [Integer] the byte offset to begin at
       # @param avail [Integer] the count of valid bytes
+      # @param max_frame_size [Integer] the largest payload length accepted
       # @return [ParseResult] one of three outcomes:
       #   "ok" -> `.frame` populated, `.consumed` bytes used
       #   "need" -> need more bytes (consumed == 0)
-      #   "close" -> protocol violation; close with `.close_code`
-      def self.parse_from_buf(s, start, avail)
+      #   "close" -> protocol violation or a payload over
+      #     `max_frame_size`; close with `.close_code`
+      def self.parse_from_buf(s, start, avail, max_frame_size = Tep::WebSocket::DEFAULT_MAX_FRAME)
         out = Tep::WebSocket::ParseResult.new
         if avail - start < 2
           out.outcome = "need"
@@ -125,6 +127,12 @@ module Tep
             out.outcome = "need"
             return out
           end
+          # §5.2: the most significant bit of the 64-bit length must be 0.
+          if (s.getbyte(pos) & 0x80) != 0
+            out.outcome = "close"
+            out.close_code = Tep::WebSocket::CLOSE_PROTOCOL_ERROR
+            return out
+          end
           plen = 0
           i = 0
           while i < 8
@@ -132,6 +140,14 @@ module Tep
             i += 1
           end
           pos += 8
+        end
+
+        # Checked from the header, so the caller stops reading before it
+        # buffers the payload.
+        if plen > max_frame_size
+          out.outcome = "close"
+          out.close_code = Tep::WebSocket::CLOSE_MESSAGE_TOO_BIG
+          return out
         end
 
         if avail - pos < 4
