@@ -1,5 +1,8 @@
 ok test_parse_masked_text_frame
 ok test_reserved_opcode_closes
 ok test_fragmented_control_frame_closes
+ok test_frame_over_cap_closes_with_1009
+ok test_frame_at_cap_parses
+ok test_length_with_top_bit_closes
 ok test_opcode_helpers_are_private
-FrameTest: 4 tests passed
+FrameTest: 7 tests passed
