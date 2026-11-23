@@ -785,7 +785,8 @@ chk "install.sh --rev installs a named rev" $? 0
 #     503 to the first two tarball requests, then serves it, so a single-shot
 #     installer would fail here.
 FLAKY_PORT="${FLAKY_PORT:-8395}"
-(cd serve && exec python3 "$ROOT/scripts/fixtures/flaky-server.py" "$FLAKY_PORT" 2 "snails-dist-$FAKE.tar.gz" >/dev/null 2>&1) &
+(cd serve && FIXTURE_FAILURES=2 FIXTURE_FAIL_SUFFIX="snails-dist-$FAKE.tar.gz" \
+  exec python3 "$ROOT/scripts/fixtures/api-server.py" "$FLAKY_PORT" >/dev/null 2>&1) &
 FLAKY_PID=$!
 for _ in {1..25}; do
   curl -fsS -o /dev/null "http://127.0.0.1:$FLAKY_PORT/__ready" 2>/dev/null && break
