@@ -121,10 +121,14 @@ class LoggerTest < TestBase
   end
 
   # Outside a request no tag is prepended — the id belongs to a request,
-  # not to the logger. This case runs first: the request id is process
-  # state once a later case begins a request.
+  # not to the logger. The matched controller/action/format readers are nil
+  # too: begin_request is what first sets them to "". This case runs first:
+  # the request id is process state once a later case begins a request.
   def test_message_is_untagged_before_a_request
     assert_equal nil, Snails::Logger::Context.request_id
+    assert_equal nil, Snails::Logger::Context.controller
+    assert_equal nil, Snails::Logger::Context.action
+    assert_equal nil, Snails::Logger::Context.format
 
     out = RecordingOutput.new
     fmt = RecordingFormatter.new

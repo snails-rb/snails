@@ -3,11 +3,11 @@ module Snails
     module Context
       def self.request_id: () -> String?
       def self.begin_request: () -> String
-      def self.controller: () -> String
+      def self.controller: () -> String?
       def self.controller=: (String name) -> String
-      def self.action: () -> String
+      def self.action: () -> String?
       def self.action=: (String name) -> String
-      def self.format: () -> String
+      def self.format: () -> String?
       def self.format=: (String name) -> String
       def self.now_us: () -> Integer
       def self.db_us: () -> Integer
