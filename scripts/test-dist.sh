@@ -780,6 +780,27 @@ chk "the re-run is announced" $? 0
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" SNAILS_HOME="$WORK/ihome3" SNAILS_BIN_DIR="$WORK/ibin3" \
   bash "$INSTALL" --rev "$FAKE" >/dev/null 2>&1
 chk "install.sh --rev installs a named rev" $? 0
+
+# 9a. A transient release-download failure is retried. The fixture answers
+#     503 to the first two tarball requests, then serves it, so a single-shot
+#     installer would fail here.
+FLAKY_PORT="${FLAKY_PORT:-8395}"
+(cd serve && FIXTURE_FAILURES=2 FIXTURE_FAIL_SUFFIX="snails-dist-$FAKE.tar.gz" \
+  exec python3 "$ROOT/scripts/fixtures/api-server.py" "$FLAKY_PORT" >/dev/null 2>&1) &
+FLAKY_PID=$!
+for _ in {1..25}; do
+  curl -fsS -o /dev/null "http://127.0.0.1:$FLAKY_PORT/__ready" 2>/dev/null && break
+  sleep 0.2
+done
+curl -fsS -o /dev/null "http://127.0.0.1:$FLAKY_PORT/__ready"
+chk "the flaky dist server is ready" $? 0
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$FLAKY_PORT" SNAILS_HOME="$WORK/ihome-flaky" SNAILS_BIN_DIR="$WORK/ibin-flaky" \
+  bash "$INSTALL" --rev "$FAKE" > inst-flaky.out 2> inst-flaky.err
+chk "install.sh retries a transient download" $? 0
+[[ -f "$WORK/ihome-flaky/dist/$FAKE/REV" ]]
+chk "the retried dist lands under SNAILS_HOME" $? 0
+kill "$FLAKY_PID" 2>/dev/null || true
+
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" SNAILS_HOME="$WORK/ihome-bad" SNAILS_BIN_DIR="$WORK/ibin-bad" \
   bash "$INSTALL" --rev "$BAD" > inst-bad.out 2>&1
 chk "install.sh refuses a checksum mismatch" $? 1

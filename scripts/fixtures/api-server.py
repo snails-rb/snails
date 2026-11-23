@@ -1,17 +1,34 @@
 import http.server
+import os
 import sys
 
 # An optional second argument makes every request require that bearer token,
 # so a test can prove install.sh sends SNAILS_GITHUB_TOKEN to the release API.
 expected_token = sys.argv[2] if len(sys.argv) > 2 else None
+# A test can make the first N requests for one asset answer 503, to prove a
+# retry. Both default to off, so the normal dist and token servers are
+# unchanged.
+failures_left = int(os.environ.get("FIXTURE_FAILURES", "0"))
+fail_suffix = os.environ.get("FIXTURE_FAIL_SUFFIX", "")
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
+        global failures_left
+        path = self.path.split("?")[0]
+        # Readiness answers without the token and without spending a failure,
+        # so a test can wait for the server before the first real request.
+        if path == "/__ready":
+            self.send_response(200)
+            self.end_headers()
+            return
         if expected_token is not None and self.headers.get("Authorization") != f"Bearer {expected_token}":
             self.send_error(401)
             return
-        path = self.path.split("?")[0]
+        if fail_suffix and path.endswith(fail_suffix) and failures_left > 0:
+            failures_left -= 1
+            self.send_error(503)
+            return
         if path == "/api-latest-toolchain/releases":
             self.path = "/api-latest-toolchain/list.json"
         super().do_GET()

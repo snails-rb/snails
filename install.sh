@@ -63,20 +63,26 @@ command -v tar >/dev/null 2>&1 || { echo "[snails] tar is required — install i
 
 # download_asset <tag> <asset> <out> — fetch one release asset from the
 # source repository.
+# GitHub's release endpoint answers a transient 5xx or 429 under load; the
+# first command a new user runs should not stop there. --retry covers those
+# and connection failures, and leaves a 404 as the final answer. The
+# timeouts keep an unreachable host from hanging the install.
 download_asset() {
   local tag="$1" asset="$2" out="$3"
-  curl -fsSL -o "$out" "$BASE/$tag/$asset"
+  curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused \
+    --connect-timeout 10 --max-time 300 -o "$out" "$BASE/$tag/$asset"
 }
 # The release API answers unauthenticated and shares the IP's 60/hour budget
 # with everything else on it. A CI runner behind a shared address can exhaust
 # that budget, so SNAILS_GITHUB_TOKEN is accepted here; the assets are public
-# and are fetched without the header.
+# and are fetched without the header. The same transient errors apply.
 api_get() {
   local url="$1"
+  local retry=(--retry 3 --retry-delay 1 --retry-connrefused --connect-timeout 10 --max-time 300)
   if [[ -n ${SNAILS_GITHUB_TOKEN:-} ]]; then
-    curl -fsSL -H "Authorization: Bearer $SNAILS_GITHUB_TOKEN" "$url"
+    curl -fsSL "${retry[@]}" -H "Authorization: Bearer $SNAILS_GITHUB_TOKEN" "$url"
   else
-    curl -fsSL "$url"
+    curl -fsSL "${retry[@]}" "$url"
   fi
 }
 sha256_check() {
