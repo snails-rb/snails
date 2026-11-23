@@ -17,10 +17,11 @@ module Snails
         Thread.current[:snails_log_request_id]
       end
 
-      # the controller class name the router matched, or "" when no controller
-      # ran (a 404, a 400, or an app-owned dispatch).
+      # the controller class name the router matched, or "" when a request
+      # matched none (a 404, a 400, or an app-owned dispatch); nil outside a
+      # request.
       #
-      # @return [String] the matched controller name
+      # @return [String, nil] the matched controller name
       def self.controller
         Thread.current[:snails_log_controller]
       end
@@ -33,9 +34,10 @@ module Snails
         Thread.current[:snails_log_controller] = name
       end
 
-      # the action the router matched, or "".
+      # the action the router matched, or "" when a request matched none; nil
+      # outside a request.
       #
-      # @return [String] the matched action name
+      # @return [String, nil] the matched action name
       def self.action
         Thread.current[:snails_log_action]
       end
@@ -48,9 +50,10 @@ module Snails
         Thread.current[:snails_log_action] = name
       end
 
-      # the request format (`json` by default), or "".
+      # the request format (`json` by default), or "" when a request matched
+      # none; nil outside a request.
       #
-      # @return [String] the request format
+      # @return [String, nil] the request format
       def self.format
         Thread.current[:snails_log_format]
       end

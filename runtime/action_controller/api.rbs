@@ -33,7 +33,7 @@ module ActionController
     def default_render: () -> void
 
     def render: (
-      ?String body,
+      ?String? body,
       ?status: Symbol | Integer,
       ?content_type: String?,
       ?location: String?,

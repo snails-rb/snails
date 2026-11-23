@@ -10,9 +10,9 @@ module Sqlx
     def placeholder_count: (String sql) -> Integer
     def where_clause: (Hash[Symbol, untyped] conditions) -> String
     def projection: () -> String
-    def find_by: (Hash[Symbol, untyped] conditions, ?order: Symbol) -> untyped
+    def find_by: (Hash[Symbol, untyped] conditions, ?order: Symbol?) -> untyped
     def find_by!: (Hash[Symbol, untyped] conditions) -> untyped
-    def fetch_many: (Hash[Symbol, untyped]? conditions, ?order: Symbol, ?limit: Integer, ?offset: Integer) -> Array[untyped]
+    def fetch_many: (Hash[Symbol, untyped]? conditions, ?order: Symbol?, ?limit: Integer?, ?offset: Integer?) -> Array[untyped]
     def find_each: (?Hash[Symbol, untyped]? conditions, ?batch_size: Integer) { (untyped) -> void } -> void
     def find_in_batches: (?Hash[Symbol, untyped]? conditions, ?batch_size: Integer) { (Array[untyped]) -> void } -> void
     def find: (untyped id) -> untyped

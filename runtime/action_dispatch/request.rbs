@@ -50,7 +50,7 @@ module ActionDispatch
     def body: () -> RequestBody
     def body=: (String) -> String
     def raw_post: () -> String
-    def initialize: (?Hash[String, untyped] env) -> void
+    def initialize: (?Hash[String, untyped]? env) -> void
     def get?: () -> bool
     def post?: () -> bool
     def head?: () -> bool
