@@ -39,7 +39,7 @@ module Snails
     #   FIELDS = %w[email password].each { |n| define_method(n) { read_attribute(n) } }
     def self.field_names
       fields = const_get("FIELDS")
-      if fields.equal?(Form::FIELDS)
+      if fields.equal?(FIELDS)
         raise ArgumentError, "#{self.name} must declare: FIELDS = %w[...].each { |n| define_method(n) { read_attribute(n) } }"
       end
       fields.dup
