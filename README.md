@@ -16,9 +16,11 @@ Snails is at 1.x, and the public API is stable. The conventions are the compatib
 
 ## Why Snails
 
-Snails keeps the Rails conventions an API needs and removes the layers that add runtime overhead: the view layer, Active Record, and gem compatibility. The design trade is explained in [The Snails Design](https://snails-rb.org/blog/the-snails-design/); [Coming from Rails](manual/04-coming-from-rails.md) covers what carries over and what replaces the rest.
+Snails exists to make one combination possible: a native Rails-like Ruby app using 20 MB of memory. Each claim in the title is a constraint. A native Ruby app cannot keep the Rails stack in its source. The stack does much of its work at runtime: Active Record defines methods, the router builds helpers, and gems load code. Spinel compiles only what it can resolve at build time. A Rails-like Ruby app cannot be a rewrite in another language: the source stays Ruby. And 20 MB cannot carry the full stack: the Rails layers are the memory cost. With all three, the Rails stack has to go. Snails is that design.
 
-The story behind this choice is in [Why I didn't rewrite my Rails app in Rust](https://snails-rb.org/blog/why-i-didnt-rewrite-my-rails-app-in-rust/). A Snails app uses about 20 MB RSS, with a 4.3 MB binary; the node uses 362 MB and has 589 MB available.
+Snails keeps the Rails conventions an API needs and builds the framework in plain Ruby. The app, the framework, and the HTTP server compile into one native binary. Routes, controllers, forms, jobs, and tests keep the Rails conventions. The price is the model layer: no Active Record, no gems. Reads and writes go through a plain SQL API, validation moves to forms, and queries that need joins or grouping are SQL you write. The code is more explicit, and there is more of it.
+
+In production, on a 1 GB node, the app process is about 20 MB RSS and the binary is 4.3 MB; the node uses 362 MB, leaving 589 MB available. [The Snails Design](https://snails-rb.org/blog/the-snails-design/) makes the case; [A native Rails-like Ruby app using 20 MB of memory](https://snails-rb.org/blog/a-native-rails-like-ruby-app-using-20-mb-of-memory/) has the full story; [Coming from Rails](manual/04-coming-from-rails.md) covers the port. If you need server-rendered pages or the full Rails stack, Rails is the better fit.
 
 ## Install
 
