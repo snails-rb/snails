@@ -3,20 +3,17 @@
 #
 # Sourced only. The release repositories are public; SNAILS_GITHUB_TOKEN is
 # for a mirror that asks for authentication, not for the default GitHub
-# release path. GitHub's release endpoint and API answer a transient 5xx or
-# 429 under load; --retry covers those and connection failures, and a 404
-# stays final. The timeouts keep an unreachable release host from hanging a
+# release path. The timeouts keep an unreachable release host from hanging a
 # sync that has a local cache or a source-build fallback to use.
 
 snails_curl() {
   local url="$1"
   shift
-  local retry=(--retry 3 --retry-delay 1 --retry-connrefused)
   if [[ -n ${SNAILS_GITHUB_TOKEN:-} ]]; then
-    curl -fsSL "${retry[@]}" --connect-timeout 10 --max-time 300 \
+    curl -fsSL --connect-timeout 10 --max-time 300 \
       -H "Authorization: Bearer $SNAILS_GITHUB_TOKEN" "$@" "$url"
   else
-    curl -fsSL "${retry[@]}" --connect-timeout 10 --max-time 300 "$@" "$url"
+    curl -fsSL --connect-timeout 10 --max-time 300 "$@" "$url"
   fi
 }
 

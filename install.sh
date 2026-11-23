@@ -263,19 +263,10 @@ mkdir -p "$SNAILS_BIN_DIR"
 ln -sfn "$dest/bin/snails" "$SNAILS_BIN_DIR/snails"
 echo "[snails] linked $SNAILS_BIN_DIR/snails -> $dest/bin/snails"
 
-path_ready=1
 case ":$PATH:" in
   *":$SNAILS_BIN_DIR:"*) ;;
-  *)
-    path_ready=0
-    echo "[snails] note: $SNAILS_BIN_DIR is not on PATH"
-    echo "[snails] add it for this shell: export PATH=\"$SNAILS_BIN_DIR:\$PATH\""
-    ;;
+  *) echo "[snails] note: $SNAILS_BIN_DIR is not on PATH — add it to use the snails command" ;;
 esac
 
-if ((path_ready)); then
-  echo "[snails] ready — create a project: snails new <dir>"
-else
-  echo "[snails] then create a project: snails new <dir>"
-fi
+echo "[snails] ready — create a project: snails new <dir>"
 echo "[snails] tip: 'snails install-shim' adds spin/spinel shims that follow each project's pinned toolchain"

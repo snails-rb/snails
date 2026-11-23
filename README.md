@@ -37,8 +37,6 @@ snails new demo
 
 Keep the CLI at or above the framework version you pin. To upgrade an existing install, run the install command again; it replaces the linked CLI.
 
-The installer links `snails` into `~/.local/bin`. If it warns that the directory is not on `PATH`, run the `export PATH` line it prints.
-
 `snails new` downloads the pinned compiler for Linux amd64/arm64 or macOS Apple Silicon/Intel. `bin/dev` and `bin/test` compile the app, so install the packages under [Requirements](manual/02-getting-started.md#requirements) before the first run. [Getting Started](manual/02-getting-started.md) has the full flow.
 
 ## Benchmark
