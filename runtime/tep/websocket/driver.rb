@@ -1,16 +1,30 @@
 # Tep::WebSocket::Driver -- per-connection state, outbound writers, and
 # the handlers the recv loop dispatches into.
 #
+# Internal implementation, not app API.
+#
 # Built after the handshake completes and before the recv loop starts.
 # Event handlers are objects installed with `set_on_*`, not blocks.
+#
+# @api internal
 module Tep
   module WebSocket
     class Driver
+      # Not app API: the connection loop and the upgrade path read these.
+      #
+      # @api internal
       attr_accessor :fd, :max_frame_size, :subprotocol
       # One handler per wire event; each starts as a no-op base handler so a
       # dispatch never has to nil-check its handler.
+      #
+      # Not app API: internal event sinks installed with `set_on_*`.
+      #
+      # @api internal
       attr_accessor :h_open, :h_message, :h_close, :h_ping, :h_pong, :h_error
 
+      # Not app API: built by the upgrade path and by the Broadcast type seed.
+      #
+      # @api internal
       def initialize(fd)
         @fd             = fd
         @closed         = false
@@ -25,6 +39,9 @@ module Tep
         @h_error   = Tep::WebSocket::Handler.new
       end
 
+      # Not app API: no supported tuning surface; the default cap applies.
+      #
+      # @api internal
       def set_max_frame_size(n)
         @max_frame_size = n
       end
@@ -32,34 +49,59 @@ module Tep
       # Assign the live client fd: the driver is built before that fd is
       # visible, so the upgrade path sets it here just before the recv loop
       # starts.
+      #
+      # Not app API: the server's upgrade path assigns it.
+      #
+      # @api internal
       def set_fd(new_fd)
         @fd = new_fd
       end
 
+      # Not app API: the upgrade path echoes the negotiated protocol.
+      #
+      # @api internal
       def set_subprotocol(name)
         @subprotocol = name
       end
 
+      # Not app API: internal event sinks the connection loop dispatches into.
+      #
+      # @api internal
       def set_on_open(h);    @h_open = h;    end
+      # @api internal
       def set_on_message(h); @h_message = h; end
+      # @api internal
       def set_on_close(h);   @h_close = h;   end
+      # @api internal
       def set_on_ping(h);    @h_ping = h;    end
+      # @api internal
       def set_on_pong(h);    @h_pong = h;    end
+      # @api internal
       def set_on_error(h);   @h_error = h;   end
 
       # `text` deliberately has no `write(s)` alias: an uncalled
       # String-param method reads its parameter as int under spinel and
       # fails the C compile.
+      #
+      # Not app API: outbound writers belong to the internal stack.
+      #
+      # @api internal
       def text(s)
         write_frame(Tep::WebSocket::OPCODE_TEXT, s)
       end
 
+      # Not app API: outbound writers belong to the internal stack.
+      #
+      # @api internal
       def binary(bytes)
         write_frame(Tep::WebSocket::OPCODE_BINARY, bytes)
       end
 
       # send a ping frame.
       #
+      # Not app API: outbound writers belong to the internal stack.
+      #
+      # @api internal
       # @param payload [String] must fit a control frame: 125 bytes or fewer --
       #   the size is not checked here
       # @return [Integer] the write's result, or -1 once `retire` has run
@@ -69,6 +111,9 @@ module Tep
 
       # send a pong frame.
       #
+      # Not app API: outbound writers belong to the internal stack.
+      #
+      # @api internal
       # @param payload [String] the ping's payload carried back, as §5.5.3
       #   requires; 125 bytes or fewer
       # @return [Integer] the write's result, or -1 once `retire` has run
@@ -78,6 +123,9 @@ module Tep
 
       # send a close frame.
       #
+      # Not app API: outbound writers belong to the internal stack.
+      #
+      # @api internal
       # @param code [Integer] the close code to report
       # @param reason [String] truncated to 123 bytes so that code plus reason
       #   fit a control frame's 125-byte payload
@@ -96,6 +144,10 @@ module Tep
       # closed fd's number to the next accept, and a late write would land in a
       # stranger's socket.
       #
+      # Not app API: `text`, `binary`, `ping`, `pong`, and `close` are the
+      # internal callers.
+      #
+      # @api internal
       # @param opcode [Integer] the frame opcode
       # @param payload [String] the frame payload
       # @return [Integer] the write's result, or -1 once retired
@@ -114,6 +166,9 @@ module Tep
       #
       # That refusal is also how a ping thread learns to exit.
       #
+      # Not app API: the server retires the driver when the recv loop ends.
+      #
+      # @api internal
       # @return [void]
       def retire
         @wlock.synchronize do
@@ -152,9 +207,17 @@ module Tep
     # One Event per dispatched wire event. `code`/`reason` are set only
     # for close; there is no text/binary flag, so a handler receives the
     # payload as data either way.
+    #
+    # @api internal
     class Event
+      # Not app API: the connection loop fills these fields.
+      #
+      # @api internal
       attr_accessor :data, :code, :reason
 
+      # Not app API: the internal dispatch builds one per wire event.
+      #
+      # @api internal
       def initialize
         @data   = +""
         @code   = 0
@@ -168,13 +231,24 @@ module Tep
     # `req` is the request that opened the connection, set at upgrade
     # time and shared by every event on it -- there is no per-frame
     # request.
+    #
+    # @api internal
     class Handler
+      # Not app API: the upgrade path assigns the request.
+      #
+      # @api internal
       attr_accessor :req
 
+      # Not app API: the internal dispatch builds one per connection.
+      #
+      # @api internal
       def initialize
         @req = Tep::Request.new
       end
 
+      # Not app API: the connection loop calls it; apps do not.
+      #
+      # @api internal
       def handle_event(event)
       end
     end

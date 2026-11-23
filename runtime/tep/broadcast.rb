@@ -24,6 +24,10 @@ module Tep
     # register a WebSocket connection on `topic`; payloads go out as TEXT frames
     # through its driver.
     #
+    # Not app API: the WebSocket stack is internal; `subscribe` is the
+    # raw-byte entry.
+    #
+    # @api internal
     # @param ws [Tep::WebSocket::Driver] the connection's driver
     # @return [Integer] the subscription's index at the time of the push
     def self.subscribe_ws(topic, ws)

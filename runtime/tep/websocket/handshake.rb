@@ -2,7 +2,12 @@
 # validates the upgrade and returns the accept key and offered subprotocols;
 # `build_response` returns the raw HTTP/1.1 101 bytes.
 #
+# Internal implementation, not app API: the stack has no documented or
+# supported entry point.
+#
 # A rejection sets `valid = false` and fills `reason`; it never raises.
+#
+# @api internal
 module Tep
   module WebSocket
     class Handshake
@@ -10,6 +15,9 @@ module Tep
       # a value: a rejection fills `reason` instead of raising, so the caller
       # answers it.
       #
+      # Not app API: the upgrade path is internal and no app surface calls it.
+      #
+      # @api internal
       # @param req [Tep::Request] the request under test
       # @return [Result] `valid`, plus `reason` on a rejection or
       #   `accept_key` and `protocols` on success
@@ -62,6 +70,9 @@ module Tep
 
       # the raw HTTP/1.1 101 bytes that accept the upgrade.
       #
+      # Not app API: the threaded server's upgrade branch is the caller.
+      #
+      # @api internal
       # @param accept_key [String] the Sec-WebSocket-Accept value from `check`
       # @param protocol [String] the chosen subprotocol; empty omits
       #   Sec-WebSocket-Protocol entirely (§4.2.2), rather than echoing a
@@ -142,9 +153,19 @@ module Tep
       # header helpers are free to change without notice.
       private_class_method :icontains, :downcase, :split_csv, :trim
 
+      # The handshake verdict: `valid`, plus `reason` on a rejection or
+      # `accept_key` and `protocols` on success.
+      #
+      # @api internal
       class Result
+        # Not app API: `check` fills these fields.
+        #
+        # @api internal
         attr_accessor :valid, :reason, :accept_key, :protocols
 
+        # Not app API: `check` builds one per call.
+        #
+        # @api internal
         def initialize
           @valid      = false
           @reason     = +""
