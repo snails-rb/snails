@@ -2,15 +2,25 @@
 # own green thread after the 101 response. It parks on the IO wrapper until
 # bytes arrive and dispatches each complete frame.
 #
+# Internal implementation, not app API.
+#
 # The accumulator is this connection's own String; no buffer is shared.
+#
+# @api internal
 module Tep
   module WebSocket
     class Connection
+      # Not app API: the server's upgrade branch and the close path read these.
+      #
+      # @api internal
       attr_accessor :driver, :fd, :idle_timeout_seconds
 
       # bind the connection to its driver and to the IO wrapper the recv loop
       # parks on.
       #
+      # Not app API: the server's upgrade branch builds it.
+      #
+      # @api internal
       # @param driver [Driver] the driver built at handshake time; the
       #   connection reads `fd` from it
       # @param io [IO] the `IO.for_fd` wrapper around that same fd -- a raw fd
@@ -23,6 +33,9 @@ module Tep
         @idle_timeout_seconds = 300
       end
 
+      # Not app API: no supported tuning surface; the 300-second default applies.
+      #
+      # @api internal
       def set_idle_timeout(seconds)
         @idle_timeout_seconds = seconds
       end
@@ -34,6 +47,9 @@ module Tep
       # drops this fd's subscriptions while the number still belongs to
       # this connection.
       #
+      # Not app API: the server's upgrade branch starts it.
+      #
+      # @api internal
       # @return [void]
       def run
         # Synthetic open event before the first recv, so a handler can

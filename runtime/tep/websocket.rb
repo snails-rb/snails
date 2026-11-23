@@ -1,10 +1,17 @@
 # Tep::WebSocket -- RFC 6455 support: opcodes, close codes, and the frame cap.
 #
+# Internal implementation, not app API: the stack has no documented app
+# surface and no supported entry point.
+#
 # A handler validates the upgrade with Handshake.check, then calls
 # `res.start_websocket`; only Tep::Server::Threaded serves the recv loop, which
 # parks for the connection's lifetime. The fiber server answers 501.
+#
+# @api internal
 module Tep
   module WebSocket
+    # Internal wire constants; not app API.
+    #
     # RFC 6455 §5.2 opcode values.
     OPCODE_CONTINUATION = 0
     OPCODE_TEXT         = 1

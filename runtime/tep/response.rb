@@ -31,7 +31,7 @@ module Tep
       @streamer    = Streamer.new   # default no-op; only used when @streaming
       @streaming   = false
       # WebSocket upgrade fields. When @upgrading_ws is set (by
-      # start_websocket, from the /cable handler), Tep::Server::Threaded's
+      # start_websocket, the internal upgrade seam), Tep::Server::Threaded's
       # write path emits the 101 Switching Protocols handshake and then
       # drives Tep::WebSocket::Connection's recv loop instead of writing a
       # normal body.
@@ -42,6 +42,10 @@ module Tep
     end
 
     attr_accessor :streamer, :streaming
+    # Not app API: the WebSocket stack is internal; these fields are the
+    # threaded server's upgrade seam.
+    #
+    # @api internal
     attr_accessor :upgrading_ws, :ws_accept_key, :ws_driver
 
     def start_stream(streamer)
@@ -53,6 +57,10 @@ module Tep
     # Switching Protocols response with the accept key, assigns the live client
     # fd onto the driver, then runs the recv loop.
     #
+    # Not app API: the WebSocket stack is internal and no supported app
+    # surface starts it.
+    #
+    # @api internal
     # @param accept_key [String] the Sec-WebSocket-Accept value
     # @param driver [Tep::WebSocket::Driver] the driver the recv loop
     #   drives

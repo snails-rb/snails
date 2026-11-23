@@ -1,13 +1,25 @@
 # Tep::WebSocket::Frame -- single-frame codec (parse and emit).
 #
+# Internal implementation, not app API.
+#
 # Server-side: emit never masks (§5.3), and parse treats unmasked
 # client frames, reserved bits or opcodes, and oversized or fragmented
 # control frames as protocol violations.
+#
+# @api internal
 module Tep
   module WebSocket
     class Frame
+      # Not app API: `parse_from_buf` and the driver's frame writer set these
+      # fields; apps never build a frame by hand.
+      #
+      # @api internal
       attr_accessor :fin, :opcode, :payload
 
+      # Not app API: built by `parse_from_buf` and by the driver's frame
+      # writer.
+      #
+      # @api internal
       def initialize(fin, opcode, payload)
         @fin     = fin
         @opcode  = opcode
@@ -22,6 +34,9 @@ module Tep
       # 126..255-byte payload: the header must be binary-safe, and
       # `+ @payload` concatenates NUL-safely.
       #
+      # Not app API: `Driver#send_frame` is the caller.
+      #
+      # @api internal
       # @return [String] the framed bytes, ready to write
       def encode_unmasked
         head = []
@@ -49,6 +64,9 @@ module Tep
         head.pack("C*") + @payload
       end
 
+      # Not app API: the driver's close-payload encoder calls it.
+      #
+      # @api internal
       def self.byte_to_chr(n)
         (n & 0xff).chr
       end
@@ -57,6 +75,9 @@ module Tep
       # `String#getbyte`, which sees the 0x00 high byte of the 16-bit length
       # form regardless of the payload's content.
       #
+      # Not app API: `Connection#run` is the only caller.
+      #
+      # @api internal
       # @param s [String] binary String of received bytes
       # @param start [Integer] the byte offset to begin at
       # @param avail [Integer] the count of valid bytes
@@ -230,9 +251,17 @@ module Tep
     # `outcome`, not `status`: a `status` attribute collides with
     # Tep::Response#status (Integer) in spinel's same-name attr
     # unification, widening Tep.reason to poly and breaking the build.
+    #
+    # @api internal
     class ParseResult
+      # Not app API: `parse_from_buf` fills these fields.
+      #
+      # @api internal
       attr_accessor :outcome, :frame, :consumed, :close_code
 
+      # Not app API: `parse_from_buf` builds one per call.
+      #
+      # @api internal
       def initialize
         @outcome    = +""
         @frame      = Tep::WebSocket::Frame.new(true, 0, "")
