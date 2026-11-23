@@ -113,4 +113,6 @@ end
 
 `gen/model_columns.rbs` is written beside the Ruby file. It gives each generated reader its column type, so the compiler can check a caller against the schema. A model method that overrides a generated reader owns its own type declaration; add it to the model's `.rbs` when the value differs from the column type.
 
+The file is the compiler's analysis input, not a portable RBS contract. It only restores the type each generated reader loses through `read_attribute`; the inherited reads (`find`, `find_by`, `fetch_many`) and a model's association reader are inferred from the Ruby source. A tool that reads only `.rbs` files sees the generic `Sqlx` signatures for those methods, and app-owned types such as a controller's `@post` belong in your own `.rbs` when a separate checker needs them.
+
 [Querying](10-querying.md) covers the reads and writes these columns feed.
