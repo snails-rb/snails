@@ -238,7 +238,7 @@ module Sqlx
       #
       # @return [void]
       def trim!
-        return nil if @entries.length <= CAP
+        return if @entries.length <= CAP
         while @entries.length > CAP
           oldest = @entries.keys[0]
           entry = @entries[oldest]
@@ -714,7 +714,6 @@ module Sqlx
     # @return [void]
     def self.close_connection(dbh)
       SQLite3.sqlite3_close(dbh)
-      nil
     end
 
     # run one DDL / INSERT / UPDATE / DELETE statement; no rows come back.
@@ -1354,7 +1353,7 @@ module Sqlx
     # pool. Used only for the read-only connection's setup.
     def self.exec_on(dbh, sql)
       rc = SQLite3.sqlite3_exec(dbh, sql, nil, nil, nil)
-      return nil if rc == SQLite3::OK
+      return if rc == SQLite3::OK
       raise "Sqlx::Database.exec_on failed (" + rc.to_s + "): " + SQLite3.sqlite3_errmsg(dbh)
     end
 
@@ -1362,11 +1361,10 @@ module Sqlx
     # byte after the prepared statement; whitespace, semicolons, and comments
     # are allowed, anything else is another statement.
     def self.ensure_one_statement!(tail)
-      return nil if tail == 0
+      return if tail == 0
       unless SQLite3.snails_tail_is_empty(tail) == 1
         raise ArgumentError, "only one SQL statement is allowed"
       end
-      nil
     end
 
     # Reads the prepared statement's column names in select order. The names

@@ -92,7 +92,7 @@ module Sqlx
     # @return [void]
     def close
       handle = @handle
-      return nil if handle.nil?
+      return if handle.nil?
       @handle = nil
       Sqlx::Database.close_connection(handle)
     end
