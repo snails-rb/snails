@@ -106,30 +106,30 @@ Post.write("UPDATE posts SET title = ? WHERE id = ? RETURNING id", [ "revised", 
 
 ## Read-only queries
 
-`Sqlx::Connection.open(read_only: true)` opens an explicit read-only connection for SQL built at runtime — a view, a dashboard query, or a statement assembled from input. A block yields the connection and closes it afterwards; without a block, the caller closes it. Each `query` returns the statement's column names and its rows as value arrays, with a row cap and a wall-clock limit.
+`Sqlx::Connection.open(read_only: true)` opens an explicit read-only connection for SQL built at runtime: a view, a dashboard query, or a statement assembled from input. A block yields the connection and closes it afterwards; without a block, you close it. Each `query` returns the statement's column names and its rows as value arrays, with a row limit and a time limit.
 
 ```ruby
 Sqlx::Connection.open(read_only: true) do |conn|
-  result = conn.query("SELECT service, COUNT(*) AS n FROM logs GROUP BY service", max_rows: 200, timeout_ms: 10_000)
-  result.columns    # => ["service", "n"]
-  result.rows       # => [["telemetry", 10]]
+  result = conn.query("SELECT status, COUNT(*) AS total FROM posts GROUP BY status", max_rows: 200, timeout_ms: 10_000)
+  result.columns    # => ["status", "total"]
+  result.rows       # => [["draft", 3]]
   result.row_count  # => 1
   result.truncated? # => false
 end
 ```
 
 - The connection refuses writes to the database file. A write raises `Sqlx::ReadOnlyError`; `ATTACH` and `VACUUM INTO` are disabled.
-- `read_only: true` is required; the mode is explicit. A raw writable connection (`read_only: false`) is not exposed yet — use the model and pool surfaces.
+- `read_only: true` is required, so the mode is always explicit. `read_only: false` isn't available; use the model and pool surfaces for writes.
 - Each `query` takes one statement. A second statement, or SQL with no statement, raises `ArgumentError`.
-- `max_rows` caps the rows returned. `truncated?` is true when the statement had more rows than the cap.
-- `timeout_ms` stops a statement that runs too long and raises `Sqlx::QueryTimeout`.
+- `max_rows` limits the rows returned. `truncated?` is true when the statement had more rows than the limit.
+- `timeout_ms` interrupts a statement that runs past the limit and raises `Sqlx::QueryTimeout`.
 - A zero-row result still returns the column names. Rows are arrays, not hashes, so a repeated select-list name keeps both values in order. Values are the adapter's native types, the same as `rows_by_sql`.
 - The statement takes no bound values. Use `rows_by_sql` for a read that binds request values.
-- The block owns the connection: it closes after the block, including when the block raises. Without a block, call `close` yourself; a second `close` is a no-op.
-- The first argument is the database path or conninfo; omit it for the configured database. The database must be file-backed; `:memory:` is not supported.
+- The block owns the connection: it closes after the block, including when the block raises. Without a block, call `close` when you're done; a second `close` is a no-op.
+- The first argument is the database path or connection string; omit it for the configured database. The database must be file-backed; `:memory:` isn't supported.
 - `read_only?` reports the connection's mode.
 
-The SQLite adapter implements the read-only connection. The PostgreSQL adapter follows in a separate change.
+The read-only connection is SQLite-only. On PostgreSQL, `Connection.open` raises `NotImplementedError`.
 
 ## Dialect differences
 
