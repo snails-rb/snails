@@ -3,7 +3,7 @@
 #
 # Load order: everything `Base` extends or includes loads first, and
 # `adapter.rb` reopens `Base` with `.transaction`, so it loads last.
-require_relative "sqlx/read_result"
+require_relative "sqlx/query_result"
 require_relative "sqlx/read_connection"
 require_relative "sqlx/query"
 require_relative "sqlx/model"

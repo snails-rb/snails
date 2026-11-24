@@ -1,5 +1,5 @@
 module Sqlx
-  class ReadResult
+  class QueryResult
     def initialize: (Array[String] columns, Array[Array[untyped]] rows, bool truncated) -> void
     def columns: () -> Array[String]
     def rows: () -> Array[Array[untyped]]

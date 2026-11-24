@@ -656,18 +656,9 @@ module Sqlx
     # the fair busy handler and the wall-clock progress handler, and is closed
     # by the caller through `close_read_only`.
     #
-    # @param max_rows [Integer] the row cap each query may return
-    # @param timeout_ms [Integer] the wall-clock limit for each query
-    # @return [Sqlx::ReadConnection] the scope's reader
-    # @raise [ArgumentError] either limit is not a positive Integer
+    # @return [untyped] the open connection handle
     # @raise [RuntimeError] the database is not configured, or it is in-memory
-    def self.open_read_only(max_rows, timeout_ms)
-      unless max_rows.is_a?(Integer) && max_rows > 0
-        raise ArgumentError, "max_rows must be a positive Integer"
-      end
-      unless timeout_ms.is_a?(Integer) && timeout_ms > 0
-        raise ArgumentError, "timeout_ms must be a positive Integer"
-      end
+    def self.open_read_only
       path = @database_path
       if path.nil?
         raise "Sqlx::Database.open_read_only: configure the database first"
@@ -696,7 +687,7 @@ module Sqlx
         SQLite3.sqlite3_close(dbh)
         raise
       end
-      Sqlx::ReadConnection.new(dbh, max_rows, timeout_ms)
+      dbh
     end
 
     # Closes one read-only connection opened by `open_read_only`. The scope
@@ -787,20 +778,30 @@ module Sqlx
       end
     end
 
-    # Runs one statement on a read-only connection. The statement must be a
-    # single statement; a write or ATTACH is refused by the connection, and the
-    # row cap and wall-clock timeout come from the scope.
+    # Runs one statement on a connection and returns its rows in select order.
+    # The connection's mode decides whether writes are allowed; the read-only
+    # scope hands it a read-only handle. The statement must be a single
+    # statement; the row cap and wall-clock timeout are execution options, not
+    # connection policy.
     #
-    # @param dbh [untyped] the read-only connection handle
+    # @param dbh [untyped] the connection handle
     # @param sql [String] one SQL statement
     # @param max_rows [Integer] the row cap
     # @param timeout_ms [Integer] the wall-clock limit
-    # @return [Sqlx::ReadResult] columns, capped rows, truncation flag
-    # @raise [ArgumentError] the statement is empty or carries more than one
+    # @return [Sqlx::QueryResult] columns, capped rows, truncation flag
+    # @raise [ArgumentError] the statement is empty, carries more than one, or
+    #   either limit is not a positive Integer
     # @raise [Sqlx::QueryTimeout] the statement exceeded the timeout
-    # @raise [Sqlx::ReadOnlyViolation] the statement tried to write
+    # @raise [Sqlx::ReadOnlyViolation] the statement tried to write on a
+    #   read-only connection
     # @raise [Sqlx::Busy] the database lock stayed held past the busy timeout
-    def self.read_only_query(dbh, sql, max_rows, timeout_ms)
+    def self.exec_query(dbh, sql, max_rows:, timeout_ms:)
+      unless max_rows.is_a?(Integer) && max_rows > 0
+        raise ArgumentError, "max_rows must be a positive Integer"
+      end
+      unless timeout_ms.is_a?(Integer) && timeout_ms > 0
+        raise ArgumentError, "timeout_ms must be a positive Integer"
+      end
       unless sql.is_a?(String) && !sql.empty?
         raise ArgumentError, "SQL must be a non-empty String"
       end
@@ -823,16 +824,11 @@ module Sqlx
           msg = SQLite3.sqlite3_errmsg(dbh)
           raise Sqlx::Busy, msg if rc == SQLite3::BUSY || rc == SQLite3::LOCKED
           raise Sqlx::ReadOnlyViolation, msg if rc == SQLite3::READONLY
-          raise "Sqlx::Database.read_only_query failed (" + rc.to_s + "): " + msg
+          raise "Sqlx::Database.exec_query failed (" + rc.to_s + "): " + msg
         end
         ensure_one_statement!(tail)
-        ncols = column_count(stmt)
-        columns = []
-        i = 0
-        while i < ncols
-          columns.push(column_name(stmt, i))
-          i += 1
-        end
+        columns = read_column_names(stmt)
+        ncols = columns.length
         rows = []
         truncated = false
         while true
@@ -842,13 +838,7 @@ module Sqlx
               truncated = true
               break
             end
-            row = []
-            i = 0
-            while i < ncols
-              row.push(column_value(stmt, i))
-              i += 1
-            end
-            rows.push(row)
+            rows.push(read_row_values(stmt, ncols))
           elsif step_rc == SQLite3::DONE
             break
           elsif step_rc == SQLite3::INTERRUPT
@@ -858,10 +848,10 @@ module Sqlx
           elsif step_rc == SQLite3::READONLY
             raise Sqlx::ReadOnlyViolation, SQLite3.sqlite3_errmsg(dbh)
           else
-            raise "Sqlx::Database.read_only_query failed (" + step_rc.to_s + "): " + SQLite3.sqlite3_errmsg(dbh)
+            raise "Sqlx::Database.exec_query failed (" + step_rc.to_s + "): " + SQLite3.sqlite3_errmsg(dbh)
           end
         end
-        Sqlx::ReadResult.new(columns, rows, truncated)
+        Sqlx::QueryResult.new(columns, rows, truncated)
       ensure
         if stmt != 0
           SQLite3.sqlite3_finalize(stmt)
@@ -1362,11 +1352,9 @@ module Sqlx
       nil
     end
 
-    # Walk a prepared statement into name-keyed rows — the one row-shape walk
-    # `exec_write` and `exec_read` share. The release stays with the caller: a
-    # write reads its count before `finalize`, a read hands the rows back. `sql`
-    # is only for the error message.
-    def self.read_rows(stmt, sql)
+    # Reads the prepared statement's column names in select order. The names
+    # are available before the first step, so a zero-row result keeps its shape.
+    def self.read_column_names(stmt)
       ncols = column_count(stmt)
       names = []
       i = 0
@@ -1374,12 +1362,35 @@ module Sqlx
         names.push(column_name(stmt, i))
         i += 1
       end
+      names
+    end
+
+    # Reads the current row's values in select order.
+    def self.read_row_values(stmt, ncols)
+      values = []
+      i = 0
+      while i < ncols
+        values.push(column_value(stmt, i))
+        i += 1
+      end
+      values
+    end
+
+    # Walk a prepared statement into name-keyed rows — the shape `exec_write`
+    # and `exec_read` share. The column/value walk itself is shared with
+    # `exec_query`; only the row container differs. The release stays with the
+    # caller: a write reads its count before `finalize`, a read hands the rows
+    # back. `sql` is only for the error message.
+    def self.read_rows(stmt, sql)
+      names = read_column_names(stmt)
+      ncols = names.length
       rows = []
       while step?(stmt, sql)
+        values = read_row_values(stmt, ncols)
         row = {}
         i = 0
         while i < ncols
-          row[names[i]] = column_value(stmt, i)
+          row[names[i]] = values[i]
           i += 1
         end
         rows.push(row)
@@ -1390,6 +1401,7 @@ module Sqlx
     # are implementation details — cursor, column/bind readers, escape helpers,
     # query cache, and connection internals — and are private on purpose.
     private_class_method :read_rows, :current_conn, :pool_for_thread
+    private_class_method :read_column_names, :read_row_values
     private_class_method :lease_checkout
     private_class_method :busy_wait
     private_class_method :prepare, :step?, :finalize

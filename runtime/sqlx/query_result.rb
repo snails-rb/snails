@@ -1,12 +1,12 @@
 module Sqlx
-  # One read-only query's answer: the statement's column names in select
-  # order, its rows as value arrays, and whether the row cap cut the result.
+  # One query's answer: the statement's column names in select order, its rows
+  # as value arrays, and whether the row cap cut the result.
   #
   # Rows are arrays rather than column-name hashes because arbitrary SQL can
   # project the same name twice (`SELECT a.id, b.id`) and the caller must keep
   # both values in order. A zero-row result still carries the columns, which
   # is what tells a caller the shape of an empty answer.
-  class ReadResult
+  class QueryResult
     # @param columns [Array<String>] the select-list names, in order
     # @param rows [Array<Array>] one value array per row, at most the cap
     # @param truncated [Boolean] true when the statement had more rows than the

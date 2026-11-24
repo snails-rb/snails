@@ -114,7 +114,7 @@ module Sqlx
       unless timeout_ms.is_a?(Integer) && timeout_ms > 0
         raise ArgumentError, "timeout_ms must be a positive Integer"
       end
-      reader = Sqlx::Database.open_read_only(max_rows, timeout_ms)
+      reader = Sqlx::ReadConnection.new(Sqlx::Database.open_read_only, max_rows, timeout_ms)
       begin
         yield reader
       ensure

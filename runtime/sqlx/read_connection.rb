@@ -6,11 +6,11 @@ module Sqlx
   # The connection refuses writes and `ATTACH` at the database layer; the
   # caller's statement policy (which statements to allow) stays in the app.
   class ReadConnection
-    # @param dbh [untyped] the adapter's open connection handle
+    # @param handle [untyped] the adapter's open connection handle
     # @param max_rows [Integer] the per-query row cap
     # @param timeout_ms [Integer] the per-query wall-clock limit
-    def initialize(dbh, max_rows, timeout_ms)
-      @dbh = dbh
+    def initialize(handle, max_rows, timeout_ms)
+      @handle = handle
       @max_rows = max_rows
       @timeout_ms = timeout_ms
     end
@@ -22,14 +22,14 @@ module Sqlx
     # the columns, at most `max_rows` rows, and whether the cap cut the answer.
     #
     # @param sql [String] one SQL statement
-    # @return [Sqlx::ReadResult] the columns, capped rows, and truncation flag
+    # @return [Sqlx::QueryResult] the columns, capped rows, and truncation flag
     # @raise [ArgumentError] the statement is empty or carries more than one
     #   statement
     # @raise [Sqlx::QueryTimeout] the statement exceeded the timeout
     # @raise [Sqlx::ReadOnlyViolation] the statement tried to write
     # @raise [Sqlx::Busy] the database lock stayed held past the busy timeout
     def query(sql)
-      Sqlx::Database.read_only_query(@dbh, sql, @max_rows, @timeout_ms)
+      Sqlx::Database.exec_query(@handle, sql, max_rows: @max_rows, timeout_ms: @timeout_ms)
     end
 
     # Closes the connection. The `with_read_only` scope calls it; a caller
@@ -37,7 +37,7 @@ module Sqlx
     #
     # @return [void]
     def close
-      Sqlx::Database.close_read_only(@dbh)
+      Sqlx::Database.close_read_only(@handle)
     end
   end
 end
