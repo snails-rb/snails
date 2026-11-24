@@ -1,6 +1,6 @@
 # Deploying
 
-A Snails app is one native binary. The project builds it into a small container image, so the same image runs on a laptop, a single server, or a container platform. The machine that runs it does not need the compiler.
+A Snails app is one native binary. The project builds it into a small container image, so the same image runs on a laptop, a single server, or a container platform. The machine that runs it doesn't need the compiler.
 
 ## Build the image
 
@@ -43,7 +43,7 @@ The project includes a `compose.yml` for one host. The standard release is three
    bin/compose up -d --wait
    ```
 
-   Keep the order. The build puts the migration runner and the `db/migrate` files into the image, `apply` applies them to the deployed database, and `up -d --wait` starts the app and waits for its health check. If `apply` fails, do not run `up`.
+   Keep the order. The build puts the migration runner and the `db/migrate` files into the image, `apply` applies them to the deployed database, and `up -d --wait` starts the app and waits for its health check. If `apply` fails, don't run `up`.
 
 3. On the server, check that `curl http://127.0.0.1:3000/up` returns `{"status":"ok"}`.
 
@@ -67,7 +67,7 @@ bin/compose run --rm app snails migrate apply
 bin/compose up -d --wait
 ```
 
-If another system owns the database schema, set `DB_OWNER="external"` in `pins.toml` and skip the migration command; apply the change in the owning system. The migration commands refuse to write DDL when `DB_OWNER` is set, and `check` reports the expected state instead.
+If another system owns the database schema, set `DB_OWNER="external"` in `pins.toml` and skip the migration command; apply the change in the owning system. The migration commands refuse to write DDL when `DB_OWNER` is `"external"`, and `check` reports the expected state instead.
 
 The server never changes the schema on boot. A bare `snails migrate apply` on the host targets the development database, not the deployed one, so run it through compose.
 

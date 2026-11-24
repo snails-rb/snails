@@ -25,7 +25,7 @@ Replace `vX.Y.Z` and `<spinel-rev>` with the release and compiler revision you p
 
 `APP_NAME` never moves — it is your app's name, not the framework's (see [Your App's Structure](05-your-app-structure.md)).
 
-`SNALS_SOURCE` says where the framework copy in your app came from. A project created from an installed Snails says `"pin"` and you leave it alone. A project created from a development checkout says `"checkout"`, which builds from that working tree as it stands — including changes you have not committed. Both build; the choice is about what your artifact contains, not whether the build is allowed.
+`SNALS_SOURCE` says where the framework copy in your app came from. A project created from an installed Snails says `"pin"` and you leave it alone. A project created from a development checkout says `"checkout"`, which builds from that working tree as it stands — including changes you haven't committed. Both build; the choice is about what your artifact contains, not whether the build is allowed.
 
 ## Check before you change
 
@@ -60,7 +60,5 @@ Keep the CLI at or above the version you pin. When the release is newer than the
 Set `SNALS_REV` back to the version you came from, restore the matching `SPINEL_REV`, run `snails sync`, and run `bin/test`. The `snails-core/` copy is replaced by the older release, so a failed upgrade is one pin edit away from a known state.
 
 `SNALS_SOURCE="checkout"` follows the working tree rather than a release. To move a checkout project back to a published release, set `SNALS_SOURCE="pin"` and the release's `SNALS_REV` before syncing.
-
-[Background Jobs](15-background-jobs.md) describes both paths.
 
 [Deploying](25-deploying.md) covers the image rebuild that follows a pin change; [Troubleshooting](27-troubleshooting.md) covers a sync that refuses the declaration.
