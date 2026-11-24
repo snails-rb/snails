@@ -1,10 +1,10 @@
 # Authentication
 
-Snails gives you the HTTP handshake, not the user model: the controller reads a token or a username and password from the request, your app decides whether it belongs to a user, and the helper answers 401 when it does not. No session store, no cookie middleware, and no token table are built in.
+Snails gives you the HTTP handshake, not the user model: the controller reads a token or a username and password from the request, your app decides whether it belongs to a user, and the helper returns 401 when it doesn't. No session store, no cookie middleware, and no token table are built in.
 
 ## Read a token
 
-`authenticate_with_http_token` yields the token and its options to a block. It sends no challenge of its own, and a request without a token leaves the block unrun and answers `nil`:
+`authenticate_with_http_token` yields the token and its options to a block. It sends no challenge of its own, and a request without a token leaves the block unrun and returns `nil`:
 
 ```ruby
 class Api::TokensController < Api::ApplicationController
@@ -30,11 +30,11 @@ Authorization: Bearer abc123
 Authorization: Token abc123, scope=read, region=us
 ```
 
-The token is the first value; the pairs after it arrive as `options`, keyed by strings. Separate pairs with commas or semicolons — a space-separated `scope=read` is part of the token value, not an option.
+The token is the first value. The pairs after it arrive as `options`, keyed by strings. Separate pairs with commas or semicolons — a space-separated `scope=read` is part of the token value, not an option.
 
-## Answer the 401 in one call
+## Send the 401 in one call
 
-The `or_request` form does the challenge for you. When the block answers `nil` or `false`, or when the scheme is missing, the controller sends a 401 with a `WWW-Authenticate` header and stops the filter chain:
+The `or_request` form does the challenge for you. When the block returns `nil` or `false`, or when the scheme is missing, the controller sends a 401 with a `WWW-Authenticate` header and stops the filter chain:
 
 ```ruby
 class Api::TokensController < Api::ApplicationController
@@ -62,9 +62,9 @@ Content-Type: text/plain; charset=utf-8
 HTTP Token: Access denied.
 ```
 
-`realm` names the protection space in the challenge; the default is `"Application"`. Pass `message:` to replace the default body. The render marks the response performed, so neither the rest of the action nor any later `before_action` runs.
+`realm` names the protection space in the challenge. The default is `"Application"`. Pass `message:` to replace the default body. The render marks the response performed, so neither the rest of the action nor any later `before_action` runs.
 
-The two helpers are separate operations — a block that renders a body still needs a truthy return value. Use the non-challenge form and answer the 401 yourself when the block owns the response.
+The two helpers are separate operations — a block that renders a body still needs a truthy return value. Use the non-challenge form and send the 401 yourself when the block owns the response.
 
 ## Basic authentication
 
@@ -103,6 +103,6 @@ def current_account
 end
 ```
 
-`find_by` is enough when the token column is unique; a token table with an expiry or scope column is your schema. Nothing in the framework stores sessions, rotates tokens, or compares secrets in constant time.
+`find_by` is enough when the token column is unique. A token table with an expiry or scope column is your schema. Nothing in the framework stores sessions, rotates tokens, or compares secrets in constant time.
 
-The signing key for tokens you issue yourself comes from `Snails.app.secret_key_base`; [Configuration](16-configuration.md) covers that setting.
+The signing key for tokens you issue yourself comes from `Snails.app.secret_key_base`. [Configuration](16-configuration.md) covers that setting.

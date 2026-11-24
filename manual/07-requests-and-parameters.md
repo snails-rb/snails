@@ -14,9 +14,9 @@ params["comment"]["body"] # => "hello"
 params["post_id"]       # => "42"       from the route
 ```
 
-A JSON object is flattened by field name and nested back the same way, so `{"user": {"name": "Sue"}}` and an urlencoded `user[name]=Sue` build the same tree. A JSON array cannot be represented in the body reader, so its elements are folded into the same `[]` key and the last one wins; send a nested object when every element must survive.
+A JSON object is flattened by field name and nested back the same way, so `{"user": {"name": "Sue"}}` and an urlencoded `user[name]=Sue` build the same tree. A JSON array can't be represented in the body reader, so its elements are folded into the same `[]` key and the last one wins. Send a nested object when every element must survive.
 
-Request params are mutable and String-keyed. `params[:id]` is always `nil`; read `params["id"]`.
+Request params are mutable and String-keyed. `params[:id]` is always `nil`. Read `params["id"]`.
 
 Path captures arrive as Strings. The generated model declares its integer columns, so the model casts the value when it builds the condition:
 
@@ -24,9 +24,9 @@ Path captures arrive as Strings. The generated model declares its integer column
 @post = Post.find(params["id"])
 ```
 
-A non-decimal value such as `"1-welcome"` raises `Sqlx::CastError`, which the framework answers as `400 Bad Request`. A TEXT or UUID primary key is not declared as an integer column, so it stays an exact string lookup.
+A non-decimal value such as `"1-welcome"` raises `Sqlx::CastError`, which the framework turns into `400 Bad Request`. A TEXT or UUID primary key isn't declared as an integer column, so it stays an exact string lookup.
 
-A route can carry a format extension. `GET /posts.json` matches the `/posts` route and sets `params["format"]` to `"json"`; the extension is not part of the path captures.
+A route can carry a format extension. `GET /posts.json` matches the `/posts` route and sets `params["format"]` to `"json"`. The extension isn't part of the path captures.
 
 ## Read the request
 
@@ -66,7 +66,7 @@ request.body.read        # the whole body
 request.raw_post         # the same text without touching the cursor
 ```
 
-Do not read the body in a `before_action`; parsing has already consumed it into `params`, and a second read from a rewound cursor sees the same bytes.
+Don't read the body in a `before_action`. Parsing has already consumed it into `params`, and a second read from a rewound cursor sees the same bytes.
 
 ## Narrow input before it reaches a model
 
@@ -95,7 +95,7 @@ ActionController::Params.permit(params, [
 # => { title: "…", body: "…", author: { "name" => "…" }, tags: [...] }
 ```
 
-The result is Symbol-keyed at the top level; nested hashes keep the keys the request carried. A Symbol filter keeps a scalar value when it is truthy. `{}` keeps a nested Hash as-is. An Array of Symbols keeps only those keys of a nested Hash, and maps each Hash element of an array through the same list. Unknown fields do not raise — they are dropped, which is the point of a permit list. `provided` asks the narrower question: did the request carry a usable scalar for this key? A blank string counts; `nil` and a nested value do not.
+The result is Symbol-keyed at the top level. Nested hashes keep the keys the request carried. A Symbol filter keeps a scalar value when it is truthy. `{}` keeps a nested Hash as-is. An Array of Symbols keeps only those keys of a nested Hash, and maps each Hash element of an array through the same list. Unknown fields don't raise — they are dropped, which is the point of a permit list. `provided` asks the narrower question: did the request carry a usable scalar for this key? A blank string counts; `nil` and a nested value do not.
 
 ## Uploads
 
@@ -109,7 +109,7 @@ file.size                                # bytes
 file.read                                # the bytes, in memory
 ```
 
-An empty file input is dropped, so `params["avatar"]` is `nil`. Uploaded bytes stay in memory until your storage code writes them; there is no disk-backed upload path. A body over 8 MiB is refused before it is read with a 413; a body that stops arriving within 30 seconds gets a 408, and a body that ends early or does not parse is a 400.
+An empty file input is dropped, so `params["avatar"]` is `nil`. Uploaded bytes stay in memory until your storage code writes them. There's no disk-backed upload path. A body over 8 MiB is refused before it is read with a 413. A body that stops arriving within 30 seconds gets a 408, and a body that ends early or doesn't parse is a 400.
 
 ## Limits
 
@@ -122,7 +122,7 @@ The request parser enforces its limits before the action runs:
 | Nesting depth | 100 levels | 400 |
 | Malformed %-escape, invalid UTF-8, mixed array/hash name | — | 400 |
 
-A JSON body that is not an object, or that does not parse, is also a 400. Those answers are JSON, like every other route response.
+A JSON body that isn't an object, or that doesn't parse, is also a 400. Those responses are JSON, like every other route response.
 
 When a job or another caller needs the current request outside a controller instance, `ActionController::Current.request` and `.controller` hold it for the duration of the action.
 
