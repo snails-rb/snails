@@ -1,10 +1,10 @@
 # Time, Dates, and JSON
 
-Times are stored as UTC and read back in the app's zone. Durations are plain values with their own arithmetic, and `render json:` has one fixed spelling for Time. This chapter covers the three together because they meet at the same boundary: a stored instant becomes a JSON string.
+Times are stored as UTC and read back in the app's zone. Durations are plain values with their own arithmetic, and `render json:` always encodes Time the same way. This chapter covers the three together because they meet at the same boundary: a stored instant becomes a JSON string.
 
 ## Durations
 
-`Integer` provides the time-unit methods. Every unit returns a `Snails::Duration`, which carries the arithmetic:
+`Integer` provides the time-unit methods. Every unit returns a `Snails::Duration`, which implements the arithmetic:
 
 ```ruby
 3.minutes.to_i        # 180
@@ -25,7 +25,7 @@ Months and years use average lengths. For a calendar step — "one month after J
 
 ## Time arithmetic
 
-`Time` answers boundaries and calendar shifts:
+`Time` provides boundaries and calendar shifts:
 
 ```ruby
 now = Time.now
@@ -53,7 +53,7 @@ now.on_weekend?
 now.on_weekday?
 ```
 
-A day shift rebuilds the civil date, so a daylight-saving transition cannot move the clock. A month step clamps to the target month's last day.
+A day shift rebuilds the civil date, so a daylight-saving transition can't move the clock. A month step clamps to the target month's last day.
 
 ## Stored time and the app zone
 
@@ -97,7 +97,7 @@ render(json: nil)                 # "null"
 render(json: "hello")             # "\"hello\""
 ```
 
-A model does not serialize for JSON by default. A bare `render(json: post)` falls to the last row and prints the object's `to_s`. Give the model an `as_json` when the record itself is the payload:
+A model doesn't serialize for JSON by default. A bare `render(json: post)` falls to the last row and prints the object's `to_s`. Give the model an `as_json` when the record itself is the payload:
 
 ```ruby
 class Post < Sqlx::Base
@@ -116,7 +116,7 @@ end
 render(json: post)
 ```
 
-`as_json` runs for a model even inside a Hash value, so a nested record uses the same structure. A `Time` inside that Hash still becomes an ISO 8601 string. A `Date` is not a Time: it falls to `to_s` and renders as `"2026-11-12"`.
+`as_json` runs for a model even inside a Hash value, so a nested record uses the same structure. A `Time` inside that Hash still becomes an ISO 8601 string. A `Date` isn't a Time: it falls to `to_s` and renders as `"2026-11-12"`.
 
 `render json:` sets `Content-Type: application/json; charset=utf-8` unless the call names another type. `render("text", content_type: ...)` is the pre-encoded body form; `render(json: value, content_type: ...)` overrides the header but still encodes the value.
 

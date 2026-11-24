@@ -1,18 +1,18 @@
 # Error Handling
 
-A missing record is a 404, a malformed request is a 400, and an unhandled exception is a 500. The framework owns those defaults so a controller does not repeat them; the app decides when a different response — a JSON error document, a conflict status, a redirect — is the better answer.
+A missing record is a 404, a malformed request is a 400, and an unhandled exception is a 500. The framework owns those defaults so a controller doesn't repeat them; the app decides when a different response — a JSON error document, a conflict status, a redirect — is the better choice.
 
-## What the framework answers
+## Default responses
 
 | Failure | Status | Body |
 |---|---:|---|
 | No route matches | 404 | `{"error":"not_found"}` |
-| Body or query does not parse | 400 | `{"error":"bad_request"}` |
+| Body or query doesn't parse | 400 | `{"error":"bad_request"}` |
 | Required parameter missing | 400 | `{"error":"bad_request"}` |
 | `Sqlx::RecordNotFound` escapes the action | 404 | `{"error":"not_found"}` |
 | Any other exception | 500 | `internal server error` (plain text) |
 
-The last row is the server's last resort, not a JSON error. A 500 does not include the exception message in the response; the exception and the request go to the log as `request.failed`.
+The last row is the server's last resort, not a JSON error. A 500 doesn't include the exception message in the response; the exception and the request go to the log as `request.failed`.
 
 A response whose status is 500 or higher is also recorded as `request.failed`, even when the action returned it instead of raising. A 4xx response is a completed request.
 
@@ -32,7 +32,7 @@ end
 
 `Post.find` and `Post.find_by!` raise; `process_action` runs every action, so one rescue covers them all. `head` sends the status and headers without a body. `super` is required: it runs the filter chain and the action, and an override that replaces the dispatch must call `send_action(action_name)` instead so the action still gets its implicit 204.
 
-Rescue a second class the same way when the app has a better answer for it:
+Rescue a second class the same way when the app has a better response for it:
 
 ```ruby
 def process_action(action_name)
@@ -44,7 +44,7 @@ rescue Sqlx::RecordNotUnique
 end
 ```
 
-For a case that belongs to one action, use a normal `begin`/`rescue` in that action. Do not rescue `Exception`; the framework re-raises `SystemExit`, `SignalException`, and `NoMemoryError` at its own boundaries, and catching them in app code only moves the failure.
+For a case that belongs to one action, use a normal `begin`/`rescue` in that action. Don't rescue `Exception`; the framework re-raises `SystemExit`, `SignalException`, and `NoMemoryError` at its own boundaries, and catching them in app code only moves the failure.
 
 ## The error classes
 
@@ -61,13 +61,13 @@ For a case that belongs to one action, use a normal `begin`/`rescue` in that act
 
 `RecordInvalid` and `ValueTooLong` are never raised by the framework. They exist so an app can use one error vocabulary and one rescue list; constructing them is the app's choice.
 
-`Sqlx::Busy` means the unit did not commit, so retry the whole transaction or job. `Sqlx::ConnectionFailed` may leave the unit's outcome unknown — the statement may have committed — so retry the whole unit, never one statement inside it. `ConnectionTimeout` means the statement did not run, so the same retry rule applies.
+`Sqlx::Busy` means the unit didn't commit, so retry the whole transaction or job. `Sqlx::ConnectionFailed` may leave the unit's outcome unknown — the statement may have committed — so retry the whole unit, never one statement inside it. `ConnectionTimeout` means the statement didn't run, so the same retry rule applies.
 
-There is no `rescue_from`. Registration is a plain method override, which keeps the request path readable and makes the order of rescues explicit. `ActionController::UnpermittedParameters` and `ActionController::UnknownFormat` exist for rescue clauses but nothing in the framework raises them.
+There's no `rescue_from`. Registration is a plain method override, which keeps the request path readable and makes the order of rescues explicit. `ActionController::UnpermittedParameters` and `ActionController::UnknownFormat` exist for rescue clauses but nothing in the framework raises them.
 
 ## Failures in the background
 
-A job that raises is recorded by the job stack and does not stop the worker loop. The DB-backed queue writes the exception class and message to the queue row; job bodies are not retried. A row the running binary cannot execute — the job name has no class in this binary, or its payload is not valid JSON — is a delivery failure: the queue returns it to pending with a growing delay and turns it into a dead letter after the attempt limit. A periodic callback that raises becomes a `scheduler.callback_failed` record and does not stop the other callbacks. [Background Jobs](15-background-jobs.md) covers the queue lifecycle.
+A job that raises is recorded by the job stack and doesn't stop the worker loop. The DB-backed queue writes the exception class and message to the queue row; job bodies aren't retried. A row the running binary can't execute — the job name has no class in this binary, or its payload isn't valid JSON — is a delivery failure: the queue returns it to pending with a growing delay and turns it into a dead letter after the attempt limit. A periodic callback that raises becomes a `scheduler.callback_failed` record and doesn't stop the other callbacks. [Background Jobs](15-background-jobs.md) covers the queue lifecycle.
 
 A failed request keeps its server log. `bin/test` names the kept log path on a failed load; `bin/dev` streams to `tmp/development.log` and appends. `snails doctor` checks the setup before you go looking for an exception.
 

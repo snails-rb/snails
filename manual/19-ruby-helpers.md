@@ -18,7 +18,7 @@ The framework reopens a few core classes with the helpers app code reaches for m
 
 `camelize` reads `/` as a namespace separator (`"a/b"` becomes `"A::B"`). `humanize` drops a trailing `" id"`, which is the label form a form field name usually needs. `pluralize(1)` returns the word unchanged; the suffix rules are the regular English ones, not an irregular-word table. `parameterize` keeps only ASCII letters, digits, and `_`, so a non-Latin word parameterizes to an empty string.
 
-`String#to_time` and `String#to_date` parse the stored database forms, not arbitrary date input. `to_time` reads the fixed-width datetime text and returns the instant in the app zone; `to_date` reads the first ten characters and answers nil for shorter text.
+`String#to_time` and `String#to_date` parse the stored database forms, not arbitrary date input. `to_time` reads the fixed-width datetime text and returns the instant in the app zone; `to_date` reads the first ten characters and returns nil for shorter text.
 
 ## Presence
 
@@ -34,7 +34,7 @@ nil.blank?          # true
 "other".presence_in(["member", "admin"])   # nil
 ```
 
-`blank?` treats `nil`, `false`, an empty Array or Hash, and a whitespace-only String as empty. `0` and `:sym` are values. `presence` is the `value.presence || fallback` pattern. `presence_in` takes an Array and compares the receiver's text, so a Symbol matches its String spelling.
+`blank?` treats `nil`, `false`, an empty Array or Hash, and a whitespace-only String as empty. `0` and `:sym` are values. `presence` is the `value.presence || fallback` pattern. `presence_in` takes an Array and compares the receiver's text, so a Symbol matches its String form.
 
 ## Hashes and arrays
 
@@ -50,7 +50,7 @@ nil.blank?          # true
 [ "a", "b", "c" ].to_sentence         # "a, b, and c"
 ```
 
-`deep_transform_keys` returns a new Hash; the receiver keeps its old keys. The bang spelling returns a new Hash too, despite the name — use the return value. On an Array, the bang spelling mutates the receiver's Hash elements.
+`deep_transform_keys` returns a new Hash; the receiver keeps its old keys. The bang version returns a new Hash too, despite the name — use the return value. On an Array, the bang version mutates the receiver's Hash elements.
 
 `to_query` percent-encodes ASCII punctuation, renders a space as `+`, repeats `key[]` for a scalar Array, and nests a Hash as `outer[inner]`. A non-ASCII value passes through unencoded, so encode it before the call if the consumer requires it.
 
@@ -62,7 +62,7 @@ nil.blank?          # true
 [ a ].sole                                # a; raises when empty or more than one
 ```
 
-`index_by` keeps the last item for a duplicate key. `many?` answers whether the collection holds more than one element. `sole` asserts that the collection holds exactly one and raises `"no item found"` or `"multiple items found"` otherwise.
+`index_by` keeps the last item for a duplicate key. `many?` tells you whether the collection holds more than one element. `sole` asserts that the collection holds exactly one and raises `"no item found"` or `"multiple items found"` otherwise.
 
 These helpers are ordinary Ruby reopenings, so a method your app defines on the same class wins. They exist to save a repeated local helper, not to replace a domain method with a vaguer name.
 

@@ -1,6 +1,6 @@
 # Logging
 
-Every request, job, and process event leaves a structured record you can read in the terminal and ship to a remote collector. The default output is a local line; the record carries the same fields when a transport is set.
+Every request, job, and process event leaves a structured record you can read in the terminal and ship to a remote collector. The default output is a local line; the record holds the same fields when a transport is set.
 
 ## Where the log goes
 
@@ -38,7 +38,7 @@ Snails.logger.info("reconciled posts", event: "posts.reconciled", fields: { coun
 Snails.logger.error("provider refused", event: "mail.failed", exception: failure)
 ```
 
-A call without `event:` writes a plain line and an `app.log` record. A call with `event:` is a named record rendered by the record formatter. Both reach the transport, so choosing a formatter never decides whether something is delivered. `fields:` and `exception:` require `event:`; supplying either without it raises instead of silently falling back to a plain line. Field values are strings, numbers, booleans, or nil; nested structures do not have a defined field mapping.
+A call without `event:` writes a plain line and an `app.log` record. A call with `event:` is a named record rendered by the record formatter. Both reach the transport, so choosing a formatter never decides whether something is delivered. `fields:` and `exception:` require `event:`; supplying either without it raises instead of silently falling back to a plain line. Field values are strings, numbers, booleans, or nil; nested structures don't have a defined field mapping.
 
 ## Configure it
 
@@ -57,14 +57,14 @@ Snails.logger.transport        = Snails::Logger::OTLPTransport.new(
 )
 ```
 
-Without an explicit level, development writes debug and every other mode writes info and above. `output` defaults to `$stderr`; a String path is rejected — open the file and pass the IO. `formatter` renders the plain lines, `record_formatter` renders named events, and both must answer `call` and return a newline-terminated String. `host_name` answers `ENV["HOSTNAME"]` unless set.
+Without an explicit level, development writes debug and every other mode writes info and above. `output` defaults to `$stderr`; a String path is rejected — open the file and pass the IO. `formatter` renders the plain lines, `record_formatter` renders named events, and both must implement `call` and return a newline-terminated String. `host_name` returns `ENV["HOSTNAME"]` unless set.
 
 Snails ships an OTLP/HTTP transport. Its endpoint is the receiver's base address; the transport appends the logs path itself. Endpoint and token are app-owned and come from the environment — never write their values into `config/environment.rb`.
 
-Remote delivery is off until a transport is set. A delivery failure is reported locally and does not stop the app.
+Remote delivery is off until a transport is set. A delivery failure is reported locally and doesn't stop the app.
 
 ## Job and scheduler events
 
-Jobs write `job.started`, `job.finished`, `job.deferred`, and `job.failed` with the job name, run id, attempt count, and duration. `job.deferred` is a warning for a row the running binary cannot execute; the row waits in pending for another process to pick it up. The worker and scheduler loops write `worker.drain_failed`, `worker.loop_stopped`, `scheduler.callback_failed`, `scheduler.run_failed`, and `scheduler.loop_stopped` when their units fail. Those events carry the pid and the exception, so a bad job or callback is visible without a request.
+Jobs write `job.started`, `job.finished`, `job.deferred`, and `job.failed` with the job name, run id, attempt count, and duration. `job.deferred` is a warning for a row the running binary can't execute; the row waits in pending for another process to pick it up. The worker and scheduler loops write `worker.drain_failed`, `worker.loop_stopped`, `scheduler.callback_failed`, `scheduler.run_failed`, and `scheduler.loop_stopped` when their units fail. Those events include the pid and the exception, so a bad job or callback is visible without a request.
 
 [Local Development](22-local-development.md) covers the run loop; [Error Handling](20-error-handling.md) covers which failures become a 500.
