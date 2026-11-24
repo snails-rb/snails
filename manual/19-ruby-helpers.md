@@ -1,6 +1,6 @@
 # Ruby Helpers
 
-The framework reopens a few core classes with the helpers app code reaches for most: string formatting, key transforms, collection predicates, and value presence. They are available everywhere — controllers, models, jobs, and tests — with no require.
+The framework reopens a few core classes with the helpers app code reaches for most: string formatting, key transforms, collection predicates, and value presence. They're available everywhere — controllers, models, jobs, and tests — with no require.
 
 ## Strings
 
