@@ -1,6 +1,6 @@
 # Email
 
-A Snails app builds the message; your app owns the way it leaves the process. There are no templates and no built-in SMTP client — you write the subject and body in code and register a delivery class that talks to your provider.
+A Snails app builds the message. Your app owns the way it leaves the process. There are no templates and no built-in SMTP client — you write the subject and body in code and register a delivery class that talks to your provider.
 
 ## Create a mailer
 
@@ -30,13 +30,13 @@ class WelcomeMailer < ApplicationMailer
 end
 ```
 
-`default` sets header values for every message built by that class and its subclasses. A value passed to `mail` wins over the default; a subclass can add its own default. Only `to`, `from`, `replyto`, `subject`, and `body` are modeled. `body` is the message text — there is no template lookup.
+`default` sets header values for every message built by that class and its subclasses. A value passed to `mail` wins over the default. A subclass can add its own default. Only `to`, `from`, `replyto`, `subject`, and `body` are modeled. `body` is the message text — there is no template lookup.
 
-Mailers under `app/mailers/` load through `gen/mailers.rb`; drop the file there (subfolders included) and the next `bin/dev` or `bin/test` adds it to the list.
+Mailers under `app/mailers/` load through `gen/mailers.rb`. Drop the file there (subfolders included) and the next `bin/dev` or `bin/test` adds it to the list.
 
 ## Register a delivery class
 
-The app sends through a class you register in `config/environment.rb`. The class answers `deliver(message)` and returns the message:
+The app sends through a class you register in `config/environment.rb`. The class implements `deliver(message)` and returns the message:
 
 ```ruby
 # app/lib/my_mail_delivery.rb
@@ -54,7 +54,7 @@ end
 ActionMailer::Base.delivery_method = MyMailDelivery
 ```
 
-The class is read at delivery time, so you can swap it per environment. A fresh app registers `ActionMailer::DeliveryLog` in test mode; keep that line last so tests keep the capture. With no class registered in development or production, the first delivery raises instead of silently going nowhere.
+The class is read at delivery time, so you can swap it per environment. A fresh app registers `ActionMailer::DeliveryLog` in test mode. Keep that line last so tests keep the capture. With no class registered in development or production, the first delivery raises instead of silently going nowhere.
 
 ## Send now or later
 
@@ -88,10 +88,10 @@ WelcomeMailer.welcome("sue@example.com").deliver_later
 assert_equal 1, ActionMailer::Base.deliveries.length
 ```
 
-The server is a separate process, so `deliveries` there is not visible to the harness. The file is the shared observation point for a live server; `CaptureMethod` is for a case that calls a mailer directly.
+The server is a separate process, so `deliveries` there isn't visible to the harness. The file is the shared observation point for a live server; `CaptureMethod` is for a case that calls a mailer directly.
 
-## What is not included
+## What isn't included
 
-There are no templates, attachments, CC/BCC headers, or SMTP client. A message carries `to`, `from`, `replyto`, `subject`, and `body`. Durability and retry behavior depend on the job queue adapter and your provider; the mailer itself does not retry.
+There are no templates, attachments, CC/BCC headers, or SMTP client. A message holds `to`, `from`, `replyto`, `subject`, and `body`. Durability and retry behavior depend on the job queue adapter and your provider; the mailer itself doesn't retry.
 
-That is the whole path: build the message in a mailer, register a delivery class, and call `deliver_now` or `deliver_later`. [Background Jobs](15-background-jobs.md) covers what `deliver_later` hands the queue to.
+That's the whole path: build the message in a mailer, register a delivery class, and call `deliver_now` or `deliver_later`. [Background Jobs](15-background-jobs.md) covers what `deliver_later` hands the queue to.
