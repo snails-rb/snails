@@ -1,10 +1,10 @@
 # Columns and Types
 
-A model declares its table and nothing else. The columns, their readers, and the lists that drive type conversion are generated from `db/schema.sql` into `gen/model_columns.rb`. Treat that file as build output: edit the schema or the model, never the generated file.
+A model declares its table and nothing else. The columns, their readers, and the lists that drive type conversion are generated from `db/schema.sql` into `gen/model_columns.rb`. Treat that file as generated: edit the schema or the model, never the generated file.
 
 ## What the generator writes
 
-For a `posts` table with an id, text columns, timestamps, a boolean flag, a date, and a JSON column, the generated file carries one module per model:
+For a `posts` table with an id, text columns, timestamps, a boolean flag, a date, and a JSON column, the generated file contains one module per model:
 
 ```ruby
 module GeneratedModelColumns
@@ -54,9 +54,9 @@ The generated lists are the type contract between the database and Ruby:
 | `json_columns` | `JSON`, `JSONB` | decoded Hash/Array/scalar | any JSON value |
 | `integer_columns` | `INTEGER`, `BIGINT`, `SMALLINT`, `SERIAL`, `BIGSERIAL` | raw adapter value | raw value; String condition values cast |
 
-A `datetime` column read from SQLite text goes through the stored-time parser and comes back in the app's time zone. A `date` column reads through `String#to_date`; the generator loads the optional date codec only when some model projects a `DATE` column. A boolean is stored as `1`/`0` on SQLite and read back as `true`/`false`. A JSON column is encoded on every write and decoded on every read, so app code hands over a Hash and reads a Hash. A value JSON cannot represent — a `Time`, for example — raises at the write instead of being stringified into the column.
+A `datetime` column read from SQLite text goes through the stored-time parser and comes back in the app's time zone. A `date` column reads through `String#to_date`. The generator loads the optional date codec only when some model projects a `DATE` column. A boolean is stored as `1`/`0` on SQLite and read back as `true`/`false`. A JSON column is encoded on every write and decoded on every read, so app code hands over a Hash and reads a Hash. A value JSON can't represent — a `Time`, for example — raises at the write instead of being stringified into the column.
 
-`integer_columns` is the condition cast list, not a conversion applied when a record is built. A String condition value for a declared column is parsed as a decimal integer before it binds; a non-decimal value raises `Sqlx::CastError`. The literal `where_clause` renderer and raw SQL do not apply the cast. A model that declares a boolean, datetime, date, or json column keeps that type even when the schema backs it with `INTEGER`; its declaration list wins.
+`integer_columns` is the condition cast list, not a conversion applied when a record is built. A String condition value for a declared column is parsed as a decimal integer before it binds; a non-decimal value raises `Sqlx::CastError`. The literal `where_clause` renderer and raw SQL don't apply the cast. A model that declares a boolean, datetime, date, or json column keeps that type even when the schema backs it with `INTEGER`. Its declaration list wins.
 
 The built-in timestamp pair is special in one way: `create!` and `update!` fill a declared `created_at`/`updated_at` the caller left out. A table without those columns is legal and gets no timestamp.
 
@@ -81,9 +81,9 @@ class Event < Sqlx::Base
 end
 ```
 
-`from_row` copies every `only_columns` entry and then applies the declared conversions. A conversion naming a column outside `only_columns` raises — only the built-in timestamp pair may be absent. If you hand-write a narrower SELECT, declare the narrowed columns or override `from_row`; leaving the generated lists in place while the SELECT omits a declared date, boolean, JSON, or extra datetime column is the common source of an `ArgumentError` when a record is built.
+`from_row` copies every `only_columns` entry and then applies the declared conversions. A conversion naming a column outside `only_columns` raises — only the built-in timestamp pair may be absent. If you hand-write a narrower SELECT, declare the narrowed columns or override `from_row`. Leaving the generated lists in place while the SELECT omits a declared date, boolean, JSON, or extra datetime column is the common source of an `ArgumentError` when a record is built.
 
-A model that needs more than the five declarations overrides `from_row` outright. It receives one name-keyed row and answers one record:
+A model that needs more than the five declarations overrides `from_row`. It receives one name-keyed row and returns one record:
 
 ```ruby
 def self.from_row(row)
@@ -93,7 +93,7 @@ end
 
 ## Enums
 
-An integer column with a fixed set of labels can carry a validated enum declaration. It stores the mapping once and gives the model the read, predicate, and write pieces; it does not generate methods, so the model writes the small members it wants:
+An integer column with a fixed set of labels can carry a validated enum declaration. It stores the mapping once and gives the model the read, predicate, and write pieces. It doesn't generate methods, so the model writes the small members it wants:
 
 ```ruby
 class Post < Sqlx::Base
@@ -107,12 +107,12 @@ class Post < Sqlx::Base
 end
 ```
 
-`enum` rejects an empty declaration, a non-Symbol label, a non-Integer value, and a repeated value at load. `label` answers `nil` for an unknown stored value; `value` and the predicate raise for a label the declaration no longer carries. `writer(...).write!` updates the column and `updated_at` in one statement, matching the row by id; the table must carry `updated_at`.
+`enum` rejects an empty declaration, a non-Symbol label, a non-Integer value, and a repeated value at load. `label` returns `nil` for an unknown stored value; `value` and the predicate raise for a label the declaration no longer carries. `writer(...).write!` updates the column and `updated_at` in one statement, matching the row by id. The table must carry `updated_at`.
 
 ## The `.rbs` sidecar
 
 `gen/model_columns.rbs` is written beside the Ruby file. It gives each generated reader its column type, so the compiler can check a caller against the schema. A model method that overrides a generated reader owns its own type declaration; add it to the model's `.rbs` when the value differs from the column type.
 
-The file is the compiler's analysis input, not a portable RBS contract. It only restores the type each generated reader loses through `read_attribute`; the inherited reads (`find`, `find_by`, `fetch_many`) and a model's association reader are inferred from the Ruby source. A tool that reads only `.rbs` files sees the generic `Sqlx` signatures for those methods, and app-owned types such as a controller's `@post` belong in your own `.rbs` when a separate checker needs them.
+The file is the compiler's analysis input, not a portable RBS contract. It only restores the type each generated reader loses through `read_attribute`. The inherited reads (`find`, `find_by`, `fetch_many`) and a model's association reader are inferred from the Ruby source. A tool that reads only `.rbs` files sees the generic `Sqlx` signatures for those methods, and app-owned types such as a controller's `@post` belong in your own `.rbs` when a separate checker needs them.
 
 [Querying](10-querying.md) covers the reads and writes these columns feed.

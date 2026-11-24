@@ -21,7 +21,7 @@ class PostForm < Snails::Form
 end
 ```
 
-`FIELDS` is the list input is projected onto. A key outside it never reaches a rule; a missing field reads `nil`. The form accepts a Hash and raises `ArgumentError` for anything else. `write_attribute` is the only writer; there are no generated setters. `normalize` runs once after projection when you need to trim or canonicalize input:
+`FIELDS` is the list that input is projected onto. A key outside it never reaches a rule; a missing field reads `nil`. The form accepts a Hash and raises `ArgumentError` for anything else. `write_attribute` is the only writer; there are no generated setters. `normalize` runs once after projection when you need to trim or canonicalize input:
 
 ```ruby
 def normalize
@@ -29,26 +29,26 @@ def normalize
 end
 ```
 
-`valid?` clears the error list, runs the rules in declaration order, and answers `true` when none failed. Calling it again starts fresh.
+`valid?` clears the error list, runs the rules in declaration order, and returns `true` when none failed. Calling it again starts fresh.
 
 ## The rules
 
 | Rule | Options | What it checks |
 |---|---|---|
-| `presence: true` | — | the value is not nil and not blank |
+| `presence: true` | — | the value is neither nil nor blank |
 | `length` | `minimum:`, `maximum:`, `is:`, `within: Range` | string size (Array/Hash size for collections) |
-| `format` | `with: Regexp` or `without: Regexp` | the whole string matches, or does not match |
+| `format` | `with: Regexp` or `without: Regexp` | the whole string matches, or doesn't match |
 | `inclusion` | `in: collection` | the value is in the collection |
-| `exclusion` | `in: collection` | the value is not in the collection |
+| `exclusion` | `in: collection` | the value isn't in the collection |
 | `uniqueness` | `model:`, `column:`, `scope:` | no other row holds this value |
 | `confirmation: true` | — | the `*_confirmation` sibling matches |
 | `validate :method` | `if:`, `unless:` | your own rule, reported with `errors.add` |
 
-`length` takes `minimum:`/`maximum:`/`is:` or one `within:` Range, not both. `is:` is exact. `inclusion` and `exclusion` compare with the collection's own `include?`; an Array value asks every element, which is the collection-field case. `uniqueness` reads `model.find_by` with the column (the attribute name by default) and any `scope:` fields; it does not write a lock, so a concurrent insert can still win the race and surface as `Sqlx::RecordNotUnique`.
+`length` takes `minimum:`/`maximum:`/`is:` or one `within:` Range, not both. `is:` is exact. `inclusion` and `exclusion` compare with the collection's own `include?`. An Array value asks every element, which is the collection-field case. `uniqueness` reads `model.find_by` with the column (the attribute name by default) and any `scope:` fields. It doesn't write a lock, so a concurrent insert can still win the race and surface as `Sqlx::RecordNotUnique`.
 
 `confirmation: true` belongs on the field being confirmed, not on the confirmation field. For `validates :password, confirmation: true`, the form must also declare `password_confirmation`; the rule compares `password` with that sibling.
 
-A custom rule is an instance method that calls `errors.add`; a name that does not exist raises on the first `valid?` instead of skipping silently.
+A custom rule is an instance method that calls `errors.add`. A name that doesn't exist raises on the first `valid?` instead of skipping silently.
 
 ## Options that soften a rule
 
@@ -88,7 +88,7 @@ end
 
 Without `message_scope`, keys resolve under `activemodel.errors.models.<form_name>.attributes`. A custom String message is never looked up; a Symbol key with no built-in default and no `I18n` raises rather than rendering an empty line.
 
-The errors object answers `full_messages`, `join(separator)`, `on(:field)`, `empty?`, `any?`, and `size`. `errors.add(:base, "...")` records a message not tied to a field.
+The errors object provides `full_messages`, `join(separator)`, `on(:field)`, `empty?`, `any?`, and `size`. `errors.add(:base, "...")` records a message not tied to a field.
 
 ## Save it yourself
 
@@ -108,7 +108,7 @@ end
 
 The scaffold's `render_form_errors` turns `form.errors.full_messages` into `{"errors": [...]}` with a 422 status. The form never touches the database except for `uniqueness`'s read.
 
-## See it work
+## Run the tests
 
 ```text
 ok   adapter_test.rb

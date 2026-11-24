@@ -1,6 +1,6 @@
 # Migrations
 
-You change the database schema the explicit way: write a numbered file under `db/migrate/`, apply it, and keep `db/schema.sql` as the schema dump the tests load. Nothing runs against the database until you say so.
+You change the database schema explicitly: write a numbered file under `db/migrate/`, apply it, and keep `db/schema.sql` as the schema dump the tests load. Nothing runs against the database until you say so.
 
 ## Start from the baseline
 
@@ -21,7 +21,7 @@ applying 20261111210824_baseline
 [snails] database ready
 ```
 
-A plain `snails new` project has no schema, so `snails migrate load` answers `nothing to load`. That is normal: a project with no models needs no database file until a feature asks for one.
+A plain `snails new` project has no schema, so `snails migrate load` prints `nothing to load`. That's normal: a project with no models needs no database file until a feature asks for one.
 
 `load` is the explicit setup command. It creates the database when it is missing, loads `db/schema.sql` when one exists, replays pending migrations to record which files applied, then refreshes the schema dump. A SQLite app gets its `storage/` directory with the project, so this works before the first boot.
 
@@ -44,7 +44,7 @@ applying 20261112090000_add_slug_to_posts
 1 applied
 ```
 
-`apply` is the migration half only. It does not regenerate the schema dump; `snails migrate dump` does that. `load` does both for an initialized database too.
+`apply` is the migration half only. It doesn't regenerate the schema dump; `snails migrate dump` does that. `load` does both for an initialized database too.
 
 ## Keep the schema dump in step
 
