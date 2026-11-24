@@ -106,7 +106,7 @@ class ReadOnlyTest < TestBase
     raised = nil
     begin
       read("INSERT INTO read_only_samples (service, n) VALUES ('x', 1)")
-    rescue Sqlx::ReadOnlyViolation => e
+    rescue Sqlx::ReadOnlyError => e
       raised = e
     end
     assert_equal true, !raised.nil?

@@ -808,7 +808,7 @@ module Sqlx
     # @raise [ArgumentError] the statement contains no SQL, or carries more
     #   than one statement
     # @raise [Sqlx::QueryTimeout] the statement exceeded the timeout
-    # @raise [Sqlx::ReadOnlyViolation] the statement tried to write on a
+    # @raise [Sqlx::ReadOnlyError] the statement tried to write on a
     #   read-only connection
     # @raise [Sqlx::Busy] the database lock stayed held past the busy timeout
     def self.exec_query(dbh, sql, max_rows:, timeout_ms:)
@@ -830,7 +830,7 @@ module Sqlx
         if rc != SQLite3::OK
           msg = SQLite3.sqlite3_errmsg(dbh)
           raise Sqlx::Busy, msg if rc == SQLite3::BUSY || rc == SQLite3::LOCKED
-          raise Sqlx::ReadOnlyViolation, msg if rc == SQLite3::READONLY
+          raise Sqlx::ReadOnlyError, msg if rc == SQLite3::READONLY
           raise "Sqlx::Database.exec_query failed (" + rc.to_s + "): " + msg
         end
         ensure_one_statement!(tail)
@@ -862,7 +862,7 @@ module Sqlx
           elsif step_rc == SQLite3::BUSY || step_rc == SQLite3::LOCKED
             raise Sqlx::Busy, SQLite3.sqlite3_errmsg(dbh)
           elsif step_rc == SQLite3::READONLY
-            raise Sqlx::ReadOnlyViolation, SQLite3.sqlite3_errmsg(dbh)
+            raise Sqlx::ReadOnlyError, SQLite3.sqlite3_errmsg(dbh)
           else
             raise "Sqlx::Database.exec_query failed (" + step_rc.to_s + "): " + SQLite3.sqlite3_errmsg(dbh)
           end

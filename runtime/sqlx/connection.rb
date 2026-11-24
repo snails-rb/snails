@@ -67,7 +67,7 @@ module Sqlx
     #   or carries more than one statement, or either limit is not a positive
     #   Integer
     # @raise [Sqlx::QueryTimeout] the statement exceeded the timeout
-    # @raise [Sqlx::ReadOnlyViolation] the statement tried to write on a
+    # @raise [Sqlx::ReadOnlyError] the statement tried to write on a
     #   read-only connection
     # @raise [Sqlx::Busy] the database lock stayed held past the busy timeout
     def query(sql, max_rows:, timeout_ms:)

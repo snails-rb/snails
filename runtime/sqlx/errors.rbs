@@ -19,7 +19,7 @@ module Sqlx
     def initialize: (?String message) -> void
   end
 
-  class ReadOnlyViolation < StandardError
+  class ReadOnlyError < StandardError
     def initialize: (?String message) -> void
   end
 

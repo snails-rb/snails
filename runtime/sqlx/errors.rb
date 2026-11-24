@@ -64,8 +64,8 @@ module Sqlx
   # Raised when a statement tries to write on a read-only connection. The
   # statement did not change data; the caller's policy should reject the
   # statement before it reaches the database, and this error is the backstop.
-  class ReadOnlyViolation < StandardError
-    def initialize(message = "Sqlx::ReadOnlyViolation")
+  class ReadOnlyError < StandardError
+    def initialize(message = "Sqlx::ReadOnlyError")
       super(message)
     end
   end

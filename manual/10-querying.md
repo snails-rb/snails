@@ -118,12 +118,12 @@ Sqlx::Connection.open(read_only: true) do |conn|
 end
 ```
 
-- The connection refuses writes to the database file. A write raises `Sqlx::ReadOnlyViolation`; `ATTACH` and `VACUUM INTO` are disabled.
+- The connection refuses writes to the database file. A write raises `Sqlx::ReadOnlyError`; `ATTACH` and `VACUUM INTO` are disabled.
 - `read_only: true` is required; the mode is explicit. A raw writable connection (`read_only: false`) is not exposed yet — use the model and pool surfaces.
 - Each `query` takes one statement. A second statement, or SQL with no statement, raises `ArgumentError`.
 - `max_rows` caps the rows returned. `truncated?` is true when the statement had more rows than the cap.
 - `timeout_ms` stops a statement that runs too long and raises `Sqlx::QueryTimeout`.
-- A zero-row result still returns the column names. Rows are arrays, not hashes, so a repeated select-list name keeps both values in order.
+- A zero-row result still returns the column names. Rows are arrays, not hashes, so a repeated select-list name keeps both values in order. Values are the adapter's native types, the same as `rows_by_sql`.
 - The statement takes no bound values. Use `rows_by_sql` for a read that binds request values.
 - The block owns the connection: it closes after the block, including when the block raises. Without a block, call `close` yourself; a second `close` is a no-op.
 - The first argument is the database path or conninfo; omit it for the configured database. The database must be file-backed; `:memory:` is not supported.
