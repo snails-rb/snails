@@ -497,6 +497,21 @@ module Sqlx
       query_cache_clear
     end
 
+    # Explicit connections — SQLite implements the read-only mode first; the
+    # PostgreSQL adapter follows in the companion change. The public entry is
+    # `Sqlx::Connection.open`.
+    def self.open_connection(database = nil, read_only:)
+      raise NotImplementedError, "explicit connections are not implemented for PostgreSQL yet"
+    end
+
+    def self.close_connection(handle)
+      raise NotImplementedError, "explicit connections are not implemented for PostgreSQL yet"
+    end
+
+    def self.exec_query(handle, sql, max_rows:, timeout_ms:)
+      raise NotImplementedError, "explicit connections are not implemented for PostgreSQL yet"
+    end
+
     # run one DDL / INSERT / UPDATE / DELETE statement; no rows come back.
     # Callers that want the inserted id or the row count read
     # `last_insert_rowid` / `changes` next.

@@ -1,0 +1,8 @@
+module Sqlx
+  class Connection
+    def self.open: (?String? database, read_only: bool) ?{ (Connection) -> untyped } -> untyped
+    def read_only?: () -> bool
+    def query: (String sql, max_rows: Integer, timeout_ms: Integer) -> Sqlx::QueryResult
+    def close: () -> void
+  end
+end

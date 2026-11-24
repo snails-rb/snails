@@ -52,6 +52,24 @@ module Sqlx
     end
   end
 
+  # Raised when a read-only query runs past its per-query timeout. The
+  # statement was interrupted; the connection is still healthy, so the caller
+  # may run a shorter query on the same connection.
+  class QueryTimeout < StandardError
+    def initialize(message = "Sqlx::QueryTimeout")
+      super(message)
+    end
+  end
+
+  # Raised when a statement tries to write on a read-only connection. The
+  # statement did not change data; the caller's policy should reject the
+  # statement before it reaches the database, and this error is the backstop.
+  class ReadOnlyError < StandardError
+    def initialize(message = "Sqlx::ReadOnlyError")
+      super(message)
+    end
+  end
+
   # Raised when a condition value cannot be cast to the column's declared
   # type. The model query layer raises it when a String is handed to an
   # integer column and is not a decimal integer; the dispatcher maps it to a
