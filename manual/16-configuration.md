@@ -66,7 +66,7 @@ main.rb
     config/database.rb        one adapter
     config/application.rb     app values
     config/routes.rb          route table
-    config/codegen.rb         gen/* load lists
+    config/codegen.rb         gen/* require lists
     config/environment.rb     app wiring
 ```
 

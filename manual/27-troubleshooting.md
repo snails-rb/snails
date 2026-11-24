@@ -2,9 +2,9 @@
 
 Start with the symptom. Each section below starts with a real error and gives the fix that unblocks it.
 
-### A route row will not parse
+### My route table won't parse
 
-`spinel could not parse it — Parse errors in 'config/routes.rb'` with `expected a ',' separator` means the rows in the route list have no commas — a newline is not a separator:
+`spinel could not parse it — Parse errors in 'config/routes.rb'` with `expected a ',' separator` means the entries in the route list have no commas — a newline isn't a separator:
 
 ```ruby
 [
@@ -15,34 +15,34 @@ Start with the symptom. Each section below starts with a real error and gives th
 
 ### `:name is derived from more than one pattern`
 
-Two hand-written rows want the same helper name (`/posts` and `/posts/:id` both derive `posts`). Give one row its own name with a `# as:` marker:
+Two hand-written entries want the same path helper name (`/posts` and `/posts/:id` both derive `posts`). Give one entry its own name with a `# as:` marker:
 
 ```ruby
 get("/posts", Api::PostsController, :index),
 get("/posts/:id", Api::PostsController, :show), # as: post
 ```
 
-A `resources` row cannot carry the marker; use a hand-written row when the helper name must differ. See [Routes and Controllers](06-routes-and-controllers.md).
+A `resources` entry can't carry the marker; use a hand-written entry when the path helper name must differ. See [Routes and Controllers](06-routes-and-controllers.md).
 
-### A model's class methods are refused at build time
+### The compiler refuses my model's class methods
 
-If the compiler refuses `create!` or `find_by` on your model with `unsupported call`, the model file is not being loaded. Keep the model under `app/models/` and check that `gen/models.rb` carries the `# scan: models/**/*` spec — an empty region never loads a model. Run `bin/test` once so the list regenerates with your file in it.
+If the compiler refuses `create!` or `find_by` on your model with `unsupported call`, the model file isn't being loaded. Keep the model under `app/models/` and check that `gen/models.rb` holds the `# scan: models/**/*` spec — an empty region never loads a model. Run `bin/test` once so the list regenerates with your file in it.
 
 ### `Sqlx::Base model found but no schema file`
 
-A model exists but `db/schema.sql` does not. Run `snails migrate dump` to write the schema dump, then `snails migrate load` if the database is not initialized yet. A plain project with no migrations has nothing to dump; add one or use `--scaffold`.
+A model exists but `db/schema.sql` doesn't. Run `snails migrate dump` to write the schema dump, then `snails migrate load` if the database isn't initialized yet. A plain project with no migrations has nothing to dump; add one or use `--scaffold`.
 
-### A parameter comes back nil
+### My parameter comes back nil
 
 `params` is a hash keyed by strings — `params[:id]` is always nil, so the value never reaches your JSON. Use `params["id"]`.
 
-### A required parameter answers 400
+### A missing required parameter returns 400
 
 `ActionController::Params.require_key` raises `ParameterMissing` for an absent or blank value, and the framework turns it into `{"error":"bad_request"}`. If a blank string is a valid value for that field, use `str` or `provided` instead of `require_key`. See [Requests and Parameters](07-requests-and-parameters.md).
 
 ### A date, boolean, or JSON column raises while a record is built
 
-`from_row` raises `ArgumentError` when a declared `datetime_columns`, `date_columns`, `boolean_columns`, or `json_columns` entry is not in the projection. A hand-written narrower SELECT must declare the narrowed columns or override `from_row`. The built-in `created_at`/`updated_at` pair is the only exception. See [Columns and Types](11-columns-and-types.md).
+`from_row` raises `ArgumentError` when a declared `datetime_columns`, `date_columns`, `boolean_columns`, or `json_columns` entry isn't in the projection. A hand-written narrower SELECT must declare the narrowed columns or override `from_row`. The built-in `created_at`/`updated_at` pair is the only exception. See [Columns and Types](11-columns-and-types.md).
 
 ### The test runner disagrees with your memory of a file
 
@@ -74,7 +74,7 @@ The database is under contention. `Sqlx::Busy` is a SQLite lock wait past `DATAB
 
 ### A cached value is missing in another process
 
-`Snails.cache` is per process. A second server process, a prefork child, or a container does not see the first one's entries. Put shared state in the database. See [Caching](18-caching.md).
+`Snails.cache` is per process. A second server process, a prefork child, or a container doesn't see the first one's entries. Put shared state in the database. See [Caching](18-caching.md).
 
 ### A JSON response is the object's string form
 
@@ -98,4 +98,4 @@ On macOS, the build adds Homebrew's `pkg-config` and library directories for Ope
 
 For libpq, `brew install postgresql` is keg-only and includes the server, `psql`, `pg_dump`, and libpq. The `PATH` and `DYLD_FALLBACK_LIBRARY_PATH` exports in Getting Started point at its prefix; a client-only `libpq` install is the alternative when you connect to a server elsewhere.
 
-When the symptom is not here, run `snails doctor` first — it checks the pin, the toolchain, the database, and the local clients before you go looking further.
+When the symptom isn't here, run `snails doctor` first — it checks the pin, the toolchain, the database, and the local clients before you go looking further.

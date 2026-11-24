@@ -43,7 +43,7 @@ Keep the CLI at or above the framework version you pin. To upgrade an existing i
 
 ## Benchmark
 
-The Rails comparison lives in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides answer the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails answers about 3× the requests per second that Rails does in cluster mode. Peak memory is more than 10× lower under load, and throughput is about 11.9× that of a default Rails app. A separate single-row database read is about 3.1× faster than Rails, close to the microbenchmark ratio.
+The Rails comparison lives in [snails-benchmark](https://github.com/snails-rb/snails-benchmark). Both sides serve the same `GET /up` with the same JSON body on the same 8-core machine. On that microbenchmark, Snails serves about 3× the requests per second that Rails does in cluster mode. Peak memory is more than 10× lower under load, and throughput is about 11.9× that of a default Rails app. A separate single-row database read is about 3.1× faster than Rails, close to the microbenchmark ratio.
 
 Reproduce from that repository with `bin/bench`, `bin/bench-scenario`, `bin/boottime`, and `bin/imagesize`. The result tables are under [`results/`](https://github.com/snails-rb/snails-benchmark/tree/main/results).
 
@@ -126,7 +126,7 @@ bash scripts/test-cli.sh
 bash scripts/test-migrate.sh
 ```
 
-`.github/workflows/ci.yml` is the pull-request gate for code changes: the Linux amd64 suite on sqlite. `platform-ci.yml` runs on main and adds PostgreSQL, macOS, arm64, and the app image. The scripts resolve and materialize the pinned spinel toolchain themselves; a global `spinel` install is not required.
+`.github/workflows/ci.yml` is the pull-request gate for code changes: the Linux amd64 suite on sqlite. `platform-ci.yml` runs on main and adds PostgreSQL, macOS, arm64, and the app image. The scripts resolve and materialize the pinned spinel toolchain themselves; a global `spinel` install isn't required.
 
 ## Contributing
 
@@ -140,4 +140,4 @@ Snails builds on [Spinel](https://github.com/matz/spinel), the Ruby AOT compiler
 
 MIT. See [`LICENSE`](LICENSE).
 
-`runtime/` began as a fork of Spinel's scaffold output and has been substantially rewritten. The derived portions live in `runtime/action_controller/` and `runtime/action_dispatch/`; each carries the upstream notice in its `NOTICE` file. `runtime/tep/` follows tep's notice in `runtime/tep/NOTICE`. The rest of the `runtime/` tree is Snails' own work.
+`runtime/` began as a fork of Spinel's scaffold output and has been substantially rewritten. The derived portions live in `runtime/action_controller/` and `runtime/action_dispatch/`; each has the upstream notice in its `NOTICE` file. `runtime/tep/` follows tep's notice in `runtime/tep/NOTICE`. The rest of the `runtime/` tree is Snails' own work.
