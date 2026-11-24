@@ -22,4 +22,4 @@
 # A consumer app pins `SNALS_REV` (a commit in this repo) in the `pins.toml`
 # at its app root, and `bin/snails sync` finds it there (walk up from the
 # app root, inside the .git tree).
-SPINEL_REV="858dde41b"
+SPINEL_REV="2669f3fec"
