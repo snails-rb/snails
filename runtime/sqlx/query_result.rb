@@ -2,6 +2,9 @@ module Sqlx
   # One read query's answer: the statement's column names in select order, its
   # rows as value arrays, and whether the row cap cut the result.
   #
+  # The public surface is `columns`, `rows`, `row_count`, and `truncated?`.
+  # New capabilities arrive as new methods or new result types.
+  #
   # This is the result of a row-returning read. A write path needs its own
   # result type for affected rows; `truncated?` and `row_count` describe a row
   # set, not a statement's change count.
@@ -13,6 +16,9 @@ module Sqlx
   # adapter's native types, the same contract `rows_by_sql` returns; treat the
   # arrays as read-only.
   class QueryResult
+    # The adapter constructs the result; apps read it through the accessors.
+    #
+    # @api internal
     # @param columns [Array<String>] the select-list names, in order
     # @param rows [Array<Array>] one value array per row, at most the cap; values
     #   are the adapter's native types
