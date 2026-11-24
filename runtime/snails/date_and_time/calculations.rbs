@@ -2,7 +2,7 @@ module Snails
   module DateAndTime
     module Calculations
       def self.civil_days: (Integer y, Integer m, Integer d) -> Integer
-      def self.local_on: (Time t, Integer days, Integer hour, Integer min, Integer sec, Integer nsec) -> Time
+      private def self.local_on: (Time t, Integer days, Integer hour, Integer min, Integer sec, Integer nsec) -> Time
       def self.days_in_month: (Integer y, Integer m) -> Integer
       def self.days_since: (Time t, ?Integer n) -> Time
       def self.days_ago: (Time t, ?Integer n) -> Time
@@ -38,7 +38,7 @@ module Snails
       def self.on_weekend?: (Time t) -> bool
       def self.on_weekday?: (Time t) -> bool
       def self.on_wday?: (Time t, Integer wday) -> bool
-      def self.local_time: (Time t, Integer y, Integer mo, Integer d, Integer h, Integer mi, Integer s, Integer nsec) -> Time
+      private def self.local_time: (Time t, Integer y, Integer mo, Integer d, Integer h, Integer mi, Integer s, Integer nsec) -> Time
     end
   end
 end

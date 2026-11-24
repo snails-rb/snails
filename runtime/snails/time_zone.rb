@@ -264,20 +264,20 @@ module Snails
         std = @rule[0]
         dst = @rule[1]
         year = Time.at(epoch + std).utc.year
-        start_at = rule_instant(year, @rule[2], @rule[3], @rule[4], @rule[5]) - std
-        end_at = rule_instant(year, @rule[6], @rule[7], @rule[8], @rule[9]) - dst
+        start_at = rule_transition_seconds(year, @rule[2], @rule[3], @rule[4], @rule[5]) - std
+        end_at = rule_transition_seconds(year, @rule[6], @rule[7], @rule[8], @rule[9]) - dst
         in_dst = start_at < end_at ? (epoch >= start_at && epoch < end_at) : !(epoch >= end_at && epoch < start_at)
         in_dst ? dst : std
       end
 
-      def rule_instant(year, month, week, wday, secs)
+      def rule_transition_seconds(year, month, week, wday, secs)
         first = Snails::DateAndTime::Calculations.civil_days(year, month, 1)
         day = 1 + (wday - (first + 4) % 7 + 7) % 7 + (week - 1) * 7
         last = Snails::DateAndTime::Calculations.days_in_month(year, month)
         day = day - 7 while day > last
         (first + day - 1) * 86_400 + secs
       end
-      private :rule_instant
+      private :rule_transition_seconds
     end
 
     # the instant `t` presented in `zone` as a fixed-offset `Time` (the same

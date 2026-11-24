@@ -162,14 +162,14 @@ module ActionController
               end
             end
 
-            key = pick_key(source, name)
+            key = key_for(source, name)
             next if key.nil?
 
             filtered = filter_value(source[key], spec)
             result[name] = filtered unless filtered.nil?
           end
         elsif filter.is_a?(Symbol)
-          key = pick_key(source, filter)
+          key = key_for(source, filter)
           result[filter] = source[key] if !key.nil? && source[key]
         else
           raise ArgumentError, "permit filters must be Symbols or Hashes, got #{filter.inspect}"
@@ -181,9 +181,9 @@ module ActionController
     # The helpers below serve `permit` — an app never calls them.
     # Private on purpose: free to change or vanish without notice.
     #
-    # `pick_key`: the key the params carry the name under, String before
+    # `key_for`: the key the params carry the name under, String before
     # Symbol; nil when neither is present.
-    def self.pick_key(source, name)
+    def self.key_for(source, name)
       text = name.to_s
       return text if source.key?(text)
       return name if source.key?(name)
@@ -208,6 +208,6 @@ module ActionController
       end
     end
 
-    private_class_method :pick_key, :filter_value
+    private_class_method :key_for, :filter_value
   end
 end

@@ -25,7 +25,7 @@ module ActionDispatch
       i = 0
       while i < keys.length
         v = present[i] ? values[i] : nil
-        store(params, keys[i], v, 0)
+        store_nested_param(params, keys[i], v, 0)
         i += 1
       end
       params
@@ -99,8 +99,8 @@ module ActionDispatch
           i += 1
         elsif c == "%"
           return nil if i + 2 >= n
-          hi = hex(s[i + 1].to_s)
-          lo = hex(s[i + 2].to_s)
+          hi = hex_digit_value(s[i + 1].to_s)
+          lo = hex_digit_value(s[i + 2].to_s)
           return nil if hi < 0 || lo < 0
           out << (hi * 16 + lo).chr
           i += 3
@@ -112,7 +112,7 @@ module ActionDispatch
       out.force_encoding("UTF-8")
     end
 
-    def self.hex(c)
+    def self.hex_digit_value(c)
       return c.ord - 48 if c >= "0" && c <= "9"
       return c.ord - 87 if c >= "a" && c <= "f"
       return c.ord - 55 if c >= "A" && c <= "F"
@@ -123,7 +123,7 @@ module ActionDispatch
     # answers — `params`, a one-element Array for a trailing `[]` below
     # the top, or nil for an empty key — because callers store that
     # answer.
-    def self.store(params, name, v, depth)
+    def self.store_nested_param(params, name, v, depth)
       raise ParamBuilder::Invalid if depth >= DEPTH_LIMIT
       k = ""
       after = ""
@@ -169,15 +169,15 @@ module ActionDispatch
         raise ParamBuilder::Invalid unless list.is_a?(Array)
         last = list.last
         if last.is_a?(Hash) && !has_key_path?(last, child)
-          store(last, child, v, depth + 1)
+          store_nested_param(last, child, v, depth + 1)
         else
-          list.push(store({}, child, v, depth + 1))
+          list.push(store_nested_param({}, child, v, depth + 1))
         end
       else
         params[k] = {} if params[k].nil?
         sub = params[k]
         raise ParamBuilder::Invalid unless sub.is_a?(Hash)
-        params[k] = store(sub, after, v, depth + 1)
+        params[k] = store_nested_param(sub, after, v, depth + 1)
       end
       params
     end
@@ -209,6 +209,6 @@ module ActionDispatch
       true
     end
 
-    private_class_method :split, :decode, :hex, :store, :hash_in_array_key, :has_key_path?
+    private_class_method :split, :decode, :hex_digit_value, :store_nested_param, :hash_in_array_key, :has_key_path?
   end
 end

@@ -2,7 +2,7 @@ require_relative "test_helper"
 require_relative "harness_runner"
 
 # Time zone DST rules past the explicit TZif transitions — `in_time_zone`
-# reads the POSIX footer through the private `rule_instant` helper.
+# reads the POSIX footer through the private `rule_transition_seconds` helper.
 class TimeZoneRulesTest < TestBase
   def assert_equal(expected, actual)
     raise("expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual
@@ -22,11 +22,11 @@ class TimeZoneRulesTest < TestBase
   def test_time_zone_rule_helper_is_private
     zone = Snails::TimeZone::TimeZoneData.new("UTC", [], [], 0, [])
     begin
-      zone.rule_instant(2050, 3, 2, 0, 7200)
+      zone.rule_transition_seconds(2050, 3, 2, 0, 7200)
     rescue NoMethodError
       return
     end
-    raise "expected TimeZoneData#rule_instant to be private"
+    raise "expected TimeZoneData#rule_transition_seconds to be private"
   end
 end
 

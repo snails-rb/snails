@@ -40,12 +40,12 @@ class JobSchedulerTest < TestBase
     rows[0]["total"].to_i
   end
 
-  # The run unit is private — the loop is the public entry; an outside
-  # caller must not drive a run directly.
-  def test_run_due_callbacks_is_private
+  # The pass unit is private — the loop is the public entry; an outside
+  # caller must not drive a pass directly.
+  def test_run_once_is_private
     blocked = false
     begin
-      ActiveJob::Scheduler.run_due_callbacks
+      ActiveJob::Scheduler.run_once
     rescue NoMethodError
       blocked = true
     end
@@ -186,12 +186,12 @@ class JobSchedulerTest < TestBase
     assert_equal "SystemExit", record.exception_type
   end
 
-  # A structural failure in the run is scheduler.run_failed, distinct from a
+  # A structural failure in the pass is scheduler.run_failed, distinct from a
   # callback failure.
   def test_run_failed_is_recorded
     ActiveJob::Scheduler.register_interval(1, ->(_occurrence) { 0 })
     ActiveJob::Scheduler::PERIODIC[0]["interval"] = nil
-    ActiveJob::Scheduler.send(:run_due_callbacks)
+    ActiveJob::Scheduler.send(:run_once)
     Snails.logger.flush
     record = @capture.records[0]
     assert_equal "scheduler.run_failed", record.event
@@ -201,7 +201,7 @@ class JobSchedulerTest < TestBase
 end
 
 FixtureRunner.run(JobSchedulerTest, [
-  "test_run_due_callbacks_is_private",
+  "test_run_once_is_private",
   "test_register_interval_rejects_non_positive_seconds",
   "test_window_change_runs_once_per_window",
   "test_a_fresh_registration_starts_at_the_next_window",

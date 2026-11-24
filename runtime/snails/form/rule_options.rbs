@@ -3,8 +3,8 @@ module Snails
     COMMON_RULE_OPTIONS: Array[Symbol]
     RULE_DECLARATION_OPTIONS: Hash[Symbol, Array[Symbol]]
 
-    def self.merge_rule_options: (untyped options, Hash[Symbol, untyped] defaults) -> untyped
-    def self.check_guard_options: (Hash[Symbol, untyped] options, String label) -> void
-    def self.check_rule_options: (Symbol rule, untyped options) -> untyped
+    private def self.merge_rule_options: (untyped options, Hash[Symbol, untyped] defaults) -> untyped
+    private def self.check_guard_options: (Hash[Symbol, untyped] options, String label) -> void
+    private def self.check_rule_options: (Symbol rule, untyped options) -> untyped
   end
 end

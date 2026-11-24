@@ -152,7 +152,7 @@ module Snails
         end
         return nil if batch.nil?
 
-        hand_off(batch)
+        deliver_batch(batch)
       end
 
       # deliver the current buffer now, even when it is not full. The
@@ -173,7 +173,7 @@ module Snails
         return nil if batch.length == 0
         return nil if @transport.nil?
 
-        hand_off(batch)
+        deliver_batch(batch)
       end
 
       # The one transport call both paths share: a failure is a return value,
@@ -193,14 +193,14 @@ module Snails
       # connection. A caller already inside a scope re-enters it unchanged; a
       # transport that writes to the database holds a connection for the
       # duration of its I/O.
-      def hand_off(records)
+      def deliver_batch(records)
         Sqlx::Database.with_connection { @transport.deliver(records) }
         @blocked = false
         nil
       rescue Exception => failure
         raise if Snails::ErrorBoundary.fatal?(failure)
         if failure.is_a?(Sqlx::Busy)
-          keep_batch(records)
+          retain_batch(records)
         else
           DroppedBatch.new(records.length, failure)
         end
@@ -210,7 +210,7 @@ module Snails
       # report the outcome. The buffer is drained on every delivery, so a
       # retained batch cannot pile up without bound: a first busy after a
       # success is a warning that the batch is waiting, and repeats stay quiet.
-      def keep_batch(records)
+      def retain_batch(records)
         failed = records.length
         note = nil
         @buffer_lock.synchronize do
@@ -223,7 +223,7 @@ module Snails
         note
       end
 
-      private :hand_off, :keep_batch
+      private :deliver_batch, :retain_batch
     end
   end
 end

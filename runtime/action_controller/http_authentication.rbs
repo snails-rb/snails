@@ -6,12 +6,12 @@ module ActionController
     def authenticate_with_http_basic: () { (String username, String password) -> untyped } -> untyped
     def authenticate_or_request_with_http_basic: (?String realm, ?String? message) { (String username, String password) -> untyped } -> untyped
     def request_http_basic_authentication: (?String realm, ?String? message) -> void
-    def token_pairs: (String header) -> Array[Array[String]]
-    def token_from: (String header) -> String
-    def token_options: (String header) -> Hash[String, String]
-    def unquote: (String value) -> String
-    def basic?: (String header) -> bool
-    def basic_credentials: (String header) -> Array[String]
+    private def token_pairs: (String header) -> Array[Array[String]]
+    private def token_from: (String header) -> String
+    private def token_options: (String header) -> Hash[String, String]
+    private def unquote: (String value) -> String
+    private def basic?: (String header) -> bool
+    private def basic_credentials: (String header) -> Array[String]
   end
 
   module HttpAuthentication

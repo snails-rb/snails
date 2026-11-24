@@ -189,11 +189,11 @@ module ActionDispatch
           params[pp[1..]] = glob_rest(path_parts, i)
         elsif pp.start_with?(":")
           name = pp[1..]
-          # Route the segment through `to_s` before `digits_only`: a bare
+          # Route the segment through `to_s` before `digits_only?`: a bare
           # array-index local is typed loosely, and `to_s` hands the check a
           # definite String.
           seg = ap.to_s
-          if int_constrained(int_params, name) && !digits_only(seg)
+          if has_integer_constraint?(int_params, name) && !digits_only?(seg)
             return nil
           end
           params[name] = ap
@@ -245,7 +245,7 @@ module ActionDispatch
     # the route constrains nothing. Membership by split + `==` scan (no
     # `Array#include?`, no `Hash` read) — the membership test that lowers
     # cleanly.
-    def self.int_constrained(int_params, name)
+    def self.has_integer_constraint?(int_params, name)
       return false if int_params.empty?
       parts = int_params.split(" ")
       i = 0
@@ -261,7 +261,7 @@ module ActionDispatch
     # the leading zeros a digit constraint accepts (`/articles/007` is id 7,
     # not a 404). The digit test is an explicit `String#==` fan-out rather than
     # `"0123456789".include?(c)`, a form the compiler handles.
-    def self.digits_only(s)
+    def self.digits_only?(s)
       return false if s.empty?
       i = 0
       while i < s.length
@@ -278,6 +278,6 @@ module ActionDispatch
     # Private on purpose: `match` is the entry; these helpers are free to
     # change without notice.
     private_class_method :format_extension, :match_path, :match_pattern, :match_parts
-    private_class_method :glob_rest, :param_prefix_length, :int_constrained, :digits_only
+    private_class_method :glob_rest, :param_prefix_length, :has_integer_constraint?, :digits_only?
   end
 end

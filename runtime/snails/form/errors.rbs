@@ -14,10 +14,10 @@ module Snails
       def any?: () -> bool
       def size: () -> Integer
       def on: (untyped attribute) -> Array[String]
-      def resolve_message: (Symbol attribute, untyped message, Hash[Symbol, untyped] options) -> String
-      def scope_key: () -> String
-      def form_name: () -> String
-      def interpolate: (String text, Hash[Symbol, untyped] options) -> String
+      private def resolve_message: (Symbol attribute, untyped message, Hash[Symbol, untyped] options) -> String
+      private def scope_key: () -> String
+      private def form_name: () -> String
+      private def interpolate: (String text, Hash[Symbol, untyped] options) -> String
     end
   end
 end

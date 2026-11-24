@@ -4,6 +4,5 @@ class Hash
   def deep_transform_keys: () { (untyped key) -> untyped } -> Hash[untyped, untyped]
   def deep_transform_keys!: () { (untyped key) -> untyped } -> Hash[untyped, untyped]
   def to_query: (?String? namespace) -> String
-  def escape_query_component: (String text) -> String
-  def deep_transform: (untyped object) { (untyped key) -> untyped } -> untyped
+  private def escape_query_component: (String text) -> String
 end

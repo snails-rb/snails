@@ -54,7 +54,7 @@ module Snails
         target += (target.include?("?") ? "&" : "?") + query
       end
       http = Net::HTTP.new(uri.host, uri.port)
-      req = request_object(method, target)
+      req = build_request(method, target)
       headers.each { |k, v| req[k] = v } unless headers.nil?
       if params && method != :get
         if as == :json
@@ -489,7 +489,7 @@ module Snails
     #
     # Private on purpose: `Harness.request` is the entry; this builder is
     # free to change without notice.
-    def self.request_object(method, path)
+    def self.build_request(method, path)
       if method == :get
         Net::HTTP::Get.new(path)
       elsif method == :post
@@ -501,7 +501,7 @@ module Snails
       end
     end
 
-    private_class_method :request_object
+    private_class_method :build_request
   end
 
   # Explicit case runner — spinel has no autorun, so the caller names the
