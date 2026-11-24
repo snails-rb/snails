@@ -17,9 +17,9 @@ manual-demo (spinel) listening on http://0.0.0.0:3000, pid 74898
 
 The first lines check the pin, sync the framework copy, and compile. The next two say where it listens and where the log goes. [Logging](21-logging.md) covers the record format.
 
-The server does not watch files. After an edit, stop it and run `bin/dev` again; the rebuild is cached, so only what changed is recompiled. When the build is already fresh and you only want to restart the process, `bin/dev --skip-build` serves the existing binary.
+The server doesn't watch files. After an edit, stop it and run `bin/dev` again; the rebuild is cached, so only what changed is recompiled. When the build is already fresh and you only want to restart the process, `bin/dev --skip-build` serves the existing binary.
 
-`bin/dev --fresh` recreates the development database first. Use it when an experiment has left rows you do not want; it is not a migration command.
+`bin/dev --fresh` recreates the development database first. Use it when an experiment has left rows you don't want; it isn't a migration command.
 
 ## The database
 
@@ -35,7 +35,7 @@ With the PostgreSQL adapter, `bin/dev` starts a development container named from
 
 ## Iterating on the app
 
-The compile is incremental. A change to a controller, model, form, job, or mailer is recompiled on the next run; a new file is added to `gen/` by the generator step before the build. There is no autoload and no file watcher, so a missing `require` is a build error, not a silent runtime miss.
+The compile is incremental. A change to a controller, model, form, job, or mailer is recompiled on the next run; a new file is added to `gen/` by the generator step before the build. There's no autoload and no file watcher, so a missing `require` is a build error, not a silent runtime miss.
 
 `bin/test` runs the same build and serves the harness against a separate, throwaway database. Use it as the check before you call a change complete; `bin/dev` is for seeing the response yourself. [Testing](24-testing.md) covers the harness.
 

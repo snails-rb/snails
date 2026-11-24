@@ -82,7 +82,7 @@ Requests go over real HTTP. `get` takes `params:` (query) and `headers:`; `post`
 | `assert(value, message = nil)` | the value is truthy |
 | `assert_not(value)` | the value is false or nil |
 | `assert_nil(value)` | the value is nil |
-| `assert_not_nil(value)` | the value is not nil |
+| `assert_not_nil(value)` | the value isn't nil |
 | `assert_includes(collection, object)` | the collection includes the object |
 | `assert_match(pattern, actual)` | a String pattern is a substring; a Regexp matches |
 | `assert_operator(left, operator, right)` | `>=`, `<=`, `>`, or `<` holds |
@@ -91,13 +91,13 @@ Requests go over real HTTP. `get` takes `params:` (query) and `headers:`; `post`
 
 `response` is the last response; `response.status`, `response.body`, `response.headers`, and `response.parsed_body` are the usual reads. `assert_emails` and `emails` use the server's `tmp/mail-capture.jsonl`; see [Email](14-email.md). Without a live server, `assert_emails` skips rather than passing silently.
 
-End a case early with `skip("reason")`; the runner prints `skip` and does not fail the file.
+End a case early with `skip("reason")`; the runner prints `skip` and doesn't fail the file.
 
 ## The `.expected` sibling
 
 Each case file has a `.expected` sibling holding its `ok` lines. The runner diffs against it, so an intentional change to a case's name or output means updating that file in the same change. A new file gets an `.expected` beside it.
 
-The test process does not start a worker loop, so a job enqueued from a case runs at the call site. `ActiveJob.schedule` needs a worker loop and raises in that process; schedule work from a server action instead.
+The test process doesn't start a worker loop, so a job enqueued from a case runs at the call site. `ActiveJob.schedule` needs a worker loop and raises in that process; schedule work from a server action instead.
 
 `harness/test.env` holds server-only environment for the test server. Put a test-only `SECRET_KEY_BASE` there when the app signs values; never a production key. The test process keeps its own environment.
 
