@@ -2,7 +2,7 @@
 
 `snails` is the entry point for everything outside your app's own `bin/` scripts. It creates projects, generates files, checks the setup, migrates the database, syncs the pinned framework, and builds images or a host binary. Each command prints a one-line summary unless you ask for help or more detail.
 
-## What it can do
+## Commands
 
 Run it with no arguments to see the commands grouped by when you reach for them:
 
@@ -36,7 +36,7 @@ Inside a project, bin/dev runs the server and bin/test runs the test suite.
 Run 'snails help --all' for internal commands.
 ```
 
-`snails help --all` adds the commands the build, CI, and generated `bin/` scripts use: `harness`, `verify-pin`, `verify-pins`, `pins-path`, `verify-scaffold`, and the `gen-*` generators. Those are internal commands; you normally reach them through `bin/dev`, `bin/test`, or `snails sync`.
+Run `snails help --all` to see the commands the build, CI, and generated `bin/` scripts use: `harness`, `verify-pin`, `verify-pins`, `pins-path`, `verify-scaffold`, and the `gen-*` generators. Those are internal commands; you normally reach them through `bin/dev`, `bin/test`, or `snails sync`.
 
 ## Create a project
 
@@ -46,11 +46,11 @@ snails new demo --scaffold
 snails new demo --database=postgresql --scaffold
 ```
 
-`new` copies the project template, installs the pinned framework, creates the test harness, and prints the next commands. `--scaffold` overlays the posts-and-comments example; `--database` selects sqlite or PostgreSQL.
+`new` copies the project template, installs the pinned framework, creates the test harness, and prints the next commands. `--scaffold` overlays the posts-and-comments example. `--database` selects sqlite or PostgreSQL.
 
 ## Everyday commands
 
-`snails generate` adds the files a feature needs. `job_queue` is the generator that ships:
+`snails generate` adds the files a feature needs. `job_queue` is the only generator:
 
 ```text
 Usage: snails generate <generator> [<app_root>]
@@ -71,7 +71,7 @@ Examples:
 [snails] 0 applied, 0 pending
 ```
 
-`snails migrate` handles the rest of the schema flow; `snails help migrate` prints the command list and the `--app`/`--database` options.
+`snails migrate` handles the rest of the schema flow. Run `snails help migrate` for the command list and the `--app`/`--database` options.
 
 `snails pins check` reads `pins.toml` and confirms the framework and toolchain pair:
 
@@ -79,7 +79,7 @@ Examples:
 [snails] pins ok
 ```
 
-The line also prints the pinned compiler revision and framework version. `snails pins path` prints the nearest pins file. `snails sync` copies the framework and toolchain declared by that file; `snails sync --check` reports whether the tree is in step without writing.
+The line also prints the pinned compiler revision and framework version. `snails pins path` prints the nearest pins file. `snails sync` copies the framework and toolchain declared by that file. `snails sync --check` reports whether the tree is in step without writing.
 
 ## Doctor
 
@@ -104,7 +104,7 @@ The line also prints the pinned compiler revision and framework version. `snails
 [snails] 13 ok, 0 warning, 0 failed
 ```
 
-The CLI line also prints the installed version and revision. A skipped check is not a failure; `SECRET_KEY_BASE` is required only when the app signs values. A warning names the command that repairs the state. Exit code 1 means at least one check failed.
+The `CLI` line also prints the installed version and revision. A skipped check isn't a failure; `SECRET_KEY_BASE` is required only when the app signs values. A warning names the command that fixes it. Exit code 1 means at least one check failed.
 
 ## Build and deploy
 
@@ -114,7 +114,7 @@ snails build-image      # container image from the project Dockerfile
 snails compose -- up -d # Docker Compose through the project's wrapper
 ```
 
-The project's `bin/build-binary`, `bin/build-image`, and `bin/compose` wrappers call the same engines with the project root already filled in. They are the commands to use day to day; [Deploying](25-deploying.md) covers the image and Compose recipes.
+The project's `bin/build-binary`, `bin/build-image`, and `bin/compose` wrappers run the same CLI commands with the project root already filled in. They're the commands to use day to day. [Deploying](25-deploying.md) covers the image and Compose recipes.
 
 `snails exec` runs a command from the pinned toolchain, and `snails install-shim` writes `spin`/`spinel` shims that delegate to it. The shims make a pinned tree use its own compiler without a global install.
 
