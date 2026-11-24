@@ -1,0 +1,7 @@
+module Sqlx
+  class ReadConnection
+    def initialize: (untyped dbh, Integer max_rows, Integer timeout_ms) -> void
+    def query: (String sql) -> Sqlx::ReadResult
+    def close: () -> void
+  end
+end

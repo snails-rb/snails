@@ -5,6 +5,7 @@ module Sqlx
     def row_by_sql: (String sql, ?Array[untyped]? values) -> Hash[String, untyped]?
     private def exists_by_sql: (String sql, ?Array[untyped]? values) -> bool
     def rows_by_sql: (String sql, ?Array[untyped]? values) -> Array[Hash[String, untyped]]
+    def with_read_only: (max_rows: Integer, timeout_ms: Integer) { (Sqlx::ReadConnection) -> untyped } -> untyped
     def write: (String sql, ?Array[untyped]? values) -> Array[Hash[String, untyped]]
     private def values_for_placeholders: (String sql, Array[untyped]? values) -> Array[untyped]
     private def placeholder_count: (String sql) -> Integer

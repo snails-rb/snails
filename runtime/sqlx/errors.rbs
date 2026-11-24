@@ -15,6 +15,14 @@ module Sqlx
     def initialize: (?String message) -> void
   end
 
+  class QueryTimeout < StandardError
+    def initialize: (?String message) -> void
+  end
+
+  class ReadOnlyViolation < StandardError
+    def initialize: (?String message) -> void
+  end
+
   class CastError < StandardError
     def initialize: (?String message) -> void
   end

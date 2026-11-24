@@ -104,6 +104,31 @@ Post.write("UPDATE posts SET title = ? WHERE id = ? RETURNING id", [ "revised", 
 
 `Post.projection` is the model's quoted column list, so a raw SELECT and the inherited reads use the same column list. Use `Sqlx.quote(value)` only for code-built SQL, and never for a value that arrived from a request.
 
+## Read-only queries
+
+`Sqlx::Base.with_read_only` opens a dedicated read-only connection for one block of SQL built at runtime — a view, a dashboard query, or a statement assembled from input. The block receives a reader; each `query` returns the statement's column names and its rows as value arrays, with a row cap and a wall-clock limit.
+
+```ruby
+Sqlx::Base.with_read_only(max_rows: 200, timeout_ms: 10_000) do |reader|
+  result = reader.query("SELECT service, COUNT(*) AS n FROM logs GROUP BY service")
+  result.columns    # => ["service", "n"]
+  result.rows       # => [["telemetry", 10]]
+  result.row_count  # => 1
+  result.truncated? # => false
+end
+```
+
+- The connection is read-only. A write raises `Sqlx::ReadOnlyViolation`, and `ATTACH` is disabled.
+- Each `query` takes one statement. A second statement raises `ArgumentError`.
+- `max_rows` caps the rows returned. `truncated?` is true when the statement had more rows than the cap.
+- `timeout_ms` stops a statement that runs too long and raises `Sqlx::QueryTimeout`.
+- A zero-row result still returns the column names. Rows are arrays, not hashes, so a repeated select-list name keeps both values in order.
+- The statement takes no bound values. Use `rows_by_sql` for a read that binds request values.
+- The block owns the connection: it closes after the block, including when the block raises. Do not keep the reader after the block.
+- The database must be file-backed; `:memory:` is not supported.
+
+The SQLite adapter implements this scope. The PostgreSQL adapter follows in a separate change.
+
 ## Dialect differences
 
 `Sqlx.adapter_name` returns `"SQLite"` or `"PostgreSQL"`. Branch when the SQL genuinely differs; don't branch to compensate for a value, because the adapter renders values by their Ruby type already. A boolean condition, for example, is `1` on SQLite and `'1'` on PostgreSQL without the app spelling either.

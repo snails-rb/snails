@@ -24,8 +24,16 @@ module Sqlx
       ffi_const :OK,   0
       ffi_const :BUSY, 5
       ffi_const :LOCKED, 6
+      # A write attempt on a read-only connection; the statement changes
+      # nothing, so the caller can answer it as a policy rejection.
+      ffi_const :READONLY, 8
+      # The progress handler asked sqlite to stop the statement; the
+      # read-only scope maps it to Sqlx::QueryTimeout.
+      ffi_const :INTERRUPT, 9
       ffi_const :ROW,  100
       ffi_const :DONE, 101
+      # sqlite3_limit category for the number of attached databases.
+      ffi_const :LIMIT_ATTACHED, 7
       # sqlite3_column_type storage classes. `column_value` reads the driver's
       # native type by storage class, and NULL stays nil.
       ffi_const :INTEGER_TYPE, 1
@@ -36,6 +44,9 @@ module Sqlx
       # open_v2 flags: READWRITE | CREATE | URI. The first two are what plain
       # `sqlite3_open` uses, so a non-URI path opens identically either way.
       ffi_const :OPEN_URI_RWC, 70
+      # READONLY | URI: the dedicated read-only connection the read-only
+      # query scope opens.
+      ffi_const :OPEN_URI_RO, 65
 
       ffi_func :sqlite3_open,              [:str, :ptr],                          :int
       # `sqlite3_open` honors a `file:` URI only on a build compiled with
@@ -46,6 +57,9 @@ module Sqlx
       # and creates an empty database on disk.
       ffi_func :sqlite3_open_v2,           [:str, :ptr, :int, :str],              :int
       ffi_func :sqlite3_close,             [:ptr],                                :int
+      # Per-connection limits. The read-only scope sets LIMIT_ATTACHED to 0,
+      # so ATTACH cannot open another file on the node.
+      ffi_func :sqlite3_limit,             [:ptr, :int, :int],                    :int
       # Online backup — copies one open database over another at the PAGE level,
       # used to seed an in-memory database from a file. `step(-1)` copies all
       # remaining pages in one call, which is what a boot-time seed wants.
@@ -59,6 +73,11 @@ module Sqlx
       # writers (see `busy_wait`).
       ffi_callback :busy,                  [:ptr, :int],                          :int
       ffi_func :sqlite3_busy_handler,      [:ptr, :busy, :ptr],                   :int
+      # Wall-clock statement timeout. sqlite calls the progress handler every
+      # N virtual-machine steps; the read-only scope's callback returns 1 once
+      # the query's deadline passes, and sqlite3_step answers SQLITE_INTERRUPT.
+      ffi_callback :progress,              [:ptr, :int],                          :int
+      ffi_func :sqlite3_progress_handler,  [:ptr, :int, :progress, :ptr],         :int
       ffi_func :sqlite3_prepare_v2,        [:ptr, :str, :int, :ptr, :ptr],        :int
       ffi_func :sqlite3_step,              [:ptr],                                :int, blocking: true
       ffi_func :sqlite3_finalize,          [:ptr],                                :int
@@ -95,10 +114,30 @@ module Sqlx
       # stmt handle. 8 bytes is enough for a 64-bit pointer.
       ffi_buffer :db_out,   8
       ffi_buffer :stmt_out, 8
+      # Separate from stmt_out: sqlite3_prepare_v2 writes the first byte after
+      # the compiled statement here. The read-only scope reads it to reject a
+      # second statement.
+      ffi_buffer :tail_out, 8
       # Separate from db_out: the seed source is opened while the pool's handles
       # already exist, and reusing db_out would overwrite a live one.
       ffi_buffer :seed_out, 8
       ffi_read_ptr :read_ptr, 0
+      # Walking the tail needs pointer arithmetic, which a `:ptr` value does not
+      # support in Ruby. This helper skips whitespace, semicolons, and comments
+      # and answers whether anything else remains.
+      ffi_source <<~C
+        int snails_tail_is_empty(const char *tail) {
+          const char *p = tail;
+          while (*p) {
+            if (*p == ' ' || *p == '\\t' || *p == '\\n' || *p == '\\r' || *p == ';') { p++; continue; }
+            if (p[0] == '-' && p[1] == '-') { p += 2; while (*p && *p != '\\n') p++; continue; }
+            if (p[0] == '/' && p[1] == '*') { p += 2; while (*p && !(p[0] == '*' && p[1] == '/')) p++; if (*p) p += 2; continue; }
+            return 0;
+          }
+          return 1;
+        }
+      C
+      ffi_func :snails_tail_is_empty, [:ptr], :int
     end
 
     # `SQLite3.db_out` is one static 8-byte out-buffer for the whole process,
@@ -469,6 +508,10 @@ module Sqlx
     # instance-ivar array, which spinel types as a concrete DatabaseConnection
     # PtrArray — preserving the object tag.
     @pools = nil
+    # The configured database file, kept for the read-only connection scope.
+    # The write pool owns its own copy; this one survives a pool reset and is
+    # cleared by `close`.
+    @database_path = nil
     # How long one lock wait may last, in milliseconds. The per-connection busy
     # handler checks it against wall time on every retry (see `busy_wait`), so a
     # waiter gives up at the timeout instead of after a fixed number of back-off
@@ -497,6 +540,7 @@ module Sqlx
     # @return [void]
     def self.configure(path, pool_size: 8, busy_timeout_ms: 5000)
       @sql_trace = ENV.fetch("RH_SQL_TRACE", "") != ""
+      @database_path = path
       n = pool_size
       ev = ENV["DATABASE_POOL_SIZE"]
       if !ev.nil? && ev != ""
@@ -569,6 +613,22 @@ module Sqlx
       1
     end
 
+    # The read-only scope's wall-clock progress callback. sqlite calls it every
+    # N virtual-machine steps; a non-zero return stops the statement.
+    #
+    # @param user_data [untyped] NULL; the callback signature requires the argument
+    # @param count [Integer] the progress counter; unused
+    # @return [Integer] 1 when the deadline passed, 0 otherwise
+    def self.read_timeout(user_data, count)
+      deadline = Thread.current[:sqlx_read_deadline_us]
+      return 0 if deadline.nil?
+      now = (Process.clock_gettime(Process::CLOCK_MONOTONIC) * 1000000.0).to_i
+      if now >= deadline
+        return 1
+      end
+      0
+    end
+
     # configure from this adapter's own source, so `main.rb` never names an
     # adapter: `DATABASE_PATH`, else `storage/development.sqlite3`.
     #
@@ -580,13 +640,73 @@ module Sqlx
     end
 
     def self.close
-      return if @pools.nil?
-      i = 0
-      while i < @pools.length
-        @pools[i].close_all
-        i += 1
+      if !@pools.nil?
+        i = 0
+        while i < @pools.length
+          @pools[i].close_all
+          i += 1
+        end
+        @pools = nil
       end
-      @pools = nil
+      @database_path = nil
+    end
+
+    # Opens one dedicated read-only connection for a read-only query scope.
+    # The connection refuses writes and ATTACH at the database layer, installs
+    # the fair busy handler and the wall-clock progress handler, and is closed
+    # by the caller through `close_read_only`.
+    #
+    # @param max_rows [Integer] the row cap each query may return
+    # @param timeout_ms [Integer] the wall-clock limit for each query
+    # @return [Sqlx::ReadConnection] the scope's reader
+    # @raise [ArgumentError] either limit is not a positive Integer
+    # @raise [RuntimeError] the database is not configured, or it is in-memory
+    def self.open_read_only(max_rows, timeout_ms)
+      unless max_rows.is_a?(Integer) && max_rows > 0
+        raise ArgumentError, "max_rows must be a positive Integer"
+      end
+      unless timeout_ms.is_a?(Integer) && timeout_ms > 0
+        raise ArgumentError, "timeout_ms must be a positive Integer"
+      end
+      path = @database_path
+      if path.nil?
+        raise "Sqlx::Database.open_read_only: configure the database first"
+      end
+      if path == ":memory:" || path.include?(":memory:") || path.include?("mode=memory")
+        raise "Sqlx::Database.open_read_only: a file-backed database is required"
+      end
+      dbh = 0
+      rc = 0
+      OPEN_LOCK.synchronize do
+        rc = SQLite3.sqlite3_open_v2(path, SQLite3.db_out, SQLite3::OPEN_URI_RO, nil)
+        dbh = rc == SQLite3::OK ? SQLite3.read_ptr(SQLite3.db_out) : 0
+      end
+      if rc != SQLite3::OK
+        if dbh != 0
+          SQLite3.sqlite3_close(dbh)
+        end
+        raise "Sqlx::Database.open_read_only failed (" + rc.to_s + "): " + path
+      end
+      begin
+        SQLite3.sqlite3_busy_handler(dbh, method(:busy_wait), nil)
+        SQLite3.sqlite3_limit(dbh, SQLite3::LIMIT_ATTACHED, 0)
+        SQLite3.sqlite3_progress_handler(dbh, 10000, method(:read_timeout), nil)
+        exec_on(dbh, "PRAGMA query_only=ON")
+      rescue
+        SQLite3.sqlite3_close(dbh)
+        raise
+      end
+      Sqlx::ReadConnection.new(dbh, max_rows, timeout_ms)
+    end
+
+    # Closes one read-only connection opened by `open_read_only`. The scope
+    # calls it; a close error is ignored because the statement is already over.
+    #
+    # @param dbh [untyped] the connection handle
+    # @return [void]
+    def self.close_read_only(dbh)
+      SQLite3.sqlite3_close(dbh)
+      nil
     end
 
     # run one DDL / INSERT / UPDATE / DELETE statement; no rows come back.
@@ -663,6 +783,90 @@ module Sqlx
         query_cache_store(key, rows, generation) if cacheable
         rows
       ensure
+        Snails::Logger::Context.add_db_us(Snails::Logger::Context.now_us - started)
+      end
+    end
+
+    # Runs one statement on a read-only connection. The statement must be a
+    # single statement; a write or ATTACH is refused by the connection, and the
+    # row cap and wall-clock timeout come from the scope.
+    #
+    # @param dbh [untyped] the read-only connection handle
+    # @param sql [String] one SQL statement
+    # @param max_rows [Integer] the row cap
+    # @param timeout_ms [Integer] the wall-clock limit
+    # @return [Sqlx::ReadResult] columns, capped rows, truncation flag
+    # @raise [ArgumentError] the statement is empty or carries more than one
+    # @raise [Sqlx::QueryTimeout] the statement exceeded the timeout
+    # @raise [Sqlx::ReadOnlyViolation] the statement tried to write
+    # @raise [Sqlx::Busy] the database lock stayed held past the busy timeout
+    def self.read_only_query(dbh, sql, max_rows, timeout_ms)
+      unless sql.is_a?(String) && !sql.empty?
+        raise ArgumentError, "SQL must be a non-empty String"
+      end
+      deadline = (Process.clock_gettime(Process::CLOCK_MONOTONIC) * 1000000.0).to_i + timeout_ms * 1000
+      Thread.current[:sqlx_read_deadline_us] = deadline
+      record_query(sql)
+      started = Snails::Logger::Context.now_us
+      stmt = 0
+      begin
+        rc = 0
+        tail = 0
+        DatabaseConnection::PREPARE_LOCK.synchronize do
+          rc = SQLite3.sqlite3_prepare_v2(dbh, sql, -1, SQLite3.stmt_out, SQLite3.tail_out)
+          if rc == SQLite3::OK
+            stmt = SQLite3.read_ptr(SQLite3.stmt_out)
+            tail = SQLite3.read_ptr(SQLite3.tail_out)
+          end
+        end
+        if rc != SQLite3::OK
+          msg = SQLite3.sqlite3_errmsg(dbh)
+          raise Sqlx::Busy, msg if rc == SQLite3::BUSY || rc == SQLite3::LOCKED
+          raise Sqlx::ReadOnlyViolation, msg if rc == SQLite3::READONLY
+          raise "Sqlx::Database.read_only_query failed (" + rc.to_s + "): " + msg
+        end
+        ensure_one_statement!(tail)
+        ncols = column_count(stmt)
+        columns = []
+        i = 0
+        while i < ncols
+          columns.push(column_name(stmt, i))
+          i += 1
+        end
+        rows = []
+        truncated = false
+        while true
+          step_rc = SQLite3.sqlite3_step(stmt)
+          if step_rc == SQLite3::ROW
+            if rows.length >= max_rows
+              truncated = true
+              break
+            end
+            row = []
+            i = 0
+            while i < ncols
+              row.push(column_value(stmt, i))
+              i += 1
+            end
+            rows.push(row)
+          elsif step_rc == SQLite3::DONE
+            break
+          elsif step_rc == SQLite3::INTERRUPT
+            raise Sqlx::QueryTimeout, "query exceeded the " + timeout_ms.to_s + " ms timeout"
+          elsif step_rc == SQLite3::BUSY || step_rc == SQLite3::LOCKED
+            raise Sqlx::Busy, SQLite3.sqlite3_errmsg(dbh)
+          elsif step_rc == SQLite3::READONLY
+            raise Sqlx::ReadOnlyViolation, SQLite3.sqlite3_errmsg(dbh)
+          else
+            raise "Sqlx::Database.read_only_query failed (" + step_rc.to_s + "): " + SQLite3.sqlite3_errmsg(dbh)
+          end
+        end
+        Sqlx::ReadResult.new(columns, rows, truncated)
+      ensure
+        if stmt != 0
+          SQLite3.sqlite3_finalize(stmt)
+        end
+        Thread.current[:sqlx_read_deadline_us] = nil
         Snails::Logger::Context.add_db_us(Snails::Logger::Context.now_us - started)
       end
     end
@@ -1139,6 +1343,25 @@ module Sqlx
       s.nil? ? "NULL" : escape_string(s)
     end
 
+    # Runs one PRAGMA-like statement on a raw connection handle, outside the
+    # pool. Used only for the read-only connection's setup.
+    def self.exec_on(dbh, sql)
+      rc = SQLite3.sqlite3_exec(dbh, sql, nil, nil, nil)
+      return nil if rc == SQLite3::OK
+      raise "Sqlx::Database.exec_on failed (" + rc.to_s + "): " + SQLite3.sqlite3_errmsg(dbh)
+    end
+
+    # Refuses a second statement after the first. The tail points at the first
+    # byte after the prepared statement; whitespace, semicolons, and comments
+    # are allowed, anything else is another statement.
+    def self.ensure_one_statement!(tail)
+      return nil if tail == 0
+      unless SQLite3.snails_tail_is_empty(tail) == 1
+        raise ArgumentError, "only one SQL statement is allowed"
+      end
+      nil
+    end
+
     # Walk a prepared statement into name-keyed rows — the one row-shape walk
     # `exec_write` and `exec_read` share. The release stays with the caller: a
     # write reads its count before `finalize`, a read hands the rows back. `sql`
@@ -1182,5 +1405,6 @@ module Sqlx
     private_class_method :capture_sql, :record_query
     private_class_method :cache_key_for, :cache_token_for
     private_class_method :seed_from_file
+    private_class_method :exec_on, :ensure_one_statement!, :read_timeout
   end
 end

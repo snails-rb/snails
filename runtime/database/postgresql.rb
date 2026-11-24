@@ -497,6 +497,21 @@ module Sqlx
       query_cache_clear
     end
 
+    # Read-only query scope — SQLite implements this first; the PostgreSQL
+    # adapter follows in the companion change. The public entry is
+    # `Sqlx::Base.with_read_only`.
+    def self.open_read_only(max_rows, timeout_ms)
+      raise NotImplementedError, "read-only queries are not implemented for PostgreSQL yet"
+    end
+
+    def self.close_read_only(dbh)
+      raise NotImplementedError, "read-only queries are not implemented for PostgreSQL yet"
+    end
+
+    def self.read_only_query(dbh, sql, max_rows, timeout_ms)
+      raise NotImplementedError, "read-only queries are not implemented for PostgreSQL yet"
+    end
+
     # run one DDL / INSERT / UPDATE / DELETE statement; no rows come back.
     # Callers that want the inserted id or the row count read
     # `last_insert_rowid` / `changes` next.
