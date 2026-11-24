@@ -651,20 +651,34 @@ module Sqlx
       @database_path = nil
     end
 
-    # Opens one dedicated read-only connection for a read-only query scope.
-    # The connection refuses writes and ATTACH at the database layer, installs
-    # the fair busy handler and the wall-clock progress handler, and is closed
-    # by the caller through `close_read_only`.
+    # Opens one explicit connection. A read-only connection refuses writes and
+    # ATTACH at the database layer and installs the fair busy handler and the
+    # wall-clock progress handler. A raw writable connection is not exposed yet.
     #
+    # @param database [String, nil] the SQLite path; nil uses the configured database
+    # @param read_only [Boolean] true for a database-enforced read-only connection
     # @return [untyped] the open connection handle
+    # @raise [ArgumentError] read_only is not true or false
+    # @raise [NotImplementedError] read_only is false (raw writable connections
+    #   are not exposed yet)
     # @raise [RuntimeError] the database is not configured, or it is in-memory
-    def self.open_read_only
-      path = @database_path
+    def self.open_connection(database = nil, read_only:)
+      unless database.nil? || database.is_a?(String)
+        raise ArgumentError, "database must be a String or nil"
+      end
+      unless read_only == true || read_only == false
+        raise ArgumentError, "read_only must be true or false"
+      end
+      if !read_only
+        raise NotImplementedError, "raw writable connections are not exposed yet"
+      end
+      path = database
+      path = @database_path if path.nil?
       if path.nil?
-        raise "Sqlx::Database.open_read_only: configure the database first"
+        raise "Sqlx::Database.open_connection: configure the database first"
       end
       if path == ":memory:" || path.include?(":memory:") || path.include?("mode=memory")
-        raise "Sqlx::Database.open_read_only: a file-backed database is required"
+        raise "Sqlx::Database.open_connection: a file-backed database is required"
       end
       dbh = 0
       rc = 0
@@ -676,7 +690,7 @@ module Sqlx
         if dbh != 0
           SQLite3.sqlite3_close(dbh)
         end
-        raise "Sqlx::Database.open_read_only failed (" + rc.to_s + "): " + path
+        raise "Sqlx::Database.open_connection failed (" + rc.to_s + "): " + path
       end
       begin
         SQLite3.sqlite3_busy_handler(dbh, method(:busy_wait), nil)
@@ -690,12 +704,13 @@ module Sqlx
       dbh
     end
 
-    # Closes one read-only connection opened by `open_read_only`. The scope
-    # calls it; a close error is ignored because the statement is already over.
+    # Closes one explicit connection opened by `open_connection`. The block form
+    # calls it; a caller holding a connection from the no-block form calls it
+    # once. A close error is ignored because the statement is already over.
     #
     # @param dbh [untyped] the connection handle
     # @return [void]
-    def self.close_read_only(dbh)
+    def self.close_connection(dbh)
       SQLite3.sqlite3_close(dbh)
       nil
     end

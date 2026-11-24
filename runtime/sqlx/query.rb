@@ -81,47 +81,6 @@ module Sqlx
       Sqlx::Database.exec_read(sql, bound)
     end
 
-    # Runs the block with a dedicated read-only connection. The connection is
-    # for SQL the caller did not write ahead of time — a view, a dashboard, or
-    # a statement built by an agent — so it refuses writes and `ATTACH` at the
-    # database layer and applies a row cap and a wall-clock timeout to every
-    # query.
-    #
-    # The block receives a `Sqlx::ReadConnection`; the scope opens the
-    # connection before the block and closes it after, including when the block
-    # raises. The block's value is returned.
-    #
-    # The SQLite adapter implements this scope; the PostgreSQL adapter follows
-    # in a companion change.
-    #
-    # @param max_rows [Integer] the row cap each query may return; must be positive
-    # @param timeout_ms [Integer] the wall-clock limit for each query; must be positive
-    # @yieldparam reader [Sqlx::ReadConnection] the scope's read-only connection
-    # @return [Object] the block's value
-    # @raise [ArgumentError] either limit is not a positive Integer
-    # @raise [RuntimeError] the database is not configured, or it is in-memory
-    # @example
-    #   Sqlx::Base.with_read_only(max_rows: 200, timeout_ms: 10_000) do |reader|
-    #     result = reader.query("SELECT service, COUNT(*) AS n FROM logs GROUP BY service")
-    #     result.columns    # => ["service", "n"]
-    #     result.rows       # => [["telemetry", 10]]
-    #     result.truncated? # => false
-    #   end
-    def with_read_only(max_rows:, timeout_ms:)
-      unless max_rows.is_a?(Integer) && max_rows > 0
-        raise ArgumentError, "max_rows must be a positive Integer"
-      end
-      unless timeout_ms.is_a?(Integer) && timeout_ms > 0
-        raise ArgumentError, "timeout_ms must be a positive Integer"
-      end
-      reader = Sqlx::ReadConnection.new(Sqlx::Database.open_read_only, max_rows, timeout_ms)
-      begin
-        yield reader
-      ensure
-        reader.close
-      end
-    end
-
     # Runs a caller-written INSERT, UPDATE, or DELETE with its values bound,
     # and returns the rows the statement produced. A statement without
     # `RETURNING` returns an empty array; a `RETURNING` statement returns one

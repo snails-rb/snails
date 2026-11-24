@@ -106,11 +106,11 @@ Post.write("UPDATE posts SET title = ? WHERE id = ? RETURNING id", [ "revised", 
 
 ## Read-only queries
 
-`Sqlx::Base.with_read_only` opens a dedicated read-only connection for one block of SQL built at runtime — a view, a dashboard query, or a statement assembled from input. The block receives a reader; each `query` returns the statement's column names and its rows as value arrays, with a row cap and a wall-clock limit.
+`Sqlx::Connection.open(read_only: true)` opens an explicit read-only connection for SQL built at runtime — a view, a dashboard query, or a statement assembled from input. A block yields the connection and closes it afterwards; without a block, the caller closes it. Each `query` returns the statement's column names and its rows as value arrays, with a row cap and a wall-clock limit.
 
 ```ruby
-Sqlx::Base.with_read_only(max_rows: 200, timeout_ms: 10_000) do |reader|
-  result = reader.query("SELECT service, COUNT(*) AS n FROM logs GROUP BY service")
+Sqlx::Connection.open(read_only: true) do |conn|
+  result = conn.query("SELECT service, COUNT(*) AS n FROM logs GROUP BY service", max_rows: 200, timeout_ms: 10_000)
   result.columns    # => ["service", "n"]
   result.rows       # => [["telemetry", 10]]
   result.row_count  # => 1
@@ -119,15 +119,17 @@ end
 ```
 
 - The connection is read-only. A write raises `Sqlx::ReadOnlyViolation`, and `ATTACH` is disabled.
+- `read_only: true` is required; the mode is explicit. A raw writable connection (`read_only: false`) is not exposed yet — use the model and pool surfaces.
 - Each `query` takes one statement. A second statement raises `ArgumentError`.
 - `max_rows` caps the rows returned. `truncated?` is true when the statement had more rows than the cap.
 - `timeout_ms` stops a statement that runs too long and raises `Sqlx::QueryTimeout`.
 - A zero-row result still returns the column names. Rows are arrays, not hashes, so a repeated select-list name keeps both values in order.
 - The statement takes no bound values. Use `rows_by_sql` for a read that binds request values.
-- The block owns the connection: it closes after the block, including when the block raises. Do not keep the reader after the block.
-- The database must be file-backed; `:memory:` is not supported.
+- The block owns the connection: it closes after the block, including when the block raises. Without a block, call `close` yourself.
+- The first argument is the database path or conninfo; omit it for the configured database. The database must be file-backed; `:memory:` is not supported.
+- `read_only?` reports the connection's mode.
 
-The SQLite adapter implements this scope. The PostgreSQL adapter follows in a separate change.
+The SQLite adapter implements the read-only connection. The PostgreSQL adapter follows in a separate change.
 
 ## Dialect differences
 

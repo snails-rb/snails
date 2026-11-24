@@ -10,5 +10,7 @@ ok test_read_only_connection_rejects_writes
 ok test_attach_is_rejected
 ok test_timeout_aborts_a_long_query
 ok test_non_positive_limits_are_rejected
+ok test_read_only_predicate
+ok test_raw_writable_connections_are_not_exposed_yet
 ok test_in_memory_database_is_rejected
-ReadOnlyTest: 13 tests passed
+ReadOnlyTest: 15 tests passed

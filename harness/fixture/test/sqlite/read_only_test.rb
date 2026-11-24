@@ -2,9 +2,9 @@ require_relative "../test_helper"
 require_relative "../harness_runner"
 require_relative "../test_database"
 
-# Sqlx::Base.with_read_only (SQLite) — the scope opens a dedicated read-only
-# connection, returns ordered columns and value arrays, caps rows, times out a
-# long statement, and refuses writes, ATTACH, and a second statement.
+# Sqlx::Connection.open(read_only: true) (SQLite) — the explicit connection
+# returns ordered columns and value arrays, caps rows, times out a long
+# statement, and refuses writes, ATTACH, and a second statement.
 class ReadOnlyTest < TestBase
   def setup
     TestDatabase.configure!("read_only", pool_size: 2)
@@ -18,8 +18,8 @@ class ReadOnlyTest < TestBase
   end
 
   def read(sql, max_rows: 10, timeout_ms: 1_000)
-    Sqlx::Base.with_read_only(max_rows: max_rows, timeout_ms: timeout_ms) do |reader|
-      reader.query(sql)
+    Sqlx::Connection.open(read_only: true) do |conn|
+      conn.query(sql, max_rows: max_rows, timeout_ms: timeout_ms)
     end
   end
 
@@ -60,12 +60,12 @@ class ReadOnlyTest < TestBase
     assert_equal true, result.truncated?
   end
 
-  # One scope can run more than one statement on the same connection: the app
-  # reads the database clock and then the data it needs.
+  # One connection can run more than one statement: the app reads the database
+  # clock and then the data it needs.
   def test_two_queries_share_one_connection
-    values = Sqlx::Base.with_read_only(max_rows: 10, timeout_ms: 1_000) do |reader|
-      now = reader.query("SELECT datetime('now') AS now")
-      data = reader.query("SELECT n FROM read_only_samples ORDER BY id LIMIT 1")
+    values = Sqlx::Connection.open(read_only: true) do |conn|
+      now = conn.query("SELECT datetime('now') AS now", max_rows: 10, timeout_ms: 1_000)
+      data = conn.query("SELECT n FROM read_only_samples ORDER BY id LIMIT 1", max_rows: 10, timeout_ms: 1_000)
       [ now.rows[0][0], data.rows[0][0] ]
     end
     assert_equal true, values[0].is_a?(String)
@@ -133,25 +133,48 @@ class ReadOnlyTest < TestBase
     assert_equal true, !raised.nil?
   end
 
-  # The scope validates its limits at the entry point.
+  # The connection validates the execution limits at the query entry point.
   def test_non_positive_limits_are_rejected
     raised = nil
     begin
-      Sqlx::Base.with_read_only(max_rows: 0, timeout_ms: 1_000) { |reader| reader.query("SELECT 1") }
+      Sqlx::Connection.open(read_only: true) do |conn|
+        conn.query("SELECT 1", max_rows: 0, timeout_ms: 1_000)
+      end
     rescue ArgumentError => e
       raised = e
     end
     assert_equal true, !raised.nil?
   end
 
+  # The connection reports its mode.
+  def test_read_only_predicate
+    Sqlx::Connection.open(read_only: true) do |conn|
+      assert_equal true, conn.read_only?
+    end
+  end
+
+  # A raw writable connection is not exposed yet; the mode is explicit and the
+  # refusal is loud.
+  def test_raw_writable_connections_are_not_exposed_yet
+    raised = nil
+    begin
+      Sqlx::Connection.open(read_only: false)
+    rescue NotImplementedError => e
+      raised = e
+    end
+    assert_equal true, !raised.nil?
+  end
+
   # A read-only connection to an in-memory database would be a separate empty
-  # database, so the scope refuses it.
+  # database, so the connection refuses it.
   def test_in_memory_database_is_rejected
     Sqlx::Database.close
     Sqlx::Database.configure(":memory:", pool_size: 1)
     raised = nil
     begin
-      Sqlx::Base.with_read_only(max_rows: 10, timeout_ms: 1_000) { |reader| reader.query("SELECT 1") }
+      Sqlx::Connection.open(read_only: true) do |conn|
+        conn.query("SELECT 1", max_rows: 10, timeout_ms: 1_000)
+      end
     rescue RuntimeError => e
       raised = e
     end
@@ -172,5 +195,7 @@ FixtureRunner.run(ReadOnlyTest, [
   "test_attach_is_rejected",
   "test_timeout_aborts_a_long_query",
   "test_non_positive_limits_are_rejected",
+  "test_read_only_predicate",
+  "test_raw_writable_connections_are_not_exposed_yet",
   "test_in_memory_database_is_rejected"
 ])
