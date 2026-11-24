@@ -107,7 +107,7 @@ class Post < Sqlx::Base
 end
 ```
 
-`enum` rejects an empty declaration, a non-Symbol label, a non-Integer value, and a repeated value at load. `label` returns `nil` for an unknown stored value; `value` and the predicate raise for a label the declaration no longer carries. `writer(...).write!` updates the column and `updated_at` in one statement, matching the row by id. The table must carry `updated_at`.
+`enum` rejects an empty declaration, a non-Symbol label, a non-Integer value, and a repeated value at load. `label` returns `nil` for an unknown stored value; `value` and the predicate raise for a label the declaration no longer declares. `writer(...).write!` updates the column and `updated_at` in one statement, matching the row by id. The table must have `updated_at`.
 
 ## The `.rbs` sidecar
 

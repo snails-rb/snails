@@ -12,7 +12,7 @@ A plain project with no migrations has no database file until a feature needs on
 
 ### Do I need to install a database server?
 
-Not for SQLite development — it is a file and nothing else to run. Production talks to PostgreSQL through the same models; you point the app at a server with `PG_URL` (see [Deploying](25-deploying.md)).
+Not for SQLite development — it's a file and nothing else to run. Production talks to PostgreSQL through the same models; you point the app at a server with `PG_URL` (see [Deploying](25-deploying.md)).
 
 ### Why does a command exit early?
 
@@ -20,7 +20,7 @@ Most `snails` commands check the pin first. When the project and its pin disagre
 
 ### When do the generated files regenerate?
 
-`bin/dev` and `bin/test` refresh `gen/` before every build — that is why a new controller or model needs no extra wiring. The files are yours to commit; the generators keep the lists in step with your folders. `gen/model_columns.rb` and `gen/route_helpers.rb` are generated outright; do not edit them.
+`bin/dev` and `bin/test` refresh `gen/` before every build — that is why a new controller or model needs no extra wiring. The files are yours to commit; the generators keep the lists in step with your folders. `gen/model_columns.rb` and `gen/route_helpers.rb` are generated; don't edit them.
 
 ### Can two apps live on one machine?
 
@@ -48,7 +48,7 @@ A schema change is a SQL statement. Keeping it as a SQL file makes the change re
 
 ### Does Snails render HTML?
 
-No. There is no view layer or asset pipeline; every controller answers JSON, a redirect, or a status. The frontend is a separate app, in the same repository or its own, not a layer inside this binary.
+No. There's no view layer or asset pipeline; every controller responds with JSON, a redirect, or a status. The frontend is a separate app, in the same repository or its own, not a layer inside this binary.
 
 ### How do I run one test file?
 
@@ -64,7 +64,7 @@ The path is under `harness/`. An unknown path fails with a clear error rather th
 
 ### How do I change the app name?
 
-`APP_NAME` in `pins.toml` names the development database and container; `config/application.rb` answers `Snails.app.app_name`, which the server banner and logs use. Change both when the app's identity changes, and use a fresh development database when the database name moves.
+`APP_NAME` in `pins.toml` names the development database and container; `config/application.rb` provides `Snails.app.app_name`, which the server banner and logs use. Change both when the app's identity changes, and use a fresh development database when the database name moves.
 
 ### Why is my JSON payload a string?
 
