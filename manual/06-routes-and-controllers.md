@@ -4,7 +4,7 @@ You declare routes in `config/routes.rb` and point them at controllers that subc
 
 ## Declare routes
 
-The route table is a list of helper calls. The scaffold's resources look like this:
+The route table is a list of route declarations. The scaffold's resources look like this:
 
 ```ruby
 module Snails
@@ -20,9 +20,9 @@ module Snails
 end
 ```
 
-`resources` expands to five rows — `GET` and `POST` on the collection, `GET`, `PUT`, and `DELETE` on the member. A nested path such as `/posts/:post_id/comments` scopes the child to its parent.
+`resources` expands to five entries — `GET` and `POST` on the collection, `GET`, `PUT`, and `DELETE` on the member. A nested path such as `/posts/:post_id/comments` scopes the child to its parent.
 
-Rows in one list need commas between them; a newline is not a separator. When two hand-written `get` rows derive the same helper name (`/posts` and `/posts/:id` both want `posts`), give one a `# as: name` marker:
+Entries in one list need commas between them. A newline isn't a separator. When two hand-written `get` entries derive the same path helper name (`/posts` and `/posts/:id` both want `posts`), give one a `# as: name` marker:
 
 ```ruby
 get("/posts", Api::PostsController, :index),
@@ -36,9 +36,9 @@ resources("/devices", Api::DevicesController, :json, [:create, :show])
 # GET /devices, POST /devices, GET /devices/:id
 ```
 
-An action outside `:index`, `:create`, `:show`, `:update`, and `:destroy` raises at boot, so a typo cannot silently drop a row. The format argument forces the request format for every row; the common `:json` value matches the API default.
+An action outside `:index`, `:create`, `:show`, `:update`, and `:destroy` raises at boot, so a typo can't silently drop a row. The format argument forces the request format for every row. The common `:json` value matches the API default.
 
-A route matches the GET row for a HEAD request too. The action sees `request.head?` and the server sends the status and headers without the body. A known extension on the last path segment — `/posts.json` — matches the `/posts` row and sets `params["format"]`.
+A route matches the GET entry for a HEAD request too. The action sees `request.head?` and the server sends the status and headers without the body. A known extension on the last path segment — `/posts.json` — matches the `/posts` entry and sets `params["format"]`.
 
 ## Path helpers
 
@@ -51,11 +51,11 @@ RouteHelpers.comments_path(42)       # "/posts/42/comments"
 RouteHelpers.comment_path(42, 7)     # "/posts/42/comments/7"
 ```
 
-A path with a dynamic segment takes one argument per segment. The generator refuses two rows that derive the same helper name from different patterns and tells you to add a `# as:` marker. A `resources` row cannot carry a marker; name a hand-written row instead when its helper name must differ.
+A path with a dynamic segment takes one argument per segment. The generator refuses two entries that derive the same path helper name from different patterns and tells you to add a `# as:` marker. A `resources` entry can't carry a marker; name a hand-written entry instead when its path helper name must differ.
 
 ## Write the controller
 
-A resource controller follows the scaffold's pattern: resolve the record once, then let each action answer.
+A resource controller follows the scaffold's pattern: resolve the record once, then let each action render a response.
 
 ```ruby
 module Api
@@ -93,15 +93,15 @@ module Api
 end
 ```
 
-The pieces to copy:
+A few details matter:
 
 - `params` is a hash keyed by strings — `params["title"]`, not `params[:title]`.
-- `status:` takes a symbol (`:created`) or an integer code; anything else raises.
-- A path capture is a String. The generated model declares its integer columns and casts the value; a TEXT/UUID key stays a string.
+- `status:` takes a symbol (`:created`) or an integer code. Anything else raises.
+- A path capture is a String. The generated model declares its integer columns and casts the value. A TEXT/UUID key stays a string.
 - `before_action` runs before the listed actions. A filter that renders a response halts the chain and the action.
-- An action that renders nothing answers `204 No Content`; the default is not a bare 200 with no body.
+- An action that renders nothing returns `204 No Content`. The default isn't a bare 200 with no body.
 
-`before_action` is per controller class. Registration does not propagate to subclasses — a filter added to a shared base class does not run on its subclasses. Declare it on each controller that needs it, or override a method the parent defines.
+`before_action` is per controller class. Registration doesn't propagate to subclasses — a filter added to a shared base class doesn't run on its subclasses. Declare it on each controller that needs it, or override a method the parent defines.
 
 ## Render a response
 
@@ -114,7 +114,7 @@ head(:no_content)                               # status only
 send_data(bytes, type: "application/pdf")      # binary body
 ```
 
-`render` takes either a positional body or `json:`, never both and never neither. `json:` encodes the value (see [Time, Dates, and JSON](17-time-dates-and-json.md)); a positional body is already encoded text. `redirect_to` sets `Location` and a 3xx status. `head` sets a status and no body. `send_data` sets a body and a content type; its `disposition:` argument is accepted but not written to a header, so set `Content-Disposition` yourself when a client needs it.
+`render` takes either a positional body or `json:`, never both and never neither. `json:` encodes the value (see [Time, Dates, and JSON](17-time-dates-and-json.md)). A positional body is already encoded text. `redirect_to` sets `Location` and a 3xx status. `head` sets a status and no body. `send_data` sets a body and a content type; its `disposition:` argument is accepted but not written to a header, so set `Content-Disposition` yourself when a client needs it.
 
 Extra response headers are set on the controller and copied to the response:
 
@@ -132,7 +132,7 @@ before_action :mark_create, only: :create
 before_action :mark_all, except: [:show, :index]
 ```
 
-A filter may render, redirect, or `head`; the request then stops before the action. An action named in a route with no method raises `NoMethodError` instead of answering an empty 200.
+A filter may render, redirect, or `head`. The request then stops before the action. An action named in a route with no method raises `NoMethodError` instead of returning an empty 200.
 
 `process_action` is the place for app-wide handling around every action. A subclass may override it to wrap the preamble or rescue one error for every action:
 
@@ -146,6 +146,6 @@ end
 
 Call `super` to keep the filters, the action, and the implicit 204. An override that replaces the dispatch must call `send_action(action_name)` instead. [Error Handling](20-error-handling.md) covers the rescue patterns.
 
-A route's forced format lands on `controller.request_format`; a path extension lands on `params["format"]`. With no route choice, `request_format` is `:json`.
+A route's forced format lands on `controller.request_format`. A path extension lands on `params["format"]`. With no route choice, `request_format` is `:json`.
 
 [Requests and Parameters](07-requests-and-parameters.md) covers the request object and the params hash in detail.
