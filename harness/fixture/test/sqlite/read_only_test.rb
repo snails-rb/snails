@@ -4,7 +4,7 @@ require_relative "../test_database"
 
 # Sqlx::Connection.open(read_only: true) (SQLite) — the explicit connection
 # returns ordered columns and value arrays, caps rows, times out a long
-# statement, and refuses writes, ATTACH, and a second statement.
+# statement, and refuses writes, ATTACH, VACUUM INTO, and a second statement.
 class ReadOnlyTest < TestBase
   def setup
     TestDatabase.configure!("read_only", pool_size: 2)
@@ -21,6 +21,11 @@ class ReadOnlyTest < TestBase
     Sqlx::Connection.open(read_only: true) do |conn|
       conn.query(sql, max_rows: max_rows, timeout_ms: timeout_ms)
     end
+  end
+
+  # A recursive CTE that runs far past a short timeout on every machine.
+  def long_query
+    "WITH RECURSIVE cnt(x) AS (VALUES(0) UNION ALL SELECT x + 1 FROM cnt WHERE x < 100000000) SELECT count(*) FROM cnt"
   end
 
   # A plain SELECT returns the select-list names in order and one value array
@@ -118,28 +123,73 @@ class ReadOnlyTest < TestBase
     assert_equal true, !raised.nil?
   end
 
-  # The progress handler stops a statement that runs past the scope's
+  # VACUUM INTO writes another file through an internal attach, so the
+  # attached-database limit must refuse it too.
+  def test_vacuum_into_is_rejected
+    target = "/tmp/snails_read_only_vacuum.sqlite3"
+    File.delete(target) if File.exist?(target)
+    raised = nil
+    begin
+      read("VACUUM INTO '" + target + "'")
+    rescue => e
+      raised = e
+    end
+    assert_equal true, !raised.nil?
+    assert_equal false, File.exist?(target)
+  ensure
+    File.delete(target) if File.exist?(target)
+  end
+
+  # The progress handler stops a statement that runs past the query's
   # wall-clock limit.
   def test_timeout_aborts_a_long_query
     raised = nil
     begin
-      read(
-        "WITH RECURSIVE cnt(x) AS (VALUES(0) UNION ALL SELECT x + 1 FROM cnt WHERE x < 100000000) SELECT count(*) FROM cnt",
-        timeout_ms: 50
-      )
+      read(long_query, timeout_ms: 50)
     rescue Sqlx::QueryTimeout => e
       raised = e
     end
     assert_equal true, !raised.nil?
   end
 
+  # A timeout interrupts the statement, not the connection, so the next query
+  # on the same connection succeeds.
+  def test_connection_survives_a_timeout
+    Sqlx::Connection.open(read_only: true) do |conn|
+      timed_out = false
+      begin
+        conn.query(long_query, max_rows: 10, timeout_ms: 50)
+      rescue Sqlx::QueryTimeout
+        timed_out = true
+      end
+      assert_equal true, timed_out
+      result = conn.query("SELECT 1 AS one", max_rows: 10, timeout_ms: 1_000)
+      assert_equal [[1]], result.rows
+    end
+  end
+
   # The connection validates the execution limits at the query entry point.
+  # Both limits reject zero and negative values before the statement runs.
   def test_non_positive_limits_are_rejected
+    Sqlx::Connection.open(read_only: true) do |conn|
+      [ [ 0, 1_000 ], [ -1, 1_000 ], [ 10, 0 ], [ 10, -1 ] ].each do |limits|
+        raised = nil
+        begin
+          conn.query("SELECT 1", max_rows: limits[0], timeout_ms: limits[1])
+        rescue ArgumentError => e
+          raised = e
+        end
+        assert_equal true, !raised.nil?
+      end
+    end
+  end
+
+  # SQL with no statement (only comments or whitespace) is a caller error,
+  # not a driver error after a NULL statement handle.
+  def test_sql_without_a_statement_is_rejected
     raised = nil
     begin
-      Sqlx::Connection.open(read_only: true) do |conn|
-        conn.query("SELECT 1", max_rows: 0, timeout_ms: 1_000)
-      end
+      read("-- only a comment")
     rescue ArgumentError => e
       raised = e
     end
@@ -160,6 +210,42 @@ class ReadOnlyTest < TestBase
     begin
       Sqlx::Connection.open(read_only: false)
     rescue NotImplementedError => e
+      raised = e
+    end
+    assert_equal true, !raised.nil?
+  end
+
+  # The optional first argument opens another database file instead of the
+  # configured one.
+  def test_explicit_database_path_is_read
+    other = "/tmp/snails_read_only_other.sqlite3"
+    File.delete(other) if File.exist?(other)
+    Sqlx::Database.close
+    Sqlx::Database.configure(other, pool_size: 1)
+    TestDatabase.exec("CREATE TABLE other_only (marker TEXT NOT NULL)")
+    TestDatabase.exec("INSERT INTO other_only (marker) VALUES ('other-db')")
+    Sqlx::Database.close
+    TestDatabase.configure!("read_only", pool_size: 2)
+    result = Sqlx::Connection.open(other, read_only: true) do |conn|
+      conn.query("SELECT marker FROM other_only", max_rows: 10, timeout_ms: 1_000)
+    end
+    assert_equal [["other-db"]], result.rows
+  ensure
+    File.delete(other) if File.exist?(other)
+  end
+
+  # The no-block form returns the connection; close is idempotent, and a query
+  # after close fails before it reaches the freed driver handle.
+  def test_no_block_form_close_is_idempotent
+    conn = Sqlx::Connection.open(read_only: true)
+    result = conn.query("SELECT 1 AS one", max_rows: 10, timeout_ms: 1_000)
+    assert_equal [[1]], result.rows
+    conn.close
+    conn.close
+    raised = nil
+    begin
+      conn.query("SELECT 1 AS one", max_rows: 10, timeout_ms: 1_000)
+    rescue ArgumentError => e
       raised = e
     end
     assert_equal true, !raised.nil?
@@ -193,9 +279,14 @@ FixtureRunner.run(ReadOnlyTest, [
   "test_multiple_statements_are_rejected",
   "test_read_only_connection_rejects_writes",
   "test_attach_is_rejected",
+  "test_vacuum_into_is_rejected",
   "test_timeout_aborts_a_long_query",
+  "test_connection_survives_a_timeout",
   "test_non_positive_limits_are_rejected",
+  "test_sql_without_a_statement_is_rejected",
   "test_read_only_predicate",
   "test_raw_writable_connections_are_not_exposed_yet",
+  "test_explicit_database_path_is_read",
+  "test_no_block_form_close_is_idempotent",
   "test_in_memory_database_is_rejected"
 ])

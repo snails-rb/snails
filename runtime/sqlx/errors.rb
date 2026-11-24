@@ -52,9 +52,9 @@ module Sqlx
     end
   end
 
-  # Raised when a read-only query runs past the wall-clock limit the scope was
-  # opened with. The statement was interrupted; the connection is still
-  # healthy, so the caller may run a narrower query on the same reader.
+  # Raised when a read-only query runs past its per-query timeout. The
+  # statement was interrupted; the connection is still healthy, so the caller
+  # may run a shorter query on the same connection.
   class QueryTimeout < StandardError
     def initialize(message = "Sqlx::QueryTimeout")
       super(message)

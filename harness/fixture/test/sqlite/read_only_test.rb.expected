@@ -8,9 +8,14 @@ ok test_trailing_comment_is_one_statement
 ok test_multiple_statements_are_rejected
 ok test_read_only_connection_rejects_writes
 ok test_attach_is_rejected
+ok test_vacuum_into_is_rejected
 ok test_timeout_aborts_a_long_query
+ok test_connection_survives_a_timeout
 ok test_non_positive_limits_are_rejected
+ok test_sql_without_a_statement_is_rejected
 ok test_read_only_predicate
 ok test_raw_writable_connections_are_not_exposed_yet
+ok test_explicit_database_path_is_read
+ok test_no_block_form_close_is_idempotent
 ok test_in_memory_database_is_rejected
-ReadOnlyTest: 15 tests passed
+ReadOnlyTest: 20 tests passed

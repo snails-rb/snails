@@ -613,8 +613,10 @@ module Sqlx
       1
     end
 
-    # The read-only scope's wall-clock progress callback. sqlite calls it every
-    # N virtual-machine steps; a non-zero return stops the statement.
+    # The read-only connection's progress callback. sqlite calls it every N
+    # virtual-machine steps; a non-zero return stops the statement. The
+    # per-query deadline is thread-local because the callback receives no
+    # query context.
     #
     # @param user_data [untyped] NULL; the callback signature requires the argument
     # @param count [Integer] the progress counter; unused
@@ -651,24 +653,19 @@ module Sqlx
       @database_path = nil
     end
 
-    # Opens one explicit connection. A read-only connection refuses writes and
-    # ATTACH at the database layer and installs the fair busy handler and the
-    # wall-clock progress handler. A raw writable connection is not exposed yet.
+    # Opens one explicit connection. A read-only connection refuses writes,
+    # ATTACH, and VACUUM INTO at the database layer, and installs the fair busy
+    # handler and the timeout progress handler. A raw writable connection is not
+    # exposed yet.
     #
     # @param database [String, nil] the SQLite path; nil uses the configured database
     # @param read_only [Boolean] true for a database-enforced read-only connection
     # @return [untyped] the open connection handle
-    # @raise [ArgumentError] read_only is not true or false
     # @raise [NotImplementedError] read_only is false (raw writable connections
     #   are not exposed yet)
-    # @raise [RuntimeError] the database is not configured, or it is in-memory
+    # @raise [RuntimeError] the database is not configured, it is in-memory, or
+    #   a connection handler could not be installed
     def self.open_connection(database = nil, read_only:)
-      unless database.nil? || database.is_a?(String)
-        raise ArgumentError, "database must be a String or nil"
-      end
-      unless read_only == true || read_only == false
-        raise ArgumentError, "read_only must be true or false"
-      end
       if !read_only
         raise NotImplementedError, "raw writable connections are not exposed yet"
       end
@@ -677,7 +674,7 @@ module Sqlx
       if path.nil?
         raise "Sqlx::Database.open_connection: configure the database first"
       end
-      if path == ":memory:" || path.include?(":memory:") || path.include?("mode=memory")
+      if path.include?(":memory:") || path.include?("mode=memory")
         raise "Sqlx::Database.open_connection: a file-backed database is required"
       end
       dbh = 0
@@ -693,7 +690,12 @@ module Sqlx
         raise "Sqlx::Database.open_connection failed (" + rc.to_s + "): " + path
       end
       begin
-        SQLite3.sqlite3_busy_handler(dbh, method(:busy_wait), nil)
+        rc = SQLite3.sqlite3_busy_handler(dbh, method(:busy_wait), nil)
+        if rc != SQLite3::OK
+          raise "Sqlx::Database.open_connection: sqlite3_busy_handler failed (" + rc.to_s + ")"
+        end
+        # The attached-database limit also refuses VACUUM and VACUUM INTO,
+        # which would otherwise write another file from a read-only scope.
         SQLite3.sqlite3_limit(dbh, SQLite3::LIMIT_ATTACHED, 0)
         SQLite3.sqlite3_progress_handler(dbh, 10000, method(:read_timeout), nil)
         exec_on(dbh, "PRAGMA query_only=ON")
@@ -797,35 +799,26 @@ module Sqlx
     # The connection's mode decides whether writes are allowed; the read-only
     # scope hands it a read-only handle. The statement must be a single
     # statement; the row cap and wall-clock timeout are execution options, not
-    # connection policy.
+    # connection policy. `Sqlx::Connection#query` validates the arguments.
     #
     # @param dbh [untyped] the connection handle
     # @param sql [String] one SQL statement
     # @param max_rows [Integer] the row cap
     # @param timeout_ms [Integer] the wall-clock limit
     # @return [Sqlx::QueryResult] columns, capped rows, truncation flag
-    # @raise [ArgumentError] the statement is empty, carries more than one, or
-    #   either limit is not a positive Integer
+    # @raise [ArgumentError] the statement contains no SQL, or carries more
+    #   than one statement
     # @raise [Sqlx::QueryTimeout] the statement exceeded the timeout
     # @raise [Sqlx::ReadOnlyViolation] the statement tried to write on a
     #   read-only connection
     # @raise [Sqlx::Busy] the database lock stayed held past the busy timeout
     def self.exec_query(dbh, sql, max_rows:, timeout_ms:)
-      unless max_rows.is_a?(Integer) && max_rows > 0
-        raise ArgumentError, "max_rows must be a positive Integer"
-      end
-      unless timeout_ms.is_a?(Integer) && timeout_ms > 0
-        raise ArgumentError, "timeout_ms must be a positive Integer"
-      end
-      unless sql.is_a?(String) && !sql.empty?
-        raise ArgumentError, "SQL must be a non-empty String"
-      end
       deadline = (Process.clock_gettime(Process::CLOCK_MONOTONIC) * 1000000.0).to_i + timeout_ms * 1000
-      Thread.current[:sqlx_read_deadline_us] = deadline
       record_query(sql)
       started = Snails::Logger::Context.now_us
       stmt = 0
       begin
+        Thread.current[:sqlx_read_deadline_us] = deadline
         rc = 0
         tail = 0
         DatabaseConnection::PREPARE_LOCK.synchronize do
@@ -842,6 +835,9 @@ module Sqlx
           raise "Sqlx::Database.exec_query failed (" + rc.to_s + "): " + msg
         end
         ensure_one_statement!(tail)
+        if stmt.nil? || stmt == 0
+          raise ArgumentError, "SQL must contain one statement"
+        end
         columns = read_column_names(stmt)
         ncols = columns.length
         rows = []
@@ -853,7 +849,13 @@ module Sqlx
               truncated = true
               break
             end
-            rows.push(read_row_values(stmt, ncols))
+            row = []
+            i = 0
+            while i < ncols
+              row.push(column_value(stmt, i))
+              i += 1
+            end
+            rows.push(row)
           elsif step_rc == SQLite3::DONE
             break
           elsif step_rc == SQLite3::INTERRUPT
@@ -868,7 +870,7 @@ module Sqlx
         end
         Sqlx::QueryResult.new(columns, rows, truncated)
       ensure
-        if stmt != 0
+        if !stmt.nil? && stmt != 0
           SQLite3.sqlite3_finalize(stmt)
         end
         Thread.current[:sqlx_read_deadline_us] = nil
@@ -1380,32 +1382,21 @@ module Sqlx
       names
     end
 
-    # Reads the current row's values in select order.
-    def self.read_row_values(stmt, ncols)
-      values = []
-      i = 0
-      while i < ncols
-        values.push(column_value(stmt, i))
-        i += 1
-      end
-      values
-    end
-
     # Walk a prepared statement into name-keyed rows — the shape `exec_write`
-    # and `exec_read` share. The column/value walk itself is shared with
-    # `exec_query`; only the row container differs. The release stays with the
-    # caller: a write reads its count before `finalize`, a read hands the rows
-    # back. `sql` is only for the error message.
+    # and `exec_read` share. The column names are shared with `exec_query`;
+    # each row walk fills its own container, so a model read does not allocate
+    # an intermediate value array per row. The release stays with the caller:
+    # a write reads its count before `finalize`, a read hands the rows back.
+    # `sql` is only for the error message.
     def self.read_rows(stmt, sql)
       names = read_column_names(stmt)
       ncols = names.length
       rows = []
       while step?(stmt, sql)
-        values = read_row_values(stmt, ncols)
         row = {}
         i = 0
         while i < ncols
-          row[names[i]] = values[i]
+          row[names[i]] = column_value(stmt, i)
           i += 1
         end
         rows.push(row)
@@ -1416,7 +1407,7 @@ module Sqlx
     # are implementation details — cursor, column/bind readers, escape helpers,
     # query cache, and connection internals — and are private on purpose.
     private_class_method :read_rows, :current_conn, :pool_for_thread
-    private_class_method :read_column_names, :read_row_values
+    private_class_method :read_column_names
     private_class_method :lease_checkout
     private_class_method :busy_wait
     private_class_method :prepare, :step?, :finalize

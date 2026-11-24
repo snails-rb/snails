@@ -11,16 +11,18 @@ module Sqlx
     # including when the block raises; without a block, returns it for the
     # caller to close.
     #
-    # @param database [String, nil] the SQLite path or PostgreSQL conninfo;
-    #   nil uses the configured database
+    # @param database [String, nil] the adapter's database path or connection
+    #   string; nil uses the configured database
     # @param read_only [Boolean] true for a database-enforced read-only
     #   connection; false is not exposed yet
     # @return [Sqlx::Connection, Object] the connection when no block is given,
     #   otherwise the block's value
-    # @raise [ArgumentError] read_only is not true or false
-    # @raise [NotImplementedError] read_only is false (raw writable connections
-    #   are not exposed yet)
-    # @raise [RuntimeError] the database is not configured, or it is in-memory
+    # @raise [ArgumentError] database is not a String or nil, or read_only is
+    #   not true or false
+    # @raise [NotImplementedError] the adapter does not support the requested
+    #   mode or connection kind yet
+    # @raise [RuntimeError] the adapter could not open the database (not
+    #   configured, or not file-backed on SQLite)
     def self.open(database = nil, read_only:)
       unless database.nil? || database.is_a?(String)
         raise ArgumentError, "database must be a String or nil"
@@ -61,22 +63,38 @@ module Sqlx
     # @param max_rows [Integer] the row cap
     # @param timeout_ms [Integer] the wall-clock limit
     # @return [Sqlx::QueryResult] columns, capped rows, truncation flag
-    # @raise [ArgumentError] the statement is empty, carries more than one, or
-    #   either limit is not a positive Integer
+    # @raise [ArgumentError] the connection is closed, the statement is empty
+    #   or carries more than one statement, or either limit is not a positive
+    #   Integer
     # @raise [Sqlx::QueryTimeout] the statement exceeded the timeout
     # @raise [Sqlx::ReadOnlyViolation] the statement tried to write on a
     #   read-only connection
     # @raise [Sqlx::Busy] the database lock stayed held past the busy timeout
     def query(sql, max_rows:, timeout_ms:)
-      Sqlx::Database.exec_query(@handle, sql, max_rows: max_rows, timeout_ms: timeout_ms)
+      handle = @handle
+      raise ArgumentError, "connection is closed" if handle.nil?
+      unless sql.is_a?(String) && !sql.empty?
+        raise ArgumentError, "SQL must be a non-empty String"
+      end
+      unless max_rows.is_a?(Integer) && max_rows > 0
+        raise ArgumentError, "max_rows must be a positive Integer"
+      end
+      unless timeout_ms.is_a?(Integer) && timeout_ms > 0
+        raise ArgumentError, "timeout_ms must be a positive Integer"
+      end
+      Sqlx::Database.exec_query(handle, sql, max_rows: max_rows, timeout_ms: timeout_ms)
     end
 
     # Closes the connection. The block form of `open` calls it; a caller
-    # holding a connection from the no-block form calls it once.
+    # holding a connection from the no-block form calls it. Closing an already
+    # closed connection is a no-op.
     #
     # @return [void]
     def close
-      Sqlx::Database.close_connection(@handle)
+      handle = @handle
+      return nil if handle.nil?
+      @handle = nil
+      Sqlx::Database.close_connection(handle)
     end
 
     private_class_method :new
