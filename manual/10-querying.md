@@ -118,18 +118,16 @@ Sqlx::Connection.open(read_only: true) do |conn|
 end
 ```
 
-- The connection refuses writes to the database file. A write raises `Sqlx::ReadOnlyError`; `ATTACH` and `VACUUM INTO` are disabled.
+- The connection refuses writes to the database. A write raises `Sqlx::ReadOnlyError`. On SQLite, `ATTACH` and `VACUUM INTO` are disabled. On PostgreSQL, `COPY` is refused.
 - `read_only: true` is required, so the mode is always explicit. `read_only: false` isn't available; use the model and pool surfaces for writes.
 - Each `query` takes one statement. A second statement, or SQL with no statement, raises `ArgumentError`.
 - `max_rows` limits the rows returned. `truncated?` is true when the statement had more rows than the limit.
-- `timeout_ms` interrupts a statement that runs past the limit and raises `Sqlx::QueryTimeout`.
+- `timeout_ms` interrupts a statement that runs past the limit and raises `Sqlx::QueryTimeout`. On PostgreSQL, the server enforces the limit with `statement_timeout`; on SQLite, the connection checks it as the statement runs.
 - A zero-row result still returns the column names. Rows are arrays, not hashes, so a repeated select-list name keeps both values in order. Values are the adapter's native types, the same as `rows_by_sql`.
 - The statement takes no bound values. Use `rows_by_sql` for a read that binds request values.
 - The block owns the connection: it closes after the block, including when the block raises. Without a block, call `close` when you're done; a second `close` is a no-op.
-- The first argument is the database path or connection string; omit it for the configured database. The database must be file-backed; `:memory:` isn't supported.
+- The first argument is the database path or connection string; omit it for the configured database. On SQLite, the database must be file-backed; `:memory:` isn't supported.
 - `read_only?` reports the connection's mode.
-
-The read-only connection is SQLite-only. On PostgreSQL, `Connection.open` raises `NotImplementedError`.
 
 ## Dialect differences
 
