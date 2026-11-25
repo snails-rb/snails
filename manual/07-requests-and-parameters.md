@@ -1,6 +1,6 @@
 # Requests and Parameters
 
-A controller reads one request object and one params hash. The hash is built from the request body, the query string, and the route's path captures, in that order — so a query value wins over a body field with the same name, and a path capture wins over both.
+A controller reads one request object and one params hash. The hash is built from the request body, the query string, and the route's path captures, in that order. A query value wins over a body field with the same name, and a path capture wins over both.
 
 ## How params are built
 
@@ -14,7 +14,7 @@ params["comment"]["body"] # => "hello"
 params["post_id"]       # => "42"       from the route
 ```
 
-A JSON object is flattened by field name and nested back the same way, so `{"user": {"name": "Sue"}}` and an urlencoded `user[name]=Sue` build the same tree. A JSON array can't be represented in the body reader, so its elements are folded into the same `[]` key and the last one wins. Send a nested object when every element must survive.
+A JSON object keeps its nesting, so `{"user": {"name": "Sue"}}` and an urlencoded `user[name]=Sue` build the same tree. A JSON array can't be represented in the body reader. Its elements collapse into one `[]` key and the last one wins. Send a nested object when every element must survive.
 
 Request params are mutable and String-keyed. `params[:id]` is always `nil`. Read `params["id"]`.
 
@@ -30,7 +30,7 @@ A route can carry a format extension. `GET /posts.json` matches the `/posts` rou
 
 ## Read the request
 
-The request object exposes the pieces a controller usually needs:
+The request object exposes the methods a controller usually reads:
 
 ```ruby
 request.request_method   # "GET"
@@ -66,7 +66,7 @@ request.body.read        # the whole body
 request.raw_post         # the same text without touching the cursor
 ```
 
-Don't read the body in a `before_action`. Parsing has already consumed it into `params`, and a second read from a rewound cursor sees the same bytes.
+The parser has already consumed the body into `params`. Don't read it again in a `before_action`. `request.raw_post` returns the bytes without moving the cursor.
 
 ## Narrow input before it reaches a model
 
@@ -95,7 +95,7 @@ ActionController::Params.permit(params, [
 # => { title: "…", body: "…", author: { "name" => "…" }, tags: [...] }
 ```
 
-The result is Symbol-keyed at the top level. Nested hashes keep the keys the request carried. A Symbol filter keeps a scalar value when it is truthy. `{}` keeps a nested Hash as-is. An Array of Symbols keeps only those keys of a nested Hash, and maps each Hash element of an array through the same list. Unknown fields don't raise — they are dropped, which is the point of a permit list. `provided` asks the narrower question: did the request carry a usable scalar for this key? A blank string counts; `nil` and a nested value do not.
+The result is Symbol-keyed at the top level. Nested hashes keep the keys the request carried. A Symbol filter keeps a scalar value when it is truthy. `{}` keeps a nested Hash as-is. An Array of Symbols keeps only those keys of a nested Hash, and maps each Hash element of an array through the same list. Unknown fields don't raise — they are dropped, which is the point of a permit list. `provided` asks the narrower question: did the request carry a usable scalar for this key? A blank string counts. `nil` and a nested value do not.
 
 ## Uploads
 
@@ -109,7 +109,7 @@ file.size                                # bytes
 file.read                                # the bytes, in memory
 ```
 
-An empty file input is dropped, so `params["avatar"]` is `nil`. Uploaded bytes stay in memory until your storage code writes them. There's no disk-backed upload path. A body over 8 MiB is refused before it is read with a 413. A body that stops arriving within 30 seconds gets a 408, and a body that ends early or doesn't parse is a 400.
+An empty file input is dropped, so `params["avatar"]` is `nil`. Uploaded bytes stay in memory until your storage code writes them. There's no disk-backed upload path. A body over 8 MiB is refused before it is read with a 413. A body that hasn't finished arriving after 30 seconds gets a 408, and a body that ends early or doesn't parse is a 400.
 
 ## Limits
 

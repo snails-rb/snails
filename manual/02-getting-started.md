@@ -14,7 +14,7 @@ The installer puts `snails` on your `PATH` and keeps the release under `~/.local
 mise use -g 'github:snails-rb/snails[asset_pattern=snails-dist-*.tar.gz,version_prefix=v]'
 ```
 
-A project calls the CLI through its own `bin/` scripts most days. Run `snails` with no arguments to see every command it offers.
+Most days you'll call the CLI through the project's `bin/` scripts. Run `snails` with no arguments to see every command it offers.
 
 ## Create a project
 
@@ -35,7 +35,7 @@ cd myapp
   database         sqlite (storage/development.sqlite3)
 ```
 
-Pass `--scaffold` for a working posts-and-comments JSON API you can read end to end. Pass `--database=postgresql` to build against PostgreSQL instead of the default SQLite. That variant uses Docker or `PG_URL` for the development database.
+Pass `--scaffold` to add the demo app: a posts-and-comments JSON API you can run, test, and read end to end. It is a reference implementation, not a base for your own app. Pass `--database=postgresql` to build against PostgreSQL instead of the default SQLite. That variant uses Docker or `PG_URL` for the development database.
 
 ```sh
 snails new demo --scaffold
@@ -54,7 +54,7 @@ The first `snails new` downloads the pinned compiler for Linux amd64/arm64 or ma
 sudo apt-get install -y build-essential libssl-dev libsqlite3-dev libjemalloc-dev sqlite3 tzdata
 ```
 
-These are the Debian and Ubuntu package names; other distributions use the same packages under different names. `build-essential` provides the C compiler and linker. The framework's logger links OpenSSL, the default database links SQLite, and the scaffold's allocator links jemalloc. `sqlite3` is the migration and test client, and `tzdata` provides the time zone files app boot reads.
+These are the Debian and Ubuntu package names; other distributions use the same packages under different names. `build-essential` provides the C compiler and linker. The framework's logger links OpenSSL, the default database links SQLite, and the server allocator links jemalloc. `sqlite3` is the migration and test client, and `tzdata` provides the time zone files app boot reads.
 
 For the PostgreSQL adapter, install the client and the libraries its native package links:
 
@@ -71,11 +71,11 @@ xcode-select --install
 brew install openssl jemalloc pkg-config
 ```
 
-The prebuilt macOS compiler is built against Homebrew's `openssl`: 4.x on Apple Silicon, and currently 3.x on Intel. It runs on macOS 13 or newer. macOS keeps Homebrew's libraries and their `pkg-config` files outside the default search paths, so `bin/test`, `bin/dev`, and `bin/build-binary` add the Homebrew directories for OpenSSL, jemalloc, libpq, and PostgreSQL before they compile. Keep `pkg-config` installed; no export is needed.
+The prebuilt macOS compiler is built against Homebrew's `openssl`: 4.x on Apple Silicon, and currently 3.x on Intel. It runs on macOS 13 or newer. macOS keeps Homebrew's libraries and their `pkg-config` files outside the default search paths. `bin/test`, `bin/dev`, and `bin/build-binary` add the Homebrew directories for OpenSSL, jemalloc, libpq, and PostgreSQL before they compile. Keep `pkg-config` installed. No export is needed.
 
 For PostgreSQL, the `postgresql` runtime (or the client-only `libpq`) still needs the `DYLD_FALLBACK_LIBRARY_PATH` below.
 
-Xcode Command Line Tools provide the C compiler and linker for the app build. `jemalloc` is the scaffold's allocator.
+Xcode Command Line Tools provide the C compiler and linker for the app build. `jemalloc` is the server allocator.
 
 For the PostgreSQL adapter, install PostgreSQL and put its path on `PATH` and `DYLD_FALLBACK_LIBRARY_PATH`. `brew install postgresql` installs the server, `psql`, `pg_dump`, and libpq. Homebrew keeps it keg-only, so the exports below make it visible. The CLI adds its `pkg-config` directory and library path on its own. Start the local server with `brew services start postgresql`, or point `PG_URL` at an existing server. The test harness uses Docker Desktop when `PG_URL` is unset. A local server or an existing PostgreSQL works through `PG_URL`.
 
@@ -114,7 +114,7 @@ export LIBRARY_PATH="$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:
 export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix postgresql)/lib:${DYLD_FALLBACK_LIBRARY_PATH:-}"
 ```
 
-The source build runs the same package smoke test as the published asset. If openssl, ffi, json, or sqlite3 is missing, it stops before caching and names the development packages. Install the headers (`openssl`, `libffi`, SQLite) and retry.
+The source build runs the same smoke test of the required packages as the published asset. If openssl, ffi, json, or sqlite3 is missing, it stops before caching and names the development packages. Install the headers (`openssl`, `libffi`, SQLite) and retry.
 
 ## Run it
 
@@ -133,7 +133,7 @@ myapp (spinel) listening on http://0.0.0.0:3000, pid 212514
 
 Open http://localhost:3000/up and you get `{"status":"ok"}`. Every Snails app responds to `/up`. Deployment platforms use it as a health check.
 
-A plain project has no migrations. A scaffolded project has a baseline migration, and `snails migrate load` applies it and writes the schema dump. Provision the database before the first boot:
+For a project with migrations, run `snails migrate load` before the first boot. A plain project has no migrations, so there is nothing to load. The demo app adds a baseline migration. `load` applies it and writes the schema dump:
 
 ```sh
 snails migrate load
@@ -156,8 +156,8 @@ ok   up_test.rb
 
 The count is case files, not individual cases. As your app grows, add files next to that one under `harness/test/`.
 
-## Where to go from here
+## Next chapters
 
-That's the whole loop: edit, run `bin/dev` to try it live, and run `bin/test` before you call it complete. Your controllers live in `app/controllers`, routes in `config/routes.rb`, and data in the database that `bin/dev` uses. A fresh app has no controllers; `GET /up` comes from the framework.
+Keep the loop short: edit, run `bin/dev` to try it live, and run `bin/test` before you call a change complete. Your controllers live in `app/controllers`, routes in `config/routes.rb`, and data in the database that `bin/dev` uses. A fresh app has no controllers. `GET /up` comes from the framework.
 
 [Your App's Structure](05-your-app-structure.md) describes the folder layout, and [Routes and Controllers](06-routes-and-controllers.md) begins the request path.

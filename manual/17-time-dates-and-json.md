@@ -53,7 +53,7 @@ now.on_weekend?
 now.on_weekday?
 ```
 
-A day shift rebuilds the civil date, so a daylight-saving transition can't move the clock. A month step clamps to the target month's last day.
+A day shift rebuilds the civil date, so a daylight-saving transition can't change the time of day. A month step clamps to the target month's last day.
 
 ## Stored time and the app zone
 
@@ -65,18 +65,18 @@ post.created_at.to_fs(:db)           # "2026-11-12 08:00:00.000000" (UTC)
 post.created_at.to_fs(:iso8601)      # "2026-11-12T08:00:00.000+00:00"
 ```
 
-`Snails.time_zone` is the process zone. Set it once in `config/environment.rb`; `Snails.app.time_zone` reads it back. `in_time_zone` renders the same instant elsewhere without changing the process time zone, so concurrent requests can present different zones:
+`Snails.time_zone` is the process zone. Set it once in `config/environment.rb`. `Snails.app.time_zone` reads it back. `in_time_zone` renders the same instant elsewhere without changing the process time zone, so concurrent requests can present different zones:
 
 ```ruby
 time.in_time_zone("Seoul")           # fixed-offset Time, +09:00
 time.in_time_zone("UTC")
 ```
 
-Both a zone name from the framework's vocabulary (`"Seoul"`, `"Eastern Time (US & Canada)"`) and an IANA identifier (`"Asia/Seoul"`) are accepted. The name must have a zone file; a typo raises at the call, not at the first request.
+Both a zone name from the framework's vocabulary (`"Seoul"`, `"Eastern Time (US & Canada)"`) and an IANA identifier (`"Asia/Seoul"`) are accepted. The name must have a zone file. A typo raises at the call, not at the first request.
 
-`Time.now.utc` is the same instant in UTC. `Duration#ago` and `from_now` return UTC, because they were built from `Time.now.utc`; call `in_time_zone` when the result is for a human in the app zone.
+`Time.now.utc` is the same instant in UTC. `Duration#ago` and `from_now` return UTC, because they were built from `Time.now.utc`. Call `in_time_zone` when the result is for a human in the app zone.
 
-`String#to_time` parses the stored datetime form, not arbitrary date text. `String#to_date` parses the stored date form; it is loaded only for an app with `DATE` columns.
+`String#to_time` parses the stored datetime form, not arbitrary date text. `String#to_date` parses the stored date form. It is loaded only for an app with `DATE` columns.
 
 ## Render JSON
 
@@ -97,7 +97,7 @@ render(json: nil)                 # "null"
 render(json: "hello")             # "\"hello\""
 ```
 
-A model doesn't serialize for JSON by default. A bare `render(json: post)` falls to the last row and prints the object's `to_s`. Give the model an `as_json` when the record itself is the payload:
+A model doesn't serialize for JSON by default. A bare `render(json: post)` uses the `to_s` fallback in the table above and prints the object's string form. Give the model an `as_json` when the record itself is the payload:
 
 ```ruby
 class Post < Sqlx::Base
@@ -116,7 +116,7 @@ end
 render(json: post)
 ```
 
-`as_json` runs for a model even inside a Hash value, so a nested record uses the same structure. A `Time` inside that Hash still becomes an ISO 8601 string. A `Date` isn't a Time: it falls to `to_s` and renders as `"2026-11-12"`.
+`as_json` runs for a model even inside a Hash value, so a nested record uses the same structure. A `Time` inside that Hash still becomes an ISO 8601 string. A `Date` isn't a `Time`, so it renders through `to_s` as `"2026-11-12"`.
 
 `render json:` sets `Content-Type: application/json; charset=utf-8` unless the call names another type. `render("text", content_type: ...)` is the pre-encoded body form; `render(json: value, content_type: ...)` overrides the header but still encodes the value.
 

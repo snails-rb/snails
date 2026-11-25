@@ -1,12 +1,12 @@
 # Performance
 
-Ruby holds a GVL, so a single Ruby process runs only one thread of application code at a time. Rails gets around that by running several worker processes, and every worker forks its own complete copy of the application — its own connection pool, its own heap, its own resident set.
+Ruby holds a GVL, so a single Ruby process runs only one thread of application code at a time. Rails gets around that by running several worker processes, and every worker forks its own complete copy of the application. Each copy has its own connection pool, heap, and resident set.
 
 Snails compiles to native code and has no GVL. One process runs request handlers on as many cores as the OS gives it, so throughput scales with cores without the memory scaling alongside it. That shows up in three numbers: requests per second per host, resident memory, and time from process start to serving.
 
 ## How it compares
 
-Both sides are generated app defaults serving the same `GET /up` with the same JSON body, run as containers on one machine: 8 cores with SMT for 16 hardware threads. Rails Cluster Mode adds one Puma worker per server hardware thread so it can use the same cores Snails uses in one process. The server is restricted to threads 4–15, six physical cores; the load generator gets threads 0–3 so it can't steal CPU from the server. Request logging is off for the throughput and memory figures, so the measurement is the request path and not the log writer. Launch time and idle memory come from a run with logging on, where it makes no difference to either.
+Both apps use their framework's generated defaults and serve the same `GET /up` with the same JSON body. They run as containers on one machine: 8 cores with SMT for 16 hardware threads. Rails Cluster Mode adds one Puma worker per server hardware thread so it can use the same cores Snails uses in one process. The server is restricted to threads 4–15, six physical cores. The load generator gets threads 0–3 so it can't steal CPU from the server. Request logging is off for the throughput and memory figures, so the measurement is the request path and not the log writer. Launch time and idle memory come from a run with logging on, where it makes no difference to either.
 
 | | Snails | Rails | Rails Cluster Mode |
 |---|---:|---:|---:|
@@ -21,14 +21,14 @@ The three columns are three deployments of the same app:
 
 - **Snails** — one process, no GVL, request handlers spread across the cores available to it.
 - **Rails** — `rails new` untouched: `WEB_CONCURRENCY=0`, a single process with 3 threads. One core does the Ruby work no matter how many the machine has.
-- **Rails Cluster Mode** — `WEB_CONCURRENCY=n`, one Puma worker per server hardware thread, 5 threads each. Five threads is Puma's default max; the generated puma.rb defaults to 3, so this column is a tuned configuration, not a generated default. This is the configuration that actually uses the hardware Snails uses by default.
+- **Rails Cluster Mode** — `WEB_CONCURRENCY=n`, one Puma worker per server hardware thread, 5 threads each. Five threads is Puma's default max. The generated `puma.rb` defaults to 3, so this column is a tuned configuration, not a generated default. This is the configuration that actually uses the hardware Snails uses by default.
 
 Against Cluster Mode, Snails serves about 3× the requests at roughly a third of the p95. The default Rails column is 11.9×, which is the number a `rails new` deployment would see before anyone configured it for load.
 
-Memory is where the two architectures diverge most. Cluster Mode runs 12 worker processes to use 12 hardware threads, so its resident set scales with core count; under load the gap is 701 MiB against 30 MiB. At idle it is smaller but follows the same pattern: 163 MiB against 14 MiB.
+Memory is where the two architectures diverge most. Cluster Mode runs 12 worker processes to use 12 hardware threads, so its resident set scales with core count. Under load the gap is 701 MiB against 30 MiB. At idle it is smaller but follows the same pattern: 163 MiB against 14 MiB.
 
 Launch time behaves differently from memory. Cluster Mode isn't meaningfully slower to start than single-process Rails, because each worker pays for loading the framework rather than for the worker count. Both land around 1.0 s. A Snails binary is answering requests in 9 ms.
 
-The same benchmark also runs one application scenario: a single-row primary-key read over SQLite (`GET /items/:id`). At 32 connections Snails serves about 3.1× the requests of Rails Cluster Mode (35,610 vs 11,509 RPS; p95 1.87 ms vs 6.46 ms). That is close to the `/up` ratio, so the database path no longer narrows the framework comparison. That scenario is separate from the `/up` microbenchmark and doesn't change the numbers above.
+The same benchmark also runs one application scenario: a single-row primary-key read over SQLite (`GET /items/:id`). At 32 connections Snails serves about 3.1× the requests of Rails Cluster Mode (35,610 vs 11,509 RPS; p95 1.87 ms vs 6.46 ms). That is close to the `/up` ratio, so the database path doesn't change the framework comparison. That scenario is separate from the `/up` microbenchmark and doesn't change the numbers above.
 
-Figures are medians over three 15-second runs at 32 concurrent connections; launch and idle memory use five rounds, and the under-load memory figure comes from the three throughput runs. Absolute numbers belong to this hardware — the ratios are what transfer. The harness, the raw result files, and the method are in [snails-benchmark](https://github.com/snails-rb/snails-benchmark), which is where these figures come from and where corrections land.
+Figures are medians over three 15-second runs at 32 concurrent connections. Launch and idle memory use five rounds, and the under-load memory figure comes from the three throughput runs. Absolute numbers belong to this hardware — the ratios are what transfer. The harness, the raw result files, and the method are in [snails-benchmark](https://github.com/snails-rb/snails-benchmark), which is where these figures come from and where corrections land.

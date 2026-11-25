@@ -66,4 +66,4 @@ nil.blank?          # true
 
 These helpers are ordinary Ruby reopenings, so a method your app defines on the same class wins. They exist to save a repeated local helper, not to replace a domain method with a vaguer name.
 
-[Forms and Validation](13-forms.md) uses `humanize` in error messages; [Time, Dates, and JSON](17-time-dates-and-json.md) covers the time units and `to_fs`.
+[Forms and Validation](13-forms.md) uses `humanize` in error messages. [Time, Dates, and JSON](17-time-dates-and-json.md) covers the time units and `to_fs`.

@@ -1,6 +1,6 @@
 # Configuration
 
-A Snails app has two settings files with different roles. `config/application.rb` holds values and readers: the app's name and version, plus the readers for the signing key and zone. `config/environment.rb` holds the settings that depend on the mode: the time zone, the logger, the job queue adapter, the mail delivery class, and the boot hooks. The split keeps a value from changing behavior just because it was declared in the wrong file.
+A Snails app has two settings files with different roles. `config/application.rb` holds values and readers: the app's name and version, plus the readers for the signing key and zone. `config/environment.rb` holds the settings that depend on the mode: the time zone, the logger, the job queue adapter, the mail delivery class, and the boot hooks. The split gives each setting one home, so its location tells you whether it affects a value or the process wiring.
 
 ## Values live in config/application.rb
 
@@ -37,7 +37,7 @@ The framework supplies these defaults when an app declares none:
 | `version` | `nil` | No default. Declare it when the app has a version; a log record omits it otherwise. |
 | `revision` | `ENV["REVISION"]`, then a `REVISION` file | Memoized for the process. There is no git fallback — a binary may run without the repository. |
 
-Values are read at call time. A deployment can set `REVISION=...` without rebuilding; a process that reads it once keeps that value.
+Values are read at call time. A deployment can set `REVISION=...` without rebuilding. A process that reads it once keeps that value.
 
 ## Wiring lives in config/environment.rb
 
@@ -51,9 +51,9 @@ ActiveJob.queue_adapter = ActiveJob::ProcessQueue
 ActionMailer::Base.delivery_method = ActionMailer::DeliveryLog if Snails.env.test?
 ```
 
-A time-zone name is resolved and validated here. `"Seoul"` and `"Asia/Seoul"` both name the same zone; an unknown name raises at boot, so a typo can't leave the process silently in UTC. Change this line rather than setting `TZ` in the environment — `TZ` is process-global and the framework sets it from this setting.
+A time-zone name is resolved and validated here. `"Seoul"` and `"Asia/Seoul"` both name the same zone. An unknown name raises at boot, so a typo can't leave the process silently in UTC. Change this line rather than setting `TZ` in the environment — `TZ` is process-global and the framework sets it from this setting.
 
-The logger settings, the mail provider, and any boot override belong here too. The file is app-owned; `snails sync` never rewrites it.
+The logger settings, the mail provider, and any boot override belong here too. The file is app-owned. `snails sync` never rewrites it.
 
 ## Boot order
 
@@ -76,7 +76,7 @@ main.rb
 require_relative "../snails-core/database/sqlite"
 ```
 
-Switch adapters by changing that one line and generating the matching migration. `config/codegen.rb` is the app's require list: it lists the `gen/*` files, which the generator refreshes from the folders. Don't hand-maintain `gen/`; add the app file and let the next `bin/dev` or `bin/test` pick it up.
+Switch adapters by changing that one line and generating the matching migration. `config/codegen.rb` is the app's require list: it lists the `gen/*` files, which the generator refreshes from the folders. Don't hand-maintain `gen/`. Add the app file and let the next `bin/dev` or `bin/test` pick it up.
 
 `Snails.root` is the app root as a path value. The server runs with the app root as its working directory, so it is `"."` and joins cleanly:
 
@@ -100,7 +100,7 @@ set +a
 |---|---|---|
 | `SNAILS_ENV` | all | `development` (default), `test`, `staging`, `production` |
 | `PORT` | server | Listen port; `--port` overrides it. Default `3000` |
-| `WORKERS` | server | Accepted for multi-process operation; the server runs one process |
+| `WORKERS` | server | Accepted for compatibility; the server runs one process |
 | `SPINEL_WORKERS` | server | OS worker threads per process, counting main. Unset uses one OS worker per core plus main; a one-core host that also runs jobs should set it to 3 |
 | `SECRET_KEY_BASE` | all | Signing key read by `Snails.app.secret_key_base` |
 | `REVISION` | all | Deployment identifier, ahead of a `REVISION` file |
@@ -116,7 +116,7 @@ set +a
 | `POSTGRES_PASSWORD` | compose | Password shared by `PG_URL` and the database container |
 | `PUID`, `PGID` | compose | Container user ids, so the `./storage` mount stays yours |
 
-`SNAILS_ENV` is read on first use. An out-of-vocabulary value makes every predicate false rather than raising, so a typo in the mode doesn't turn into a 500. `Snails.env.development?`, `.test?`, `.staging?`, and `.production?` are the predicates; `Snails.env.name` is the raw name. `Snails.env = "test"` replaces the environment in-process for a test or a console-style override.
+`SNAILS_ENV` is read on first use. An out-of-vocabulary value makes every predicate false rather than raising, so a typo in the mode doesn't turn into a 500. `Snails.env.development?`, `.test?`, `.staging?`, and `.production?` are the predicates. `Snails.env.name` is the raw name. `Snails.env = "test"` replaces the environment in-process for a test or a manual override.
 
 `snails doctor` prints the settings it can check — the app name, the pin source, the mode, the database target, and whether the signing key is required — before the first boot.
 

@@ -15,32 +15,32 @@ Snails.cache.delete("settings")
 Snails.cache.clear
 ```
 
-`fetch` returns the stored value, or runs the block once on a miss and stores its result. A stored `nil` is a valid entry: a block that returns `nil` isn't re-run. `write` returns `true`; `read` returns `nil` on a miss or after expiry; `delete` returns `true` only when a live entry was removed.
+`fetch` returns the stored value, or runs the block once on a miss and stores its result. A stored `nil` is a valid entry: a block that returns `nil` isn't re-run. `write` returns `true`. `read` returns `nil` on a miss or after expiry. `delete` returns `true` only when a live entry was removed.
 
-Keys are strings; a key object that responds to `to_s` is stringified. An expiry accepts an Integer count of seconds or a `Snails::Duration`; a positive value is required, and `nil` means the entry never expires. `0` and a negative value raise.
+Keys are strings. A key object that responds to `to_s` is stringified. An expiry accepts an Integer count of seconds or a `Snails::Duration`. A positive value is required, and `nil` means the entry never expires. `0` and a negative value raise.
 
-`increment` is the counter half. The first write in a window starts the counter and applies its expiry; later increments keep that expiry, which is what makes a fixed window:
+The counter operation is `increment`. The first write in a window starts the counter and applies its expiry. Later increments keep that expiry, which is what makes a fixed window:
 
 ```ruby
 count = Snails.cache.increment("signup/#{ip}", 1, expires_in: 1.hour)
 ```
 
-`amount` must be an Integer; a stored non-Integer value is read through `to_i` on the first increment.
+`amount` must be an Integer. A stored non-Integer value is read through `to_i` on the first increment.
 
 ## The store is bounded
 
-The cache holds at most 5,000 entries. When a write would add a new key at the limit, the store clears every entry before writing the new one. It is a finite store, not an LRU: the bound keeps growth finite and the flush is the simple fix, but a burst of distinct keys can drop values other requests were using.
+The cache holds at most 5,000 entries. A write that adds a new key at the limit clears every entry first, then stores the new key. That keeps memory bounded, but it is not an LRU: a burst of distinct keys can drop values other requests were using.
 
 Size the key space and expiry for that behavior. A cache keyed by a request field with no expiry reaches the bound fastest.
 
 ## The process boundary
 
-The cache belongs to the process. Two server processes, a prefork child, and a separate container all have separate stores. A value written while serving one request isn't visible to another process, so anything that must be shared belongs in the database.
+The cache belongs to the process. Two server processes or two containers have separate stores. A value written while serving one request isn't visible to another process, so anything that must be shared belongs in the database.
 
 A development restart clears the cache. `bin/test` clears it before each case, so a cached value or counter never leaks into the next test.
 
-`fetch` misses run their block outside the store's lock, so two threads that miss the same key can both compute; the later write wins. That is duplicate work, not a wrong value. Counters are the exception: `increment` is one locked read-modify-write.
+`fetch` misses run their block outside the store's lock, so two threads that miss the same key can both compute. The later write wins. That is duplicate work, not a wrong value. Counters are the exception: `increment` is one locked read-modify-write.
 
-HTTP caching is separate. The framework doesn't write `Cache-Control` or validators for you; set `headers["Cache-Control"]` (or `ETag`, `Last-Modified`) in the action when a proxy or client should cache the response. The cache above is server-side and doesn't affect response headers.
+HTTP caching is separate. The framework doesn't write `Cache-Control` or validators for you. Set `headers["Cache-Control"]` (or `ETag`, `Last-Modified`) in the action when a proxy or client should cache the response. The cache above is server-side and doesn't affect response headers.
 
 [Time, Dates, and JSON](17-time-dates-and-json.md) covers the `Duration` values an expiry can take.

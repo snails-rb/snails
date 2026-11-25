@@ -1,10 +1,10 @@
 # Forms and Validation
 
-When a request brings user input, `Snails::Form` projects it onto declared fields, runs your rules in declaration order, and collects the errors in that order. The controller writes the row only when `valid?` passes; the 422 body is the ordered message list.
+When a request brings user input, `Snails::Form` projects it onto declared fields, runs your rules in declaration order, and collects the errors in that order. The controller writes the row only when `valid?` passes. The 422 body is the ordered message list.
 
 ## Declare a form
 
-A form declares its fields once, then adds rules to them. The scaffold's `PostForm` checks the posts input before the controller writes it:
+A form declares its fields once, then adds rules to them. The demo app that `--scaffold` adds has a `PostForm` that checks the posts input before the controller writes it:
 
 ```ruby
 class PostForm < Snails::Form
@@ -21,7 +21,7 @@ class PostForm < Snails::Form
 end
 ```
 
-`FIELDS` is the list that input is projected onto. A key outside it never reaches a rule; a missing field reads `nil`. The form accepts a Hash and raises `ArgumentError` for anything else. `write_attribute` is the only writer; there are no generated setters. `normalize` runs once after projection when you need to trim or canonicalize input:
+`FIELDS` is the list that input is projected onto. A key outside it never reaches a rule. A missing field reads `nil`. The form accepts a Hash and raises `ArgumentError` for anything else. `write_attribute` is the only writer. There are no generated setters. `normalize` runs once after projection when you need to trim or canonicalize input:
 
 ```ruby
 def normalize
@@ -44,9 +44,9 @@ end
 | `confirmation: true` | — | the `*_confirmation` sibling matches |
 | `validate :method` | `if:`, `unless:` | your own rule, reported with `errors.add` |
 
-`length` takes `minimum:`/`maximum:`/`is:` or one `within:` Range, not both. `is:` is exact. `inclusion` and `exclusion` compare with the collection's own `include?`. An Array value asks every element, which is the collection-field case. `uniqueness` reads `model.find_by` with the column (the attribute name by default) and any `scope:` fields. It doesn't write a lock, so a concurrent insert can still win the race and surface as `Sqlx::RecordNotUnique`.
+`length` takes `minimum:`/`maximum:`/`is:` or one `within:` Range, not both. `is:` is exact. `inclusion` and `exclusion` compare with the collection's own `include?`. For an Array value, every element is checked, which is the collection-field case. `uniqueness` reads `model.find_by` with the column (the attribute name by default) and any `scope:` fields. It doesn't write a lock, so a concurrent insert can still win the race and surface as `Sqlx::RecordNotUnique`.
 
-`confirmation: true` belongs on the field being confirmed, not on the confirmation field. For `validates :password, confirmation: true`, the form must also declare `password_confirmation`; the rule compares `password` with that sibling.
+`confirmation: true` belongs on the field being confirmed, not on the confirmation field. For `validates :password, confirmation: true`, the form must also declare `password_confirmation`. The rule compares `password` with that sibling.
 
 A custom rule is an instance method that calls `errors.add`. A name that doesn't exist raises on the first `valid?` instead of skipping silently.
 
@@ -60,13 +60,13 @@ validates :password, confirmation: true, if: :password_length_ok?
 validates :email, presence: true, if: :email_required?
 ```
 
-The common options can sit at the `validates` call level and apply to every rule in that call:
+The common options can be declared at the `validates` call level and apply to every rule in that call:
 
 ```ruby
 validates :nickname, length: { maximum: 40 }, format: { with: /\A[a-z_]+\z/ }, allow_blank: true
 ```
 
-A rule-level value wins over the call-level default. `presence` refuses `allow_blank` and `allow_nil` — a rule that can never fail is a declaration bug. `message:` belongs inside the rule's option hash, not at the call level; a String is used as written, a Symbol is resolved through the message scope.
+A rule-level value wins over the call-level default. `presence` refuses `allow_blank` and `allow_nil` — a rule that can never fail is a declaration bug. `message:` belongs inside the rule's option hash, not at the call level. A String is used as written, and a Symbol is resolved through the message scope.
 
 ## Collect the errors
 
@@ -86,7 +86,7 @@ class SignupForm < Snails::Form
 end
 ```
 
-Without `message_scope`, keys resolve under `activemodel.errors.models.<form_name>.attributes`. A custom String message is never looked up; a Symbol key with no built-in default and no `I18n` raises rather than rendering an empty line.
+Without `message_scope`, keys resolve under `activemodel.errors.models.<form_name>.attributes`. A custom String message is never looked up. A Symbol key with no built-in default and no `I18n` raises rather than rendering an empty line.
 
 The errors object provides `full_messages`, `join(separator)`, `on(:field)`, `empty?`, `any?`, and `size`. `errors.add(:base, "...")` records a message not tied to a field.
 
@@ -106,17 +106,6 @@ def create
 end
 ```
 
-The scaffold's `render_form_errors` turns `form.errors.full_messages` into `{"errors": [...]}` with a 422 status. The form never touches the database except for `uniqueness`'s read.
+The demo app's `render_form_errors` turns `form.errors.full_messages` into `{"errors": [...]}` with a 422 status. The form never touches the database except for `uniqueness`'s read.
 
-## Run the tests
-
-```text
-ok   adapter_test.rb
-ok   comments_test.rb
-ok   post_form_test.rb
-ok   posts_test.rb
-ok   up_test.rb
-5/5 passed
-```
-
-[Requests and Parameters](07-requests-and-parameters.md) covers the raw params tree the form receives; [Error Handling](20-error-handling.md) covers the status mapping around a failed write.
+[Requests and Parameters](07-requests-and-parameters.md) covers the raw params tree the form receives. [Error Handling](20-error-handling.md) covers the status mapping around a failed write.

@@ -49,7 +49,7 @@ A fresh project is small. Most of the tree is setup you touch once. The day-to-d
 
 ## The folders you edit
 
-- `app/` holds your controllers, models, forms, mailers, jobs, services, helpers, and shared lib classes. `app/` starts empty. `--scaffold` fills it with the posts-and-comments example. `app/services/` is for plain classes that wrap a domain operation; `app/helpers/` is for modules shared by controllers; `app/lib/` is for shared modules and plain classes. All three load automatically and have no framework base class.
+- `app/` holds your controllers, models, forms, mailers, jobs, services, helpers, and shared lib classes. `app/` starts empty. `--scaffold` fills it with the posts-and-comments demo app. `app/services/` is for plain classes that wrap a domain operation. `app/helpers/` is for modules shared by controllers. `app/lib/` is for shared modules and plain classes. All three load automatically and have no framework base class.
 - `config/` defines the app. `routes.rb` is the route table. `application.rb` holds values, `environment.rb` holds mode-dependent wiring, and `database.rb` selects the adapter. `boot.rb` and `codegen.rb` decide what loads.
 - `harness/test/` holds plain Ruby case files, each with a `.expected` sibling. `bin/test` runs them against a real server.
 
@@ -72,7 +72,7 @@ A fresh project is small. Most of the tree is setup you touch once. The day-to-d
 
 `harness/build/` is also generated and gitignored. It holds the compiled test bundle and the schema loader cache.
 
-A scaffolded project adds `db/`:
+The demo app adds `db/` with its baseline migration. After `snails migrate load`, it looks like this:
 
 ```text
 db
@@ -81,7 +81,7 @@ db
 └── schema.sql
 ```
 
-`db/migrate/` is the migration history. `db/schema.sql` is the generated schema dump the test harness loads. Both are covered in [Migrations](12-migrations.md).
+`db/migrate/` is the migration history. `db/schema.sql` is the generated schema dump the test harness loads. Any app that uses migrations has a `db/` directory. The demo app's baseline is its own posts and comments schema, and a plain app starts without it. Both are covered in [Migrations](12-migrations.md).
 
 ## Where the app sits
 
