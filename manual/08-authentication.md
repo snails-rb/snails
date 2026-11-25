@@ -1,10 +1,10 @@
 # Authentication
 
-Snails gives you the HTTP handshake, not the user model: the controller reads a token or a username and password from the request, your app decides whether it belongs to a user, and the helper returns 401 when it doesn't. No session store, no cookie middleware, and no token table are built in.
+Snails gives you HTTP authentication, not the user model. The controller reads a token or a username and password from the request, and your app decides whether it belongs to a user. The helper returns 401 when it doesn't. No session store, no cookie middleware, and no token table are built in.
 
 ## Read a token
 
-`authenticate_with_http_token` yields the token and its options to a block. It sends no challenge of its own, and a request without a token leaves the block unrun and returns `nil`:
+`authenticate_with_http_token` yields the token and its options to a block. It sends no challenge of its own, and a request without a token doesn't run the block and returns `nil`:
 
 ```ruby
 class Api::TokensController < Api::ApplicationController

@@ -4,7 +4,7 @@ You declare routes in `config/routes.rb` and point them at controllers that subc
 
 ## Declare routes
 
-The route table is a list of route declarations. The scaffold's resources look like this:
+The route table is a list of route declarations. The demo app that `--scaffold` adds declares its routes like this:
 
 ```ruby
 module Snails
@@ -36,7 +36,7 @@ resources("/devices", Api::DevicesController, :json, [:create, :show])
 # GET /devices, POST /devices, GET /devices/:id
 ```
 
-An action outside `:index`, `:create`, `:show`, `:update`, and `:destroy` raises at boot, so a typo can't silently drop a row. The format argument forces the request format for every row. The common `:json` value matches the API default.
+An action outside `:index`, `:create`, `:show`, `:update`, and `:destroy` raises at boot, so a typo can't silently remove a route. The format argument forces the request format for every entry. The common `:json` value matches the API default.
 
 A route matches the GET entry for a HEAD request too. The action sees `request.head?` and the server sends the status and headers without the body. A known extension on the last path segment — `/posts.json` — matches the `/posts` entry and sets `params["format"]`.
 
@@ -51,11 +51,11 @@ RouteHelpers.comments_path(42)       # "/posts/42/comments"
 RouteHelpers.comment_path(42, 7)     # "/posts/42/comments/7"
 ```
 
-A path with a dynamic segment takes one argument per segment. The generator refuses two entries that derive the same path helper name from different patterns and tells you to add a `# as:` marker. A `resources` entry can't carry a marker; name a hand-written entry instead when its path helper name must differ.
+A path with a dynamic segment takes one argument per segment. The generator refuses two entries that derive the same path helper name from different patterns and tells you to add a `# as:` marker. A `resources` entry can't carry a marker. Name a hand-written entry instead when its path helper name must differ.
 
 ## Write the controller
 
-A resource controller follows the scaffold's pattern: resolve the record once, then let each action render a response.
+The demo app's `PostsController` shows the pattern: a filter resolves the record once, then each action renders one response.
 
 ```ruby
 module Api
@@ -114,7 +114,7 @@ head(:no_content)                               # status only
 send_data(bytes, type: "application/pdf")      # binary body
 ```
 
-`render` takes either a positional body or `json:`, never both and never neither. `json:` encodes the value (see [Time, Dates, and JSON](17-time-dates-and-json.md)). A positional body is already encoded text. `redirect_to` sets `Location` and a 3xx status. `head` sets a status and no body. `send_data` sets a body and a content type; its `disposition:` argument is accepted but not written to a header, so set `Content-Disposition` yourself when a client needs it.
+`render` takes either a positional body or `json:`, never both and never neither. `json:` encodes the value (see [Time, Dates, and JSON](17-time-dates-and-json.md)). A positional body is already encoded text. `redirect_to` sets `Location` and a 3xx status. `head` sets a status and no body. `send_data` sets a body and a content type. Its `disposition:` argument is accepted but not written to a header, so set `Content-Disposition` yourself when a client needs it.
 
 Extra response headers are set on the controller and copied to the response:
 
@@ -146,6 +146,6 @@ end
 
 Call `super` to keep the filters, the action, and the implicit 204. An override that replaces the dispatch must call `send_action(action_name)` instead. [Error Handling](20-error-handling.md) covers the rescue patterns.
 
-A route's forced format lands on `controller.request_format`. A path extension lands on `params["format"]`. With no route choice, `request_format` is `:json`.
+A route's forced format sets `controller.request_format`. A path extension sets `params["format"]`. With no route choice, `request_format` is `:json`.
 
 [Requests and Parameters](07-requests-and-parameters.md) covers the request object and the params hash in detail.

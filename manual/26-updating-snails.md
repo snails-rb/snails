@@ -21,11 +21,11 @@ SNALS_SOURCE="pin"
 APP_NAME="demo"
 ```
 
-Replace `vX.Y.Z` and `<spinel-rev>` with the release and compiler revision you pin. `SNALS_REV` is the line that normally moves. `SPINEL_REV` is the compiler revision the framework release was verified with; a release that changes its compiler declares a new value, and you update that line to match. `snails pins check` validates the pair and names the expected value when the two disagree.
+Replace `vX.Y.Z` and `<spinel-rev>` with the release and compiler revision you pin. `SNALS_REV` is the line that normally moves. `SPINEL_REV` is the compiler revision the framework release was verified with. A release that changes its compiler declares a new value, and you update that line to match. `snails pins check` validates the pair and names the expected value when the two disagree.
 
 `APP_NAME` never moves — it is your app's name, not the framework's (see [Your App's Structure](05-your-app-structure.md)).
 
-`SNALS_SOURCE` says where the framework copy in your app came from. A project created from an installed Snails says `"pin"` and you leave it alone. A project created from a development checkout says `"checkout"`, which builds from that working tree as it stands — including changes you haven't committed. Both build; the choice is about what your artifact contains, not whether the build is allowed.
+`SNALS_SOURCE` says where the framework copy in your app came from. A project created from an installed Snails says `"pin"` and you leave it alone. A project created from a development checkout says `"checkout"`, which builds from that working tree as it stands — including changes you haven't committed. Both build. The choice is about what your artifact contains, not whether the build is allowed.
 
 ## Check before you change
 
@@ -35,14 +35,14 @@ Replace `vX.Y.Z` and `<spinel-rev>` with the release and compiler revision you p
 [snails] pins ok
 ```
 
-Exit code 0 means everything matches; a mismatch prints what disagrees and exits non-zero, so it works as a pre-flight on its own. `snails pins path` prints the file it read.
+Exit code 0 means everything matches. A mismatch prints what disagrees and exits non-zero, so it works as a pre-flight on its own. `snails pins path` prints the file it read.
 
 ## Pick up a new version
 
 1. Set `SNALS_REV` to the version you are moving to.
 2. If the release declares a new compiler revision, set `SPINEL_REV` to that value.
 3. Run `snails sync` — it fetches the framework into `snails-core/`, downloads or reuses the pinned compiler, and refreshes the files under `gen/`.
-4. Run `snails pins check` and `bin/test`. The check catches a mismatched pair; the test suite catches a change your app depends on.
+4. Run `snails pins check` and `bin/test`. The check catches a mismatched pair. The test suite catches a change your app depends on.
 
 `snails sync --check` reports the same comparison without writing anything:
 
@@ -61,4 +61,4 @@ Set `SNALS_REV` back to the version you came from, restore the matching `SPINEL_
 
 `SNALS_SOURCE="checkout"` follows the working tree rather than a release. To move a checkout project back to a published release, set `SNALS_SOURCE="pin"` and the release's `SNALS_REV` before syncing.
 
-[Deploying](25-deploying.md) covers the image rebuild that follows a pin change; [Troubleshooting](27-troubleshooting.md) covers a sync that refuses the declaration.
+[Deploying](25-deploying.md) covers the image rebuild that follows a pin change. [Troubleshooting](27-troubleshooting.md) covers a sync that refuses the declaration.

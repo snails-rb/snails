@@ -1,6 +1,6 @@
 # Database and Models
 
-Your app talks to SQLite or PostgreSQL through plain model classes. A model names its table, and the inherited reads and writes operate on the table — there's no ORM layer, no association graph, and no callback chain between you and the SQL.
+Your app talks to SQLite or PostgreSQL through plain model classes. A model names its table, and the inherited reads and writes operate on the table. There's no ORM layer, no association graph, and no callback chain between you and the SQL.
 
 ## Declare a model
 
@@ -14,7 +14,7 @@ end
 
 Put model files under `app/models/` (subfolders are fine). The generator reads the schema and attaches column readers, `only_columns`, and the type lists. A model outside that folder is reported and skipped. When the schema changes, re-run the migration flow and the next build regenerates the readers — see [Columns and Types](11-columns-and-types.md).
 
-A model may add class methods and instance methods for its own domain. It doesn't declare columns, associations, callbacks, or validations. Validation belongs to [Forms and Validation](13-forms.md). The schema constraint is the model layer's final check.
+A model may add class methods and instance methods for its own domain. It doesn't declare columns, associations, callbacks, or validations. Validation belongs to [Forms and Validation](13-forms.md). The database constraint is the final check.
 
 ## Read and write
 
@@ -34,9 +34,9 @@ Post.update!(@post.id, { title: "new title" })   # returns the re-read row
 Post.delete!(@post.id)                           # returns the deleted-row count
 ```
 
-`update!` raises `Sqlx::RecordNotFound` for an id that doesn't exist — the unknown id becomes a 404 through the controller's rescue (see [Error Handling](20-error-handling.md)), never a silent insert. `delete!` returns `0` for an unknown id. The caller's lookup decides whether that is a 404.
+`update!` raises `Sqlx::RecordNotFound` for an id that doesn't exist. The unknown id becomes a 404 through the controller's rescue (see [Error Handling](20-error-handling.md)), never a silent insert. `delete!` returns `0` for an unknown id. The caller's lookup decides whether that is a 404.
 
-An empty conditions hash isn't a question you can ask: `find_by({})` refuses because a blank condition would quietly match everything. The bulk entries use `nil` to mean the whole table. [Querying](10-querying.md) covers every condition form.
+An empty conditions hash isn't a question you can ask: `find_by({})` refuses because a blank condition would quietly match everything. The bulk methods use `nil` to mean the whole table. [Querying](10-querying.md) covers every condition form.
 
 ## Query across tables
 
@@ -52,7 +52,7 @@ Comment.fetch_many({ post_id: post.id }, order: :asc)
 
 ## Define the reads your app needs
 
-The scaffold's `Post` shows the pattern — class methods built on the same entries:
+The demo app that `--scaffold` adds shows the pattern. A model adds only the reads it needs, like `Post.all`:
 
 ```ruby
 class Post < Sqlx::Base
@@ -81,21 +81,10 @@ class Post < Sqlx::Base
 end
 ```
 
-The child half uses the inherited `delete_all!`; the parent half writes its own DELETE because the inherited methods arrive through `extend`, so `super` doesn't reach them. A foreign key in the schema is still the stronger guarantee when the adapter enforces it.
+The comment delete goes through the inherited `delete_all!`. The post delete writes its own DELETE because the inherited methods arrive through `extend`, so `super` doesn't reach them. A foreign key in the schema is still the stronger guarantee when the adapter enforces it.
 
 ## Enums and transactions
 
-An integer column with a fixed label set uses `enum`; a multi-statement unit uses a transaction. Both are covered where they belong: [Columns and Types](11-columns-and-types.md) for the enum declaration, [Querying](10-querying.md) for `Sqlx::Base.transaction`.
+An integer column with a fixed label set uses `enum`. A multi-statement unit uses a transaction. Both are covered where they belong: [Columns and Types](11-columns-and-types.md) for the enum declaration, [Querying](10-querying.md) for `Sqlx::Base.transaction`.
 
-## Run the tests
-
-With the scaffold, the posts and comments cases cover the model path:
-
-```text
-ok   adapter_test.rb
-ok   comments_test.rb
-ok   post_form_test.rb
-ok   posts_test.rb
-ok   up_test.rb
-5/5 passed
-```
+`Sqlx`'s full read and write surface is in [Querying](10-querying.md). [Columns and Types](11-columns-and-types.md) covers the generated readers behind a model.

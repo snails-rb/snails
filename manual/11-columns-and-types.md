@@ -81,7 +81,7 @@ class Event < Sqlx::Base
 end
 ```
 
-`from_row` copies every `only_columns` entry and then applies the declared conversions. A conversion naming a column outside `only_columns` raises — only the built-in timestamp pair may be absent. If you hand-write a narrower SELECT, declare the narrowed columns or override `from_row`. Leaving the generated lists in place while the SELECT omits a declared date, boolean, JSON, or extra datetime column is the common source of an `ArgumentError` when a record is built.
+`from_row` copies every `only_columns` entry and then applies the declared conversions. A conversion naming a column outside `only_columns` raises — only the built-in timestamp pair may be absent. If you hand-write a narrower SELECT, declare the narrowed columns or override `from_row`. A record built from a SELECT that omits a declared date, boolean, JSON, or extra datetime column raises `ArgumentError` unless you narrow the lists or override `from_row`.
 
 A model that needs more than the five declarations overrides `from_row`. It receives one name-keyed row and returns one record:
 
@@ -93,7 +93,7 @@ end
 
 ## Enums
 
-An integer column with a fixed set of labels can carry a validated enum declaration. It stores the mapping once and gives the model the read, predicate, and write pieces. It doesn't generate methods, so the model writes the small members it wants:
+An integer column with a fixed set of labels can declare a validated enum. The declaration stores the mapping once and provides `label`, `label?`, and `writer`. It doesn't generate methods, so the model writes the small members it wants:
 
 ```ruby
 class Post < Sqlx::Base
@@ -111,8 +111,8 @@ end
 
 ## The `.rbs` sidecar
 
-`gen/model_columns.rbs` is written beside the Ruby file. It gives each generated reader its column type, so the compiler can check a caller against the schema. A model method that overrides a generated reader owns its own type declaration; add it to the model's `.rbs` when the value differs from the column type.
+`gen/model_columns.rbs` is written beside the Ruby file. It gives each generated reader its column type, so the compiler can check a caller against the schema. A model method that overrides a generated reader owns its own type declaration. Add it to the model's `.rbs` when the value differs from the column type.
 
-The file is the compiler's analysis input, not a portable RBS contract. It only restores the type each generated reader loses through `read_attribute`. The inherited reads (`find`, `find_by`, `fetch_many`) and a model's association reader are inferred from the Ruby source. A tool that reads only `.rbs` files sees the generic `Sqlx` signatures for those methods, and app-owned types such as a controller's `@post` belong in your own `.rbs` when a separate checker needs them.
+The file is the compiler's analysis input, not a portable RBS contract. It only restores the type each generated reader loses through `read_attribute`. The inherited reads (`find`, `find_by`, `fetch_many`) and a model's association reader are inferred from the Ruby source. A tool that reads only `.rbs` files sees the generic `Sqlx` signatures for those methods. App-owned types such as a controller's `@post` belong in your own `.rbs` when a separate checker needs them.
 
 [Querying](10-querying.md) covers the reads and writes these columns feed.

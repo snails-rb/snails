@@ -4,7 +4,7 @@
 
 ## Commands
 
-Run it with no arguments to see the commands grouped by when you reach for them:
+Run it with no arguments to see the commands grouped by task:
 
 ```text
 usage: snails <command> [options]
@@ -46,7 +46,7 @@ snails new demo --scaffold
 snails new demo --database=postgresql --scaffold
 ```
 
-`new` copies the project template, installs the pinned framework, creates the test harness, and prints the next commands. `--scaffold` overlays the posts-and-comments example. `--database` selects sqlite or PostgreSQL.
+`new` copies the project skeleton, installs the pinned framework, creates the test harness, and prints the next commands. `--scaffold` adds the posts-and-comments demo app. `--database` selects `sqlite` or `postgresql`.
 
 ## Everyday commands
 
@@ -104,7 +104,7 @@ The line also prints the pinned compiler revision and framework version. `snails
 [snails] 13 ok, 0 warning, 0 failed
 ```
 
-The `CLI` line also prints the installed version and revision. A skipped check isn't a failure; `SECRET_KEY_BASE` is required only when the app signs values. A warning names the command that fixes it. Exit code 1 means at least one check failed.
+The `CLI` line also prints the installed version and revision. A skipped check isn't a failure. `SECRET_KEY_BASE` is required only when the app signs values. A warning names the command that fixes it. Exit code 1 means at least one check failed.
 
 ## Build and deploy
 
@@ -145,4 +145,4 @@ Commands:
 snails <version> (rev <commit>)
 ```
 
-[Local Development](22-local-development.md) covers the scripts around the CLI; [Updating Snails](26-updating-snails.md) covers the pin and `sync`.
+[Local Development](22-local-development.md) covers the scripts around the CLI. [Updating Snails](26-updating-snails.md) covers the pin and `sync`.

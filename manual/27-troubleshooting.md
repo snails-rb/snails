@@ -22,7 +22,7 @@ get("/posts", Api::PostsController, :index),
 get("/posts/:id", Api::PostsController, :show), # as: post
 ```
 
-A `resources` entry can't carry the marker; use a hand-written entry when the path helper name must differ. See [Routes and Controllers](06-routes-and-controllers.md).
+A `resources` entry can't carry the marker. Use a hand-written entry when the path helper name must differ. See [Routes and Controllers](06-routes-and-controllers.md).
 
 ### The compiler refuses my model's class methods
 
@@ -30,7 +30,7 @@ If the compiler refuses `create!` or `find_by` on your model with `unsupported c
 
 ### `Sqlx::Base model found but no schema file`
 
-A model exists but `db/schema.sql` doesn't. Run `snails migrate dump` to write the schema dump, then `snails migrate load` if the database isn't initialized yet. A plain project with no migrations has nothing to dump; add one or use `--scaffold`.
+A model exists but `db/schema.sql` doesn't. If the table has no migration yet, write one under `db/migrate/` first. Run `snails migrate dump` to write the schema dump, then `snails migrate load` if the database isn't initialized yet.
 
 ### My parameter comes back nil
 
@@ -44,9 +44,9 @@ A model exists but `db/schema.sql` doesn't. Run `snails migrate dump` to write t
 
 `from_row` raises `ArgumentError` when a declared `datetime_columns`, `date_columns`, `boolean_columns`, or `json_columns` entry isn't in the projection. A hand-written narrower SELECT must declare the narrowed columns or override `from_row`. The built-in `created_at`/`updated_at` pair is the only exception. See [Columns and Types](11-columns-and-types.md).
 
-### The test runner disagrees with your memory of a file
+### The `.expected` file is out of date
 
-`bin/test` diffs every case file against its `.expected` sibling. If you changed what a test prints, update the `.expected` file in the same change. A failed load or boot names the kept server log path; `bin/test --verbose` prints the full log. See [Testing](24-testing.md).
+`bin/test` diffs every case file against its `.expected` sibling. If you changed what a test prints, update the `.expected` file in the same change. A failed load or boot names the kept server log path. `bin/test --verbose` prints the full log. See [Testing](24-testing.md).
 
 ### `SECRET_KEY_BASE is missing`
 
@@ -62,7 +62,7 @@ The app reads `Snails.app.secret_key_base` somewhere and the environment is unse
 
 ### `Sqlx::Busy` or `Sqlx::ConnectionTimeout`
 
-The database is under contention. `Sqlx::Busy` is a SQLite lock wait past `DATABASE_BUSY_TIMEOUT_MS`; `ConnectionTimeout` is a pool checkout past `DATABASE_POOL_TIMEOUT_MS` on PostgreSQL. Shorten the transaction or raise the timeout/pool for the load. `Sqlx::ConnectionFailed` means the session is gone; retry the whole unit. See [Concurrency](23-concurrency.md) and [Error Handling](20-error-handling.md).
+The database is under contention. `Sqlx::Busy` is a SQLite lock wait past `DATABASE_BUSY_TIMEOUT_MS`. `ConnectionTimeout` is a pool checkout past `DATABASE_POOL_TIMEOUT_MS` on PostgreSQL. Shorten the transaction or raise the timeout/pool for the load. `Sqlx::ConnectionFailed` means the session is gone. Retry the whole unit. See [Concurrency](23-concurrency.md) and [Error Handling](20-error-handling.md).
 
 ### A migration command refuses with `DB_OWNER="external"`
 
@@ -74,17 +74,17 @@ The database is under contention. `Sqlx::Busy` is a SQLite lock wait past `DATAB
 
 ### A cached value is missing in another process
 
-`Snails.cache` is per process. A second server process, a prefork child, or a container doesn't see the first one's entries. Put shared state in the database. See [Caching](18-caching.md).
+`Snails.cache` is per process. A second server process or a container doesn't see the first one's entries. Put shared state in the database. See [Caching](18-caching.md).
 
 ### A JSON response is the object's string form
 
-`render(json: record)` uses `record.as_json` when the record defines it; otherwise the encoder falls back to `to_s`. Give the model an `as_json` that returns the payload format. See [Time, Dates, and JSON](17-time-dates-and-json.md).
+`render(json: record)` uses `record.as_json` when the record defines it. Otherwise the encoder falls back to `to_s`. Give the model an `as_json` that returns the payload format. See [Time, Dates, and JSON](17-time-dates-and-json.md).
 
 ### The first `snails new` stops in a compiler build
 
-`snails new` downloads the pinned compiler. When no asset exists for your platform or revision, or the download fails, it falls back to a source build; a missing compiler, header, or `pkg-config` stops that build inside `make`. Install the packages under [Getting Started](02-getting-started.md#requirements) §If the prebuilt compiler is unavailable and run the command again.
+`snails new` downloads the pinned compiler. When no asset exists for your platform or revision, or the download fails, it falls back to a source build. A missing compiler, header, or `pkg-config` stops that build inside `make`. Install the packages under [Getting Started](02-getting-started.md#requirements) §If the prebuilt compiler is unavailable and run the command again.
 
-The source build runs a package smoke before caching. If OpenSSL or another package is missing, it stops and names the development packages; install them and retry.
+The source build runs a smoke test of the required packages before caching. If OpenSSL or another package is missing, it stops and names the development packages. Install them and retry.
 
 ### The first build stops with `cc: not found`
 
@@ -96,6 +96,6 @@ A linker error such as `cannot find -lssl` names the missing development package
 
 On macOS, the build adds Homebrew's `pkg-config` and library directories for OpenSSL, jemalloc, libpq, and PostgreSQL, so the build needs no export.
 
-For libpq, `brew install postgresql` is keg-only and includes the server, `psql`, `pg_dump`, and libpq. The `PATH` and `DYLD_FALLBACK_LIBRARY_PATH` exports in Getting Started point at its prefix; a client-only `libpq` install is the alternative when you connect to a server elsewhere.
+For libpq, `brew install postgresql` is keg-only and includes the server, `psql`, `pg_dump`, and libpq. The `PATH` and `DYLD_FALLBACK_LIBRARY_PATH` exports in Getting Started point at its prefix. A client-only `libpq` install is the alternative when you connect to a server elsewhere.
 
 When the symptom isn't here, run `snails doctor` first — it checks the pin, the toolchain, the database, and the local clients before you go looking further.

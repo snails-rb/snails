@@ -12,7 +12,7 @@ A plain project with no migrations has no database file until a feature needs on
 
 ### Do I need to install a database server?
 
-Not for SQLite development — it's a file and nothing else to run. Production talks to PostgreSQL through the same models; you point the app at a server with `PG_URL` (see [Deploying](25-deploying.md)).
+Not for SQLite development — it's a file and nothing else to run. Production talks to PostgreSQL through the same models. You point the app at a server with `PG_URL` (see [Deploying](25-deploying.md)).
 
 ### Why does a command exit early?
 
@@ -20,7 +20,7 @@ Most `snails` commands check the pin first. When the project and its pin disagre
 
 ### When do the generated files regenerate?
 
-`bin/dev` and `bin/test` refresh `gen/` before every build — that is why a new controller or model needs no extra wiring. The files are yours to commit; the generators keep the lists in step with your folders. `gen/model_columns.rb` and `gen/route_helpers.rb` are generated; don't edit them.
+`bin/dev` and `bin/test` refresh `gen/` before every build — that is why a new controller or model needs no extra wiring. The files are yours to commit. The generators keep the lists in step with your folders. `gen/model_columns.rb` and `gen/route_helpers.rb` are generated. Don't edit them.
 
 ### Can two apps live on one machine?
 
@@ -28,7 +28,7 @@ Yes — each folder is a complete app with its own `pins.toml`, and `APP_NAME` k
 
 ### What survives a restart?
 
-Everything in the files: `storage/` keeps your data, `db/migrate/` keeps your history, and the tests keep passing. Jobs queued in the default process queue are gone — they live in memory. `ActiveJob::DatabaseQueue` stores each job as a database row, so it survives a restart and another process can drain it (see [Background Jobs](15-background-jobs.md)).
+For SQLite, the database file under `storage/` survives. Your migration history under `db/migrate/` survives with either adapter. Jobs in the default process queue don't — they live in memory. `ActiveJob::DatabaseQueue` stores each job as a database row, so it survives a restart and another process can drain it (see [Background Jobs](15-background-jobs.md)).
 
 ### Something broke after an update — how do I go back?
 
@@ -36,7 +36,7 @@ Set `SNALS_REV` in `pins.toml` back to the version you came from, restore the ma
 
 ### Can I use Rails gems?
 
-No. Your app and the framework compile into one native binary; a gem that expects a Ruby runtime, a Bundler load path, or a native extension has no place in that graph. `spin.toml` declares the build needs, and the framework's helpers are listed in [Ruby Helpers](19-ruby-helpers.md). The framework provides the helpers an API app needs; a behavior outside that set belongs in the app.
+No. Your app and the framework compile into one native binary. A gem that expects a Ruby runtime, a Bundler load path, or a native extension has no place in that graph. `spin.toml` declares the build needs, and the framework's helpers are listed in [Ruby Helpers](19-ruby-helpers.md). The framework provides the helpers an API app needs. A behavior outside that set belongs in the app.
 
 ### Why is there no Active Record?
 
@@ -44,11 +44,11 @@ Active Record is a good fit when a team wants associations, callbacks, and one o
 
 ### Why are migrations SQL files?
 
-A schema change is a SQL statement. Keeping it as a SQL file makes the change readable and reviewable, and a coding agent can write it directly; `snails migrate dump` generates `db/schema.sql` from the files, and `snails migrate verify` checks the dump against a replay (see [Migrations](12-migrations.md)).
+A schema change is a SQL statement. Keeping it as a SQL file makes the change readable and reviewable, and a coding agent can write it directly. `snails migrate dump` generates `db/schema.sql` from the files, and `snails migrate verify` checks the dump against a replay (see [Migrations](12-migrations.md)).
 
 ### Does Snails render HTML?
 
-No. There's no view layer or asset pipeline; every controller responds with JSON, a redirect, or a status. The frontend is a separate app, in the same repository or its own, not a layer inside this binary.
+No. There's no view layer or asset pipeline. Every controller responds with JSON, a redirect, or a status. The frontend is a separate app, in the same repository or its own, not a layer inside this binary.
 
 ### How do I run one test file?
 
@@ -60,14 +60,14 @@ The path is under `harness/`. An unknown path fails with a clear error rather th
 
 ### Why is `params[:id]` nil?
 
-`params` is String-keyed. Use `params["id"]`. The path capture is a String too; the generated model casts it for integer columns, and a TEXT or UUID key stays a string (see [Requests and Parameters](07-requests-and-parameters.md)).
+`params` is String-keyed. Use `params["id"]`. The path capture is a String too. The generated model casts it for integer columns, and a TEXT or UUID key stays a string (see [Requests and Parameters](07-requests-and-parameters.md)).
 
 ### How do I change the app name?
 
-`APP_NAME` in `pins.toml` names the development database and container; `config/application.rb` provides `Snails.app.app_name`, which the server banner and logs use. Change both when the app's identity changes, and use a fresh development database when the database name moves.
+`APP_NAME` in `pins.toml` names the development database and container. `config/application.rb` provides `Snails.app.app_name`, which the server banner and logs use. Change both when the app's identity changes, and use a fresh development database when the database name moves.
 
 ### Why is my JSON payload a string?
 
-`render(json: record)` uses `as_json` when the record defines it; otherwise the encoder falls back to `to_s`. Define `as_json` on the model or render a Hash (see [Time, Dates, and JSON](17-time-dates-and-json.md)).
+`render(json: record)` uses `as_json` when the record defines it. Otherwise the encoder falls back to `to_s`. Define `as_json` on the model or render a Hash (see [Time, Dates, and JSON](17-time-dates-and-json.md)).
 
-If a symptom has a specific face — an error line you can copy — [Troubleshooting](27-troubleshooting.md) lists the real ones with their fixes.
+If you have the exact error line, [Troubleshooting](27-troubleshooting.md) lists the actual error lines and their fixes.

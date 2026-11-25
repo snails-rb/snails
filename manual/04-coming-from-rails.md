@@ -5,7 +5,7 @@ If you know Rails, you already know most of Snails. You declare routes the same 
 ## What stays the same
 
 - Routes live in `config/routes.rb` and use the same declarations — `get`, `post`, `put`, `delete`, and `resources`.
-- Controllers are classes with actions, and parameters arrive on the request object.
+- Controllers are classes with actions, and parameters arrive in a String-keyed hash.
 - The database changes the same way: a numbered file under `db/migrate/`, applied in order, with a schema dump your tests load. See [Migrations](12-migrations.md).
 - A test suite runs with one command: `bin/test`. See [Testing](24-testing.md).
 
@@ -32,13 +32,13 @@ Some Rails features you may reach for don't exist here, by design:
 - No HTML view helpers, CSRF tokens, sessions, or cookies middleware — the framework is API-only by design. Request cookies are parsed, but there's no session store.
 - No gems in the runtime sense — your app and the framework compile together into one binary.
 - No `rescue_from`. A controller rescues in an action, or overrides `process_action` for an app-wide response (see [Error Handling](20-error-handling.md)).
-- No `ActiveSupport::Concern`, `included do`, or `class_methods`. A concern is a plain module; write the methods it adds.
+- No `ActiveSupport::Concern`, `included do`, or `class_methods`. A concern is a plain module. Write the methods it adds.
 - No `before_action` inheritance. Registration belongs to the controller class that writes it, not to its subclasses. Declare the filter on each controller that needs it, or share the method through a parent.
-- No class-instance-variable inheritance. A value set on a parent class isn't copied to a subclass; use a module constant or an explicit method.
+- No class-instance-variable inheritance. A value set on a parent class isn't copied to a subclass. Use a module constant or an explicit method.
 
 The list follows from the design decisions in [The Snails Design](https://snails-rb.org/blog/the-snails-design/).
 
-Snails supports fewer ActiveSupport helpers than Rails. The helpers that do exist are listed in [Ruby Helpers](19-ruby-helpers.md); a call to something outside that list fails at build time instead of silently doing nothing.
+Snails supports fewer ActiveSupport helpers than Rails. The helpers that do exist are listed in [Ruby Helpers](19-ruby-helpers.md). A call to something outside that list fails at build time instead of silently doing nothing.
 
 ## Next chapters
 

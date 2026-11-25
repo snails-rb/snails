@@ -1,6 +1,6 @@
 # Email
 
-A Snails app builds the message. Your app owns the way it leaves the process. There are no templates and no built-in SMTP client — you write the subject and body in code and register a delivery class that talks to your provider.
+A Snails app builds the message. Your app owns delivery. There are no templates and no built-in SMTP client — you write the subject and body in code and register a delivery class that talks to your provider.
 
 ## Create a mailer
 
@@ -63,7 +63,7 @@ WelcomeMailer.welcome("sue@example.com").deliver_now
 WelcomeMailer.welcome("sue@example.com").deliver_later
 ```
 
-`deliver_now` calls the delivery class on the spot and returns the message. `deliver_later` hands the message to the job queue and returns without waiting for the provider. In test mode it runs inline so the capture sees it immediately; in a process with no worker loop it also runs inline rather than stranding the message.
+`deliver_now` calls the delivery class on the spot and returns the message. `deliver_later` hands the message to the job queue and returns without waiting for the provider. In test mode it runs inline so the capture sees it immediately. In a process with no worker loop it also runs inline rather than leaving the message queued.
 
 A failure from a later delivery is recorded by the job system rather than raised in the caller. If you need to handle a provider failure directly, use `deliver_now`.
 
@@ -78,7 +78,7 @@ end
 assert_equal "Welcome", emails.last["subject"]
 ```
 
-`assert_emails` counts the lines the block added; `emails` returns the run's rows in send order, each with `"to"` (an Array), `"from"`, and `"subject"`. The test run empties the file before boot, so a case never sees another run's mail.
+`assert_emails` counts the lines the block added. `emails` returns the run's rows in send order, each with `"to"` (an Array), `"from"`, and `"subject"`. The test run empties the file before boot, so a case never sees another run's mail.
 
 For a direct test of the mailer, register `ActionMailer::CaptureMethod` and read `ActionMailer::Base.deliveries` in the same process:
 
@@ -88,10 +88,10 @@ WelcomeMailer.welcome("sue@example.com").deliver_later
 assert_equal 1, ActionMailer::Base.deliveries.length
 ```
 
-The server is a separate process, so `deliveries` there isn't visible to the harness. The file is the shared observation point for a live server; `CaptureMethod` is for a case that calls a mailer directly.
+The server is a separate process, so `deliveries` there isn't visible to the harness. The file is the shared observation point for a live server. `CaptureMethod` is for a case that calls a mailer directly.
 
 ## What isn't included
 
-There are no templates, attachments, CC/BCC headers, or SMTP client. A message holds `to`, `from`, `replyto`, `subject`, and `body`. Durability and retry behavior depend on the job queue adapter and your provider; the mailer itself doesn't retry.
+There are no templates, attachments, CC/BCC headers, or SMTP client. A message holds `to`, `from`, `replyto`, `subject`, and `body`. Durability and retry behavior depend on the job queue adapter and your provider. The mailer itself doesn't retry.
 
-That's the whole path: build the message in a mailer, register a delivery class, and call `deliver_now` or `deliver_later`. [Background Jobs](15-background-jobs.md) covers what `deliver_later` hands the queue to.
+[Background Jobs](15-background-jobs.md) covers what `deliver_later` hands the queue to.
