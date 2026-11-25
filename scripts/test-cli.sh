@@ -1056,9 +1056,11 @@ else
   (cd "dlserve/spinel-rev-$DLREV" && shasum -a 256 "$DLASSET" > "$DLASSET.sha256")
 fi
 
-# The local release server for the download cases.
+# The local release server for the download cases. It uses the shared fixture
+# server, which binds without the HTTPServer reverse lookup that stalls on
+# macOS runners.
 DL_PORT="${DL_PORT:-8392}"
-(cd dlserve && exec python3 -m http.server "$DL_PORT" --bind 127.0.0.1 >/dev/null 2>&1) &
+(cd dlserve && exec python3 "$ROOT/scripts/fixtures/api-server.py" "$DL_PORT" >/dev/null 2>&1) &
 DL_SERVER_PID=$!
 for _ in {1..25}; do
   curl -fsS -o /dev/null "http://127.0.0.1:$DL_PORT/spinel-rev-$DLREV/$DLASSET.sha256" 2>/dev/null && break
