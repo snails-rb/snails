@@ -43,7 +43,7 @@ runs:
       shell: bash
       run: |
         git clone https://github.com/matz/spinel .spinel
-        cd .spinel && git checkout "$SPINEL_REV" && make deps && make -j"$(nproc)"
+        cd .spinel && git checkout "$SPINEL_REV" && make deps && make -j"$(getconf _NPROCESSORS_ONLN)"
     - name: Install spinel to the user prefix
       if: steps.cache-spinel-install.outputs.cache-hit != 'true'
       shell: bash

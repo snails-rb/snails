@@ -1,5 +1,6 @@
 import http.server
 import os
+import socketserver
 import sys
 
 # An optional second argument makes every request require that bearer token,
@@ -37,5 +38,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
-server = http.server.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), Handler)
+class Server(http.server.ThreadingHTTPServer):
+    # HTTPServer.server_bind resolves the bind address with socket.getfqdn().
+    # GitHub's macOS runners answer that reverse lookup about 35 seconds late,
+    # and the server does not listen until it returns, so every readiness poll
+    # waits out the delay on a fresh process. This fixture never uses the host
+    # name, so bind without the lookup.
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
+
+
+server = Server(("127.0.0.1", int(sys.argv[1])), Handler)
 server.serve_forever()

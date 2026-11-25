@@ -9,6 +9,12 @@ name: platform-ci
 # long platform matrix. This is the spinel-style split: one Linux job for a
 # PR, the remaining OS/target jobs on the merge commit.
 #
+# The macOS side is split by suite kind (contracts, core, e2e, pg) for the
+# same reason ci.yml splits its Linux jobs: one serial macOS job made the gate
+# the sum of every suite, so the full suite alone took 11 minutes. The kinds do
+# not share compile state, so the split costs no duplicated work beyond the
+# per-job setup.
+#
 # The app image test is conditional: it needs the pinned spinel image, so a
 # push that publishes the image runs the test in spinel-image after publishing,
 # and this workflow runs it only when the image is already there (see the
@@ -189,29 +195,66 @@ jobs:
           "$SNAILS_DIR/bin/snails" migrate dump --app "$APP"
           "$APP/bin/test"
 
-  macos:
-    name: macos (full)
+  # The macOS gate is four jobs by suite kind, because a single serial job
+  # paid for every suite in one wall-clock run. Each job still exercises the
+  # same cases: the contract job runs the sqlite surface (the pg cases skip
+  # without a reachable server) and the pg job runs those same cases with
+  # PG_URL set, exactly as ci.yml's Linux contracts and platform-ci's linux-pg
+  # jobs already split them.
+  macos-contracts:
+    name: macos (contracts)
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - name: Checkout snails
         uses: actions/checkout@v7
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - name: Load tool pin
+      - uses: ./.github/actions/macos-build-deps
+      - uses: ./.github/actions/spinel-toolchain
+      - name: Contract checks
         run: |
-          REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
-          echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
-      - name: Install Homebrew dependencies
-        run: |
-          brew install openssl jemalloc pkg-config libpq postgresql@18
-          {
-            echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-            echo "CPATH=$(brew --prefix openssl)/include:$(brew --prefix jemalloc)/include:${CPATH:-}"
-            echo "LIBRARY_PATH=$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
-          } >> "$GITHUB_ENV"
+          /bin/bash scripts/test-pins-format.sh
+          /bin/bash scripts/test-sync-scaffold.sh
+          /bin/bash scripts/test-gen-require-all.sh
+          /bin/bash scripts/test-gen-route-helpers.sh
+          /bin/bash scripts/test-gen-model-columns.sh
+          /bin/bash scripts/test-generate-job-queue.sh
+          /bin/bash scripts/test-migrate.sh
+          /bin/bash scripts/test-cli.sh
+          /bin/bash scripts/test-dist.sh
+
+  macos-core:
+    name: macos (core harness)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+      - uses: ./.github/actions/macos-build-deps
+      - uses: ./.github/actions/spinel-toolchain
+      - name: Small harness (core)
+        run: /bin/bash scripts/test-runtime.sh
+
+  macos-e2e:
+    name: macos (scaffolder e2e)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+      - uses: ./.github/actions/macos-build-deps
+      - uses: ./.github/actions/spinel-toolchain
+      - name: Scaffolder end-to-end (demo)
+        run: /bin/bash scripts/test-new.sh --only=demo
+
+  macos-pg:
+    name: macos (pg)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+      - uses: ./.github/actions/macos-build-deps
+      - uses: ./.github/actions/spinel-toolchain
       - name: Start PostgreSQL
         run: |
           pgbin="$(brew --prefix postgresql@18)/bin"
@@ -219,55 +262,6 @@ jobs:
           "$pgbin/initdb" -D "$RUNNER_TEMP/pgdata" -U postgres --no-locale >/dev/null
           "$pgbin/pg_ctl" -D "$RUNNER_TEMP/pgdata" -l "$RUNNER_TEMP/pg.log" -o "-p 5432 -k $RUNNER_TEMP" start
           "$pgbin/createdb" -h 127.0.0.1 -p 5432 -U postgres snails_test
-      - name: Cache the pinned spinel install
-        uses: actions/cache@v6
-        with:
-          path: ~/.local
-          key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
-      - name: Cache spinel native package objects
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/spin
-          key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
-          restore-keys: |
-            spin-native-${{ runner.os }}-${{ runner.arch }}-
-      - name: Build spinel when the cache misses
-        run: |
-          if "$HOME/.local/bin/spin" --version 2>/dev/null | grep -q "${SPINEL_REV:0:8}"; then
-            echo "cached spinel matches $SPINEL_REV"
-            exit 0
-          fi
-          rm -rf "$RUNNER_TEMP/spinel-src"
-          git clone https://github.com/matz/spinel "$RUNNER_TEMP/spinel-src"
-          cd "$RUNNER_TEMP/spinel-src"
-          git checkout "$SPINEL_REV"
-          make deps
-          make -j"$(sysctl -n hw.ncpu)"
-          make install PREFIX="$HOME/.local"
-      - name: Expose the pinned toolchain
-        run: |
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/spin" --version
-      - name: Install GNU tools for the repo test scripts
-        run: |
-          brew install gnu-sed coreutils
-          {
-            echo "$(brew --prefix gnu-sed)/libexec/gnubin"
-            echo "$(brew --prefix coreutils)/libexec/gnubin"
-          } >> "$GITHUB_PATH"
-      - name: Full repo suite
-        run: |
-          /bin/bash scripts/test-runtime.sh
-          /bin/bash scripts/test-pins-format.sh
-          /bin/bash scripts/test-cli.sh
-          /bin/bash scripts/test-sync-scaffold.sh
-          /bin/bash scripts/test-gen-require-all.sh
-          /bin/bash scripts/test-gen-route-helpers.sh
-          /bin/bash scripts/test-gen-model-columns.sh
-          /bin/bash scripts/test-generate-job-queue.sh
-          /bin/bash scripts/test-migrate.sh
-          /bin/bash scripts/test-dist.sh
-          /bin/bash scripts/test-new.sh --only=demo
       - name: Core pg regressions
         env:
           SNAILS_DIR: ${{ github.workspace }}

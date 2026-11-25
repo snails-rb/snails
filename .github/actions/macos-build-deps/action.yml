@@ -1,0 +1,28 @@
+name: macos build deps
+description: >
+  Put Python 3.12 and the Homebrew packages every macOS job needs on PATH
+  before the spinel toolchain installs: openssl and jemalloc for the compile,
+  libpq for the pg backend, postgresql@18 for the scratch server, and GNU
+  sed/coreutils because the repo test scripts are written for GNU tools.
+  Call it after checkout and before .github/actions/spinel-toolchain.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: "3.12"
+    - name: Install Homebrew dependencies
+      shell: bash
+      run: |
+        brew install openssl jemalloc pkg-config libpq postgresql@18 gnu-sed coreutils
+        {
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl)/lib/pkgconfig:$(brew --prefix jemalloc)/lib/pkgconfig:$(brew --prefix libpq)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+          echo "CPATH=$(brew --prefix openssl)/include:$(brew --prefix jemalloc)/include:${CPATH:-}"
+          echo "LIBRARY_PATH=$(brew --prefix openssl)/lib:$(brew --prefix jemalloc)/lib:$(brew --prefix libpq)/lib:${LIBRARY_PATH:-}"
+        } >> "$GITHUB_ENV"
+        {
+          echo "$(brew --prefix gnu-sed)/libexec/gnubin"
+          echo "$(brew --prefix coreutils)/libexec/gnubin"
+        } >> "$GITHUB_PATH"
