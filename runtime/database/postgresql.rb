@@ -18,6 +18,11 @@ module Sqlx
       ffi_const :PGRES_EMPTY_QUERY, 0
       ffi_const :PGRES_COMMAND_OK,  1
       ffi_const :PGRES_TUPLES_OK,   2
+      # COPY results put the connection into copy mode; a read-only query
+      # connection refuses them and closes instead of draining.
+      ffi_const :PGRES_COPY_OUT,    3
+      ffi_const :PGRES_COPY_IN,     4
+      ffi_const :PGRES_COPY_BOTH,   5
       ffi_const :PGRES_FATAL_ERROR, 7
 
       # PQstatus: CONNECTION_OK == 0.
@@ -39,6 +44,10 @@ module Sqlx
       # PQresultErrorField field codes. `PG_DIAG_SQLSTATE` is 'C' in libpq's
       # header, the five-character SQLSTATE of a failed result.
       ffi_const :PG_DIAG_SQLSTATE, 67
+      # PG_DIAG_STATEMENT_POSITION is 'P' in libpq's header. A syntax error
+      # carries one; the extended protocol's multi-command refusal does not,
+      # which is how the read-only path tells them apart.
+      ffi_const :PG_DIAG_STATEMENT_POSITION, 80
 
       # Calls that wait on the server leave the world (`blocking: true`): a
       # slow statement or a connection setup holds this worker with no
@@ -52,6 +61,9 @@ module Sqlx
       # this FFI type set has no :void.
       ffi_func :PQfinish,             [ :ptr ],             :int
       ffi_func :PQexec,               [ :ptr, :str ],       :ptr, blocking: true
+      # Extended protocol: one command per call, so a second statement is
+      # refused by the server instead of silently executing.
+      ffi_func :PQexecParams,         [ :ptr, :str, :int, :ptr, :ptr, :ptr, :ptr, :int ], :ptr, blocking: true
       ffi_func :PQresultStatus,       [ :ptr ],             :int
       ffi_func :PQresultErrorMessage, [ :ptr ],             :str
       ffi_func :PQresultErrorField,   [ :ptr, :int ],       :str
@@ -438,6 +450,10 @@ module Sqlx
     # reached off the requires every persistence-touching bootstrap (main.rb AND
     # the emitted test_helper) already loads.
     @pool = nil
+    # The configured conninfo, kept for the explicit connection scope. The pool
+    # owns its own copy; this one survives a pool reset and is cleared by
+    # `close`.
+    @conninfo = nil
     # Parity with the sqlite sibling's surface (there it serialises prepare's
     # shared out-buffer; there is no out-buffer here).
     @prepare_lock = Mutex.new
@@ -468,6 +484,7 @@ module Sqlx
       probe = PgConnection.new(conninfo)
       probe.close
       close unless @pool.nil?
+      @conninfo = conninfo
       @pool = PgPool.new(conninfo, n)
       # A reconnect replaces the database behind any cached rows; invalidate
       # every request's cache before the new connection serves a read.
@@ -493,23 +510,88 @@ module Sqlx
         @pool.close_all
         @pool = nil
       end
+      @conninfo = nil
       # Cached rows belong to the connections that produced them.
       query_cache_clear
     end
 
-    # Explicit connections — SQLite implements the read-only mode first; the
-    # PostgreSQL adapter follows in the companion change. The public entry is
-    # `Sqlx::Connection.open`.
+    # Opens one explicit connection outside the pool. A read-only connection
+    # runs every query in its own `BEGIN READ ONLY` transaction, so a `SET` or
+    # a second statement cannot make the session writable. The session is
+    # otherwise a normal libpq connection: it sets UTC and closes with
+    # `PQfinish`.
+    #
+    # @param database [String, nil] a libpq conninfo string; nil uses the
+    #   configured database
+    # @param read_only [Boolean] true for a database-enforced read-only
+    #   connection
+    # @return [untyped] the open connection handle
+    # @raise [NotImplementedError] read_only is false (raw writable
+    #   connections are not exposed yet)
+    # @raise [RuntimeError] the database is not configured
+    # @raise [Sqlx::ConnectionFailed] the server refuses the connection
     def self.open_connection(database = nil, read_only:)
-      raise NotImplementedError, "explicit connections are not implemented for PostgreSQL yet"
+      if !read_only
+        raise NotImplementedError, "raw writable connections are not exposed yet"
+      end
+      conninfo = database
+      conninfo = @conninfo if conninfo.nil?
+      if conninfo.nil?
+        raise "Sqlx::Database.open_connection: configure the database first"
+      end
+      PgConnection.new(conninfo)
     end
 
+    # Closes one explicit connection opened by `open_connection`. The
+    # connection's own close is idempotent.
+    #
+    # @param handle [untyped] the connection handle
+    # @return [void]
     def self.close_connection(handle)
-      raise NotImplementedError, "explicit connections are not implemented for PostgreSQL yet"
+      handle.close
     end
 
+    # Runs one read query on an explicit connection. Each query gets a fresh
+    # `BEGIN READ ONLY` transaction and a local `statement_timeout`; the query
+    # is declared as a `NO SCROLL` cursor and fetched `max_rows + 1` rows, so
+    # `CLOSE` stops the server's work at the cap.
+    #
+    # A statement a cursor cannot declare (`EXPLAIN`, `SHOW`, a write rejected
+    # by the cursor syntax) is rolled back to a savepoint and executed through
+    # the extended protocol. That path is what lets a write reach the read-only
+    # transaction and raise `Sqlx::ReadOnlyError`, and what lets `EXPLAIN` run.
+    #
+    # @param handle [untyped] the connection handle
+    # @param sql [String] one SQL statement
+    # @param max_rows [Integer] the row cap
+    # @param timeout_ms [Integer] the server statement timeout
+    # @return [Sqlx::QueryResult] columns, capped rows, truncation flag
+    # @raise [ArgumentError] the statement contains no SQL, or carries more
+    #   than one statement
+    # @raise [Sqlx::QueryTimeout] the statement exceeded the timeout
+    # @raise [Sqlx::ReadOnlyError] the statement tried to write on a read-only
+    #   connection
+    # @raise [Sqlx::Busy] the lock wait failed
+    # @raise [Sqlx::ConnectionFailed] the session died, or the statement left
+    #   the connection in COPY mode
     def self.exec_query(handle, sql, max_rows:, timeout_ms:)
-      raise NotImplementedError, "explicit connections are not implemented for PostgreSQL yet"
+      conn = handle
+      record_query(sql)
+      started = Snails::Logger::Context.now_us
+      begin
+        open_read_transaction(conn, timeout_ms)
+        result = run_cursor_query(conn, sql, max_rows)
+        run_statement(conn, "COMMIT")
+        result
+      rescue Sqlx::ConnectionFailed
+        conn.close
+        raise
+      rescue
+        rollback_read_transaction(conn)
+        raise
+      ensure
+        Snails::Logger::Context.add_db_us(Snails::Logger::Context.now_us - started)
+      end
     end
 
     # run one DDL / INSERT / UPDATE / DELETE statement; no rows come back.
@@ -1101,32 +1183,133 @@ module Sqlx
       stmt.ncols = Libpq.PQnfields(res)
     end
 
-    # Run one SQL string on the lease's connection. Returns the caller-owned
-    # PGresult (raises on a fatal status). A connection-level failure discards
-    # the connection before raising `Sqlx::ConnectionFailed`; a later checkout
-    # that finds no free connection opens a replacement. Updates the
-    # connection's change count only for a COMMAND_OK with a row count.
-    # TUPLES_OK results (SELECT, and DML with RETURNING) leave the previous
-    # count alone: a SELECT's row count is not a changed-row count, and a
-    # RETURNING statement reports its count through `exec_write`. DDL (empty
-    # cmdTuples) also leaves it alone.
-    #
-    # @raise [Sqlx::ConnectionFailed] the session died; the statement's outcome
-    #   is unknown (it may have committed)
-    def self.pq_exec(sql)
-      conn = current_conn
-      res = Libpq.PQexec(conn.dbh, sql)
+    # Starts the per-query read-only transaction. The savepoint lets a cursor
+    # declare fail without aborting the transaction, so the extended-protocol
+    # fallback can still run.
+    def self.open_read_transaction(conn, timeout_ms)
+      run_statement(conn, "BEGIN READ ONLY")
+      run_statement(conn, "SET LOCAL statement_timeout = " + timeout_ms.to_s)
+      run_statement(conn, "SAVEPOINT sqlx_probe")
+    end
+
+    # Ends a failed read-only transaction without masking the error that ended
+    # it. A connection that is already gone keeps the original error.
+    def self.rollback_read_transaction(conn)
+      run_statement(conn, "ROLLBACK")
+    rescue
+      # The session is already gone; the original error is the one to raise.
+    end
+
+    # Declares the statement as a cursor and fetches at most max_rows + 1 rows.
+    # A statement the cursor cannot declare is rolled back to the savepoint and
+    # run through the extended protocol, which is how a write reaches the
+    # read-only transaction and how EXPLAIN/SHOW run.
+    def self.run_cursor_query(conn, sql, max_rows)
+      cursor_sql = "DECLARE sqlx_read NO SCROLL CURSOR WITHOUT HOLD FOR " + sql
+      res = Libpq.PQexecParams(conn.dbh, cursor_sql, 0, nil, nil, nil, nil, 0)
+      if Libpq.PQresultStatus(res) == Libpq::PGRES_COMMAND_OK
+        Libpq.PQclear(res)
+        fetch_sql = "FETCH FORWARD " + (max_rows + 1).to_s + " FROM sqlx_read"
+        fetch_res = run_statement(conn, fetch_sql)
+        begin
+          result = build_query_result(fetch_res, max_rows)
+        ensure
+          Libpq.PQclear(fetch_res)
+        end
+        run_statement(conn, "CLOSE sqlx_read")
+        return result
+      end
+      state = Libpq.PQresultErrorField(res, Libpq::PG_DIAG_SQLSTATE)
+      position = Libpq.PQresultErrorField(res, Libpq::PG_DIAG_STATEMENT_POSITION)
+      msg = Libpq.PQresultErrorMessage(res)
+      Libpq.PQclear(res)
+      if connection_failed?(conn, state, msg)
+        raise Sqlx::ConnectionFailed, msg
+      end
+      if state == "42601" && (position.nil? || position == "")
+        raise ArgumentError, "only one SQL statement is allowed"
+      end
+      raise Sqlx::ReadOnlyError, msg if state == "25006"
+      raise Sqlx::QueryTimeout, msg if state == "57014"
+      raise Sqlx::Busy, msg if busy_sqlstate?(state)
+      # The cursor only declares a query. Roll back to the savepoint and run
+      # the statement itself, so a write is refused by the read-only
+      # transaction and EXPLAIN/SHOW return their rows.
+      run_statement(conn, "ROLLBACK TO SAVEPOINT sqlx_probe")
+      fallback_res = run_param_statement(conn, sql)
+      begin
+        if Libpq.PQresultStatus(fallback_res) == Libpq::PGRES_EMPTY_QUERY
+          raise ArgumentError, "SQL must contain one statement"
+        end
+        build_query_result(fallback_res, max_rows)
+      ensure
+        Libpq.PQclear(fallback_res)
+      end
+    end
+
+    # Walks one result into a QueryResult. The cursor fetch has at most
+    # max_rows + 1 rows; the extended-protocol fallback may carry more, so the
+    # cap applies here for both paths.
+    def self.build_query_result(res, max_rows)
+      stmt = PgStmt.new("")
+      stmt.res = res
+      stmt.pending = false
+      stmt.row = -1
+      stmt.ncols = Libpq.PQnfields(res)
+      columns = []
+      i = 0
+      while i < stmt.ncols
+        columns.push(column_name(stmt, i))
+        i += 1
+      end
+      total = Libpq.PQntuples(res)
+      truncated = total > max_rows
+      limit = truncated ? max_rows : total
+      rows = []
+      while rows.length < limit
+        step?(stmt)
+        row = []
+        i = 0
+        while i < stmt.ncols
+          row.push(column_value(stmt, i))
+          i += 1
+        end
+        rows.push(row)
+      end
+      Sqlx::QueryResult.new(columns, rows, truncated)
+    end
+
+    # Runs one trusted statement (transaction control, FETCH, CLOSE) on
+    # `conn`. The caller owns the returned PGresult.
+    def self.run_statement(conn, sql)
+      checked_result(conn, Libpq.PQexec(conn.dbh, sql), sql)
+    end
+
+    # Runs one command through the extended protocol. The server refuses a
+    # second command in the same string, which is the single-statement rule the
+    # read-only path relies on.
+    def self.run_param_statement(conn, sql)
+      checked_result(conn, Libpq.PQexecParams(conn.dbh, sql, 0, nil, nil, nil, nil, 0), sql)
+    end
+
+    # Checks a PGresult and maps the driver's failure to the Sqlx error
+    # classes. Pool discard is the caller's job: `pq_exec` discards a pooled
+    # connection, while `exec_query` closes an explicit one.
+    def self.checked_result(conn, res, sql)
       status = Libpq.PQresultStatus(res)
+      if status == Libpq::PGRES_COPY_OUT || status == Libpq::PGRES_COPY_IN || status == Libpq::PGRES_COPY_BOTH
+        Libpq.PQclear(res)
+        raise Sqlx::ConnectionFailed, "COPY is not allowed on a read-only connection"
+      end
       if status != Libpq::PGRES_COMMAND_OK && status != Libpq::PGRES_TUPLES_OK && status != Libpq::PGRES_EMPTY_QUERY
         # Read both fields before the result is freed; the SQLSTATE decides
         # whether this is contention a caller can retry as a unit.
         state = Libpq.PQresultErrorField(res, Libpq::PG_DIAG_SQLSTATE)
         msg = Libpq.PQresultErrorMessage(res)
         Libpq.PQclear(res)
-        if connection_failed?(conn, state, msg)
-          discard_connection(conn)
-          raise Sqlx::ConnectionFailed, msg
-        end
+        raise Sqlx::ConnectionFailed, msg if connection_failed?(conn, state, msg)
+        raise Sqlx::ReadOnlyError, msg if state == "25006"
+        raise Sqlx::QueryTimeout, msg if state == "57014"
         raise Sqlx::RecordNotUnique, msg if unique_violation?(msg)
         raise Sqlx::Busy, msg if busy_sqlstate?(state)
         raise "Sqlx::Database.exec failed: " + msg + " — sql: " + sql
@@ -1138,6 +1321,23 @@ module Sqlx
         end
       end
       res
+    end
+
+    # Run one SQL string on the lease's connection. Returns the caller-owned
+    # PGresult. `run_statement` maps the driver's failure; a connection-level
+    # failure discards the pooled connection before re-raising, so a later
+    # checkout that finds no free connection opens a replacement.
+    #
+    # @raise [Sqlx::ConnectionFailed] the session died; the statement's outcome
+    #   is unknown (it may have committed)
+    def self.pq_exec(sql)
+      conn = current_conn
+      begin
+        run_statement(conn, sql)
+      rescue Sqlx::ConnectionFailed
+        discard_connection(conn)
+        raise
+      end
     end
 
     # One integer cell. A normal statement error (lastval before any insert)
@@ -1340,6 +1540,9 @@ module Sqlx
     private_class_method :escape_int_list
     private_class_method :capture_sql, :record_query, :replay_ptr
     private_class_method :ensure_executed, :pq_exec, :query_int
+    private_class_method :open_read_transaction, :rollback_read_transaction
+    private_class_method :run_cursor_query, :build_query_result
+    private_class_method :run_statement, :run_param_statement, :checked_result
     private_class_method :connection_failed?, :discard_connection
     private_class_method :autoincrement_shim, :substitute_params, :render_param
     private_class_method :seed_from_file
