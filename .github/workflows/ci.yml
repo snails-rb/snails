@@ -8,7 +8,7 @@ name: ci
 #
 # Three jobs by kind, not by speed: contract checks against the repo trees,
 # the core harness (compiles the core once and runs its cases), and the
-# scaffolder end-to-end path (generates an app, compiles it, boots it, runs its
+# app end-to-end path (generates an app, compiles it, boots it, runs its
 # harness). The e2e job is the slowest and would otherwise hold the other two
 # behind it in a single job.
 
@@ -77,7 +77,7 @@ jobs:
         run: bash scripts/test-runtime.sh
 
   e2e:
-    name: linux amd64 (scaffolder e2e)
+    name: linux amd64 (app e2e)
     runs-on: ubuntu-26.04
     timeout-minutes: 40
     steps:
@@ -88,5 +88,5 @@ jobs:
       # Generates the --scaffold app, compiles it, boots it, and runs its
       # harness. A different object from the core harness: this one tests the
       # generated app tree, not runtime/.
-      - name: Scaffolder end-to-end (demo)
+      - name: App end-to-end (demo)
         run: bash scripts/test-new.sh --only=demo

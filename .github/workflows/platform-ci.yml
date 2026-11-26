@@ -99,7 +99,7 @@ jobs:
         run: /bin/bash scripts/test-runtime.sh
 
   # The pg gate is two jobs per platform: the core regressions and the
-  # scaffolder app each compile from scratch, and one job paid their sum
+  # app e2e each compile from scratch, and one job paid their sum
   # (8m26s on Linux, 8m08s on macOS). They share no compile state, so the
   # split costs only the per-job setup.
   linux-pg-core:
@@ -317,7 +317,7 @@ jobs:
         run: /bin/bash scripts/test-runtime.sh
 
   macos-e2e:
-    name: macos (scaffolder e2e)
+    name: macos (app e2e)
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -325,7 +325,7 @@ jobs:
         uses: actions/checkout@v7
       - uses: ./.github/actions/macos-build-deps
       - uses: ./.github/actions/spinel-toolchain
-      - name: Scaffolder end-to-end (demo)
+      - name: App end-to-end (demo)
         run: /bin/bash scripts/test-new.sh --only=demo
 
   macos-pg-core:

@@ -20,4 +20,4 @@ assignees: ""
 
 ## Scope
 
-<!-- Does this affect the runtime, the CLI, the scaffolder, the manual, or a combination? -->
+<!-- Does this affect the runtime, the CLI, the project generator, the manual, or a combination? -->
