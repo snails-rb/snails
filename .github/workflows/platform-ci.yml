@@ -98,8 +98,12 @@ jobs:
       - name: Small harness (sqlite)
         run: /bin/bash scripts/test-runtime.sh
 
-  linux-pg:
-    name: linux pg (PG_URL)
+  # The pg gate is two jobs per platform: the core regressions and the
+  # scaffolder app each compile from scratch, and one job paid their sum
+  # (8m26s on Linux, 8m08s on macOS). They share no compile state, so the
+  # split costs only the per-job setup.
+  linux-pg-core:
+    name: linux pg core (PG_URL)
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     services:
@@ -183,6 +187,84 @@ jobs:
           /bin/bash scripts/test-generate-job-queue.sh
           /bin/bash scripts/test-migrate.sh
           /bin/bash scripts/test-runtime.sh --pg
+
+  linux-pg-app:
+    name: linux pg app (PG_URL)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Load tool pin
+        run: |
+          REV=$(python3 -c 'import tomllib; print(tomllib.load(open("pins.toml", "rb"))["SPINEL_REV"])')
+          echo "SPINEL_REV=$REV" >> "$GITHUB_ENV"
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential pkg-config \
+            libssl-dev libffi-dev sqlite3 libsqlite3-dev libpq-dev libjemalloc-dev \
+            postgresql-client
+      # The postgres service runs 18, but Ubuntu's postgresql-client is 16 and
+      # pg_dump refuses a newer server. Install the 18 client and put its bin
+      # ahead of Ubuntu's version wrapper on PATH.
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+      - name: Cache the pinned spinel install
+        uses: actions/cache@v6
+        with:
+          path: ~/.local
+          key: spinel-install-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+      - name: Cache spinel native package objects
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/spin
+          key: spin-native-${{ runner.os }}-${{ runner.arch }}-${{ env.SPINEL_REV }}
+          restore-keys: |
+            spin-native-${{ runner.os }}-${{ runner.arch }}-
+      - name: Build spinel when the cache misses
+        run: |
+          if "$HOME/.local/bin/spin" --version 2>/dev/null | grep -q "${SPINEL_REV:0:8}"; then
+            echo "cached spinel matches $SPINEL_REV"
+            exit 0
+          fi
+          rm -rf "$RUNNER_TEMP/spinel-src"
+          git clone https://github.com/matz/spinel "$RUNNER_TEMP/spinel-src"
+          cd "$RUNNER_TEMP/spinel-src"
+          git checkout "$SPINEL_REV"
+          make deps
+          make -j"$(getconf _NPROCESSORS_ONLN)"
+          make install PREFIX="$HOME/.local"
+      - name: Expose the pinned toolchain
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/spin" --version
       - name: Harness test against PG_URL
         env:
           SNAILS_DIR: ${{ github.workspace }}
@@ -195,12 +277,12 @@ jobs:
           "$SNAILS_DIR/bin/snails" migrate dump --app "$APP"
           "$APP/bin/test"
 
-  # The macOS gate is four jobs by suite kind, because a single serial job
-  # paid for every suite in one wall-clock run. Each job still exercises the
-  # same cases: the contract job runs the sqlite surface (the pg cases skip
-  # without a reachable server) and the pg job runs those same cases with
-  # PG_URL set, exactly as ci.yml's Linux contracts and platform-ci's linux-pg
-  # jobs already split them.
+  # The macOS gate is split by suite kind, because a single serial job paid
+  # for every suite in one wall-clock run. Each job still exercises the same
+  # cases: the contract job runs the sqlite surface (the pg cases skip without
+  # a reachable server) and the pg jobs run those same cases with PG_URL set,
+  # exactly as ci.yml's Linux contracts and platform-ci's Linux pg jobs do.
+  # The pg pair is split for the same reason as the Linux pg pair above.
   macos-contracts:
     name: macos (contracts)
     runs-on: macos-latest
@@ -246,8 +328,8 @@ jobs:
       - name: Scaffolder end-to-end (demo)
         run: /bin/bash scripts/test-new.sh --only=demo
 
-  macos-pg:
-    name: macos (pg)
+  macos-pg-core:
+    name: macos (pg core)
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -270,6 +352,23 @@ jobs:
           /bin/bash scripts/test-generate-job-queue.sh
           /bin/bash scripts/test-migrate.sh
           /bin/bash scripts/test-runtime.sh --pg
+
+  macos-pg-app:
+    name: macos (pg app)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+      - uses: ./.github/actions/macos-build-deps
+      - uses: ./.github/actions/spinel-toolchain
+      - name: Start PostgreSQL
+        run: |
+          pgbin="$(brew --prefix postgresql@18)/bin"
+          echo "$pgbin" >> "$GITHUB_PATH"
+          "$pgbin/initdb" -D "$RUNNER_TEMP/pgdata" -U postgres --no-locale >/dev/null
+          "$pgbin/pg_ctl" -D "$RUNNER_TEMP/pgdata" -l "$RUNNER_TEMP/pg.log" -o "-p 5432 -k $RUNNER_TEMP" start
+          "$pgbin/createdb" -h 127.0.0.1 -p 5432 -U postgres snails_test
       - name: Harness test against PG_URL
         env:
           SNAILS_DIR: ${{ github.workspace }}

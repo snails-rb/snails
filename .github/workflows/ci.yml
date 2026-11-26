@@ -4,7 +4,7 @@ name: ci
 # Everything that needs PostgreSQL, macOS, arm64, or the app image runs in
 # platform-ci on the merge commit, so a PR does not pay for a second long
 # matrix. The pg cases inside these scripts skip when no server is reachable;
-# platform-ci's linux-pg job is where they actually run.
+# platform-ci's Linux pg jobs are where they actually run.
 #
 # Three jobs by kind, not by speed: contract checks against the repo trees,
 # the core harness (compiles the core once and runs its cases), and the
