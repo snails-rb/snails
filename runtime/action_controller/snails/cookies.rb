@@ -119,6 +119,17 @@ module ActionController
       PermanentCookieJar.new(self)
     end
 
+    # The `cookies.signed` wrapper: it signs writes and verifies reads over
+    # the same jar. A read that does not verify returns nil, so a tampered
+    # value is indistinguishable from an absent one.
+    #
+    # @return [SignedCookieJar] the signed wrapper
+    # @example
+    #   cookies.signed[:token] = "abc"
+    def signed
+      SignedCookieJar.new(self)
+    end
+
     # Returns the latest stored value for a key without the option parsing
     # in `[]=`. The signed wrapper reads through this method.
     #
@@ -443,6 +454,90 @@ module ActionController
     def each
       @jar.each { |k, v| yield k, v }
       self
+    end
+  end
+
+  # The `cookies.signed` view: same storage, signed on the way out and
+  # verified on the way in. A read that does not verify returns nil — a
+  # tampered value, a bad signature, a value signed for another cookie name,
+  # and an absent cookie all read the same.
+  class SignedCookieJar
+    def initialize(jar)
+      @jar = jar
+    end
+
+    def [](key)
+      raw = @jar.raw(key)
+      return nil if raw == ""
+      verifier.verified(raw, purpose: purpose_for(key))
+    end
+
+    def []=(key, value)
+      write_from(key, value, false)
+    end
+
+    # The shared signed write path for this view and its permanent view.
+    # A Hash carries `value:` plus the transport attributes; a bare value
+    # uses the defaults. The signed text replaces the value on the wire.
+    #
+    # @api internal
+    # @param key [Object] the cookie name
+    # @param value [Object] the value, or the options Hash
+    # @param permanent [Boolean] add a 20-year expiry when none is given
+    # @return [String] the signed value stored on the wire
+    def write_from(key, value, permanent)
+      if value.nil?
+        return @jar.delete(key)
+      end
+      if !value.is_a?(Hash)
+        signed = verifier.generate(value.to_s, purpose: purpose_for(key))
+        return @jar.raw_set(key, signed, {}, permanent)
+      end
+      if !value.key?(:value)
+        raise ArgumentError, "cookies[:#{key}] needs a value: key"
+      end
+      stored = value[:value]
+      return @jar.delete(key) if stored.nil?
+      signed = verifier.generate(stored.to_s, purpose: purpose_for(key))
+      @jar.raw_set(key, signed, value, permanent)
+    end
+
+    def permanent
+      SignedPermanentCookieJar.new(self)
+    end
+
+    def delete(key, **options)
+      @jar.delete(key, **options)
+    end
+
+    def verifier
+      Snails::MessageVerifier.new
+    end
+
+    def purpose_for(key)
+      "cookie." + key.to_s
+    end
+
+    private :verifier, :purpose_for
+  end
+
+  # The `cookies.signed.permanent` view: sign the value and add the same
+  # 20-year expiry `cookies.permanent` promises.
+  class SignedPermanentCookieJar
+    def initialize(signed)
+      @signed = signed
+    end
+
+    def [](key)
+      @signed[key]
+    end
+
+    def []=(key, value)
+      @signed.write_from(key, value, true)
+    end
+
+    def delete(key, **options)
+      @signed.delete(key, **options)
     end
   end
 

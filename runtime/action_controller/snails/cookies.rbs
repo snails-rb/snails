@@ -16,6 +16,7 @@ module ActionController
     def []=: (untyped key, untyped value) -> String
     def write_from: (untyped key, untyped value, bool permanent) -> String
     def permanent: () -> ActionController::PermanentCookieJar
+    def signed: () -> ActionController::SignedCookieJar
     def raw: (untyped key) -> String
     def raw_set: (untyped key, untyped value, ?Hash[Symbol, untyped] options, ?bool permanent) -> String
     def delete: (untyped key, **untyped options) -> String
@@ -47,6 +48,29 @@ module ActionController
     def delete: (untyped key, **untyped options) -> String
     def to_h: () -> Hash[String, String]
     def each: () { (String, String) -> void } -> ActionController::PermanentCookieJar
+  end
+
+  class SignedCookieJar
+    @jar: ActionController::CookieJar
+
+    def initialize: (ActionController::CookieJar jar) -> void
+    def []: (untyped key) -> String?
+    def []=: (untyped key, untyped value) -> String
+    def write_from: (untyped key, untyped value, bool permanent) -> String
+    def permanent: () -> ActionController::SignedPermanentCookieJar
+    def delete: (untyped key, **untyped options) -> String
+
+    private def verifier: () -> Snails::MessageVerifier
+    private def purpose_for: (untyped key) -> String
+  end
+
+  class SignedPermanentCookieJar
+    @signed: ActionController::SignedCookieJar
+
+    def initialize: (ActionController::SignedCookieJar signed) -> void
+    def []: (untyped key) -> String?
+    def []=: (untyped key, untyped value) -> String
+    def delete: (untyped key, **untyped options) -> String
   end
 
   class API

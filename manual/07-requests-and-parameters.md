@@ -98,6 +98,16 @@ Options are `expires:` (a `Time`), `max_age:` (seconds), `path:`, `domain:`, `se
 
 `cookies[:missing]` returns `""`, not `nil`. Read `request.cookies` when you need to tell an absent cookie from an empty value. `cookies.permanent[:name] = "value"` adds a 20-year expiry.
 
+`cookies.signed[:name]` signs the value with `SECRET_KEY_BASE` and verifies it on read. A tampered value, or a value signed for another cookie name, reads `nil`:
+
+```ruby
+cookies.signed[:token] = "abc"
+cookies.signed[:token]             # "abc", or nil when the signature does not verify
+cookies.signed.permanent[:token] = "abc"
+```
+
+`cookies.signed` accepts the same options Hash as the plain jar.
+
 The jar is the supported write path. Do not set `Set-Cookie` through `response.headers`. That hash holds one value per header and cannot hold several cookies.
 
 The framework does not provide sessions. If you need sessions, implement them in your app.

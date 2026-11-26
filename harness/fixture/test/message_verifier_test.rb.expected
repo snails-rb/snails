@@ -1,0 +1,12 @@
+ok test_round_trip
+ok test_tampered_token_returns_nil
+ok test_wrong_purpose_returns_nil
+ok test_wrong_secret_returns_nil
+ok test_secure_compare
+ok test_signed_cookie_round_trip
+ok test_signed_cookie_tamper_returns_nil
+ok test_signed_cookie_other_name_returns_nil
+ok test_signed_cookie_keeps_options
+ok test_signed_permanent_sets_expiry
+ok test_signed_delete_clears_the_value
+MessageVerifierTest: 11 tests passed
