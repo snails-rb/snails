@@ -466,12 +466,22 @@ module ActionController
       @jar = jar
     end
 
+    # Returns the verified value for a cookie, or nil when the cookie is
+    # absent or does not verify.
+    #
+    # @param key [Object] the cookie name
+    # @return [String, nil] the signed value, or nil when absent or invalid
     def [](key)
       raw = @jar.raw(key)
       return nil if raw == ""
       verifier.verified(raw, purpose: purpose_for(key))
     end
 
+    # Records a signed cookie write. A nil value deletes the cookie.
+    #
+    # @param key [Object] the cookie name
+    # @param value [Object] the value, or the options Hash
+    # @return [String] the stored value
     def []=(key, value)
       write_from(key, value, false)
     end
@@ -502,10 +512,19 @@ module ActionController
       @jar.raw_set(key, signed, value, permanent)
     end
 
+    # Returns the wrapper whose signed writes expire in 20 years.
+    #
+    # @return [SignedPermanentCookieJar] the permanent signed-cookie wrapper
     def permanent
       SignedPermanentCookieJar.new(self)
     end
 
+    # Deletes a cookie through the base jar.
+    #
+    # @param key [Object] the cookie name
+    # @param options [Hash{Symbol => Object}] path, domain, and attribute
+    #   options passed to the base jar
+    # @return [String] `""`
     def delete(key, **options)
       @jar.delete(key, **options)
     end
@@ -536,14 +555,30 @@ module ActionController
       @signed = signed
     end
 
+    # Returns the verified value through the signed wrapper.
+    #
+    # @param key [Object] the cookie name
+    # @return [String, nil] the signed value, or nil when absent or invalid
     def [](key)
       @signed[key]
     end
 
+    # Records a signed write with a 20-year expiry unless the caller passes
+    # `expires:`.
+    #
+    # @param key [Object] the cookie name
+    # @param value [Object] the value, or the options Hash
+    # @return [String] the stored value
     def []=(key, value)
       @signed.write_from(key, value, true)
     end
 
+    # Deletes a cookie through the signed wrapper.
+    #
+    # @param key [Object] the cookie name
+    # @param options [Hash{Symbol => Object}] path, domain, and attribute
+    #   options passed to the base jar
+    # @return [String] `""`
     def delete(key, **options)
       @signed.delete(key, **options)
     end
