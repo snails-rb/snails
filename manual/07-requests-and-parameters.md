@@ -100,7 +100,7 @@ Options are `expires:` (a `Time`), `max_age:` (seconds), `path:`, `domain:`, `se
 
 The jar is the supported write path. Do not set `Set-Cookie` through `response.headers`. That hash holds one value per header and cannot hold several cookies.
 
-A session is your model, not a framework feature. [Authentication](08-authentication.md) shows a cookie session backed by a table.
+A session is your model, not a framework feature.
 
 ## Narrow input before it reaches a model
 

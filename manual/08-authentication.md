@@ -1,6 +1,6 @@
 # Authentication
 
-Snails gives you HTTP authentication, not the user model. The controller reads a token or a username and password from the request, and your app decides whether it belongs to a user. The helper returns 401 when it doesn't. No session store and no token table are built in. The `cookies` jar reads and writes cookies; this chapter shows a session you own.
+Snails gives you HTTP authentication, not the user model. The controller reads a token or a username and password from the request, and your app decides whether it belongs to a user. The helper returns 401 when it doesn't. No session store and no token table are built in. The `cookies` jar reads and writes cookies.
 
 ## Read a token
 
@@ -90,76 +90,6 @@ request_http_basic_authentication("Admin")
 ```
 
 Each writes the `WWW-Authenticate` header, a 401 status, and a plain-text body. Call one from an action or a filter after your own lookup fails.
-
-## Cookie sessions
-
-A cookie session is a table, a random token, and a cookie. The framework stores nothing. The table and the expiry are yours.
-
-Create a table with one row per signed-in device:
-
-```sql
-CREATE TABLE ui_sessions (
-  id INTEGER PRIMARY KEY,
-  account_id INTEGER NOT NULL,
-  token_hash TEXT NOT NULL UNIQUE,
-  expires_at DATETIME NOT NULL
-);
-```
-
-On login, issue a random token and store only its hash. The cookie holds the token:
-
-```ruby
-token = SecureRandom.urlsafe_base64(32)
-AccountSession.create!({
-  account_id: account.id,
-  token_hash: OpenSSL::Digest::SHA256.hexdigest(token),
-  expires_at: Time.now + 3600
-})
-cookies["__Host-ui_session"] = {
-  value: token,
-  httponly: true,
-  secure: true,
-  same_site: :strict,
-  path: "/",
-  max_age: 3600
-}
-```
-
-`SecureRandom` and `OpenSSL` come from the standard library; require them in the file that uses them.
-
-The `__Host-` prefix makes the browser reject the cookie unless it is Secure, host-only, and rooted at `/`. The framework raises `ArgumentError` for the same three violations, so a misconfigured write fails at the call site.
-
-A filter reads the cookie and looks up the row:
-
-```ruby
-def current_account
-  token = cookies["__Host-ui_session"]
-  return nil if token == ""
-  row = AccountSession.find_by({
-    token_hash: OpenSSL::Digest::SHA256.hexdigest(token)
-  })
-  return nil if row.nil?
-  return nil if row.expires_at <= Time.now
-  Account.find(row.account_id)
-end
-```
-
-`cookies[...]` returns `""` for an absent cookie, not `nil`. Use `request.cookies` if you need to tell an absent cookie from an empty value.
-
-Logout deletes the row and the cookie:
-
-```ruby
-AccountSession.delete_all!({
-  token_hash: OpenSSL::Digest::SHA256.hexdigest(token)
-})
-cookies.delete("__Host-ui_session", path: "/", secure: true)
-```
-
-`cookies.delete` sends `Max-Age=0` and an expired date. Pass the same path and domain the write used, or the browser keeps the old cookie.
-
-A cookie session is not CSRF protection. `SameSite=Strict` stops cross-site sends, and an `Origin` check stops a state-changing request from an untrusted site. CORS (Cross-Origin Resource Sharing) controls which origins can read a response. It does not stop the request.
-
-If you choose a signed token instead, the signature and refresh rotation are yours. The cookie jar is the same.
 
 ## What the framework owns
 
