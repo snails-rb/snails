@@ -3,8 +3,8 @@ require_relative "harness_runner"
 
 # Cookies are HTTP transport: the request's parsed hash reaches
 # `request.cookies`, the controller jar reads the same inbound values, and
-# every write becomes one Set-Cookie line with the attributes the app asked
-# for. A read after a delete must not see the deleted inbound value.
+# every write becomes one `Set-Cookie` line with the attributes the app
+# asked for. A read after a delete must not see the deleted inbound value.
 Snails.env = "test"
 
 class CookieTest < TestBase
@@ -38,7 +38,7 @@ class CookieTest < TestBase
   end
 
   # Two writes produce two lines; each carries its own attributes, and a
-  # bare value gets the Rails defaults (Path=/ and SameSite=Lax).
+  # plain value gets the jar defaults (Path=/ and SameSite=Lax).
   def test_write_emits_multiple_set_cookie_lines_with_options
     res = Tep::Response.new
     Snails::Main.dispatch(build_request("/cookie-write"), res)
@@ -84,7 +84,7 @@ class CookieTest < TestBase
   end
 
   # A read after a delete returns "" even though the inbound cookie held a
-  # value — the pending tombstone wins over the inbound store.
+  # value — the cleared write takes precedence over the inbound value.
   def test_delete_wins_over_inbound_on_read
     jar = ActionController::CookieJar.new({ "session" => "abc" })
     jar.delete("session")
@@ -141,6 +141,83 @@ class CookieTest < TestBase
     jar = ActionController::CookieJar.new
     assert_equal "", jar["missing"]
   end
+
+  # A cookie name is an RFC 6265 token: separators, control bytes, and
+  # non-ASCII characters fail at the write.
+  def test_cookie_name_rejects_token_separators
+    jar = ActionController::CookieJar.new
+    begin
+      jar["a:b"] = "v"
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "cookie name"
+    end
+    begin
+      jar["a(b"] = "v"
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "cookie name"
+    end
+    begin
+      jar["a\x7F"] = "v"
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "cookie name"
+    end
+  end
+
+  # Path and domain are written into `Set-Cookie` without escaping; a
+  # semicolon or CR/LF there would add an attribute or a header line, so the
+  # jar rejects it.
+  def test_path_and_domain_reject_header_characters
+    jar = ActionController::CookieJar.new
+    begin
+      jar["session"] = { value: "v", path: "/; Secure" }
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "cookie path"
+    end
+    begin
+      jar["session"] = { value: "v", domain: "example.com; HttpOnly" }
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "cookie domain"
+    end
+    begin
+      jar["session"] = { value: "v", path: "/\r\nX-Evil: 1" }
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "cookie path"
+    end
+    begin
+      jar["session"] = { value: "v", domain: "example.com\r\nX-Evil: 1" }
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "cookie domain"
+    end
+  end
+
+  # A valid path and domain still write; validation must not reject ordinary
+  # values.
+  def test_valid_path_and_domain_are_accepted
+    jar = ActionController::CookieJar.new
+    jar["session"] = { value: "v", path: "/app", domain: ".example.com" }
+    assert_equal 1, jar.pending.length
+  end
+
+  # The __Secure- prefix only needs Secure; a rule violation fails at the
+  # write.
+  def test_secure_prefix_requires_secure
+    jar = ActionController::CookieJar.new
+    begin
+      jar["__Secure-session"] = { value: "v" }
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "__Secure-"
+    end
+    jar["__Secure-session"] = { value: "v", secure: true }
+    assert_equal 1, jar.pending.length
+  end
 end
 
 FixtureRunner.run(CookieTest, [
@@ -153,4 +230,8 @@ FixtureRunner.run(CookieTest, [
   "test_same_site_none_requires_secure",
   "test_unknown_option_is_rejected",
   "test_missing_cookie_reads_empty_string",
+  "test_cookie_name_rejects_token_separators",
+  "test_path_and_domain_reject_header_characters",
+  "test_valid_path_and_domain_are_accepted",
+  "test_secure_prefix_requires_secure",
 ])

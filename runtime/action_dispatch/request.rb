@@ -287,10 +287,10 @@ module ActionDispatch
       @params = value
     end
 
-    # Store the transport's parsed cookies as a plain String-to-String hash.
-    # The transport hash carries a default value, and reading a subscript
-    # through the boxed hash is not a shape this pin carries; copying here
-    # gives `request.cookies` and the controller jar one concrete store.
+    # Stores the transport's parsed cookies as a plain String-to-String hash.
+    # The transport hash has a default value, and reading a subscript directly
+    # through it does not compile in this build; copying here gives
+    # `request.cookies` and the controller jar one concrete store.
     #
     # @api internal
     # @param value [Hash{String => String}] the transport's parsed cookies

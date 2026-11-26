@@ -1,12 +1,13 @@
 # Controller-level cookie access: the `cookies` jar. A read returns the
 # request's inbound value; a write records one `Set-Cookie` line for the
-# dispatcher to emit after the action. The jar is the app surface — the
-# wire formatter stays in `Tep::Response#set_cookie`.
+# dispatcher to emit after the action. The jar is the app-facing API; the
+# HTTP formatter stays in `Tep::Response#set_cookie`.
 #
-# The jar lives in this reopen rather than `api.rb` so the aggregator owns
-# the load order and the controller body stays about its own state.
+# The jar is defined in this file rather than in `api.rb` so
+# `runtime/action_controller.rb` controls the load order and the controller
+# class file stays focused on request state.
 module ActionController
-  # One pending cookie write: the name, the wire value, and canonical
+  # One pending cookie write: the name, the stored value, and canonical
   # `Set-Cookie` attributes (`Path`, `Expires`, `Max-Age`, `Domain`,
   # `Secure`, `HttpOnly`, `SameSite`). A flag attribute carries an empty
   # value because `Tep::Response#set_cookie` writes an empty value as a
@@ -29,13 +30,13 @@ module ActionController
   # Writes are pending until the dispatcher copies them onto the response,
   # so a filter and the action share one jar for the request.
   #
-  # A missing cookie reads as `""` rather than `nil`. Rails returns nil;
-  # this runtime keeps a non-null String because spinel's nullable-String
-  # path rejects the common `cookies[:name].to_s.split(...)` shape. Callers
-  # that need presence test `== ""` or read `request.cookies` and check
-  # `key?`.
+  # A missing cookie reads as `""`, not `nil`, so a read can be used without
+  # a nil check. The spinel compiler rejects a `nil`-returning String read
+  # in the common `cookies[:name].to_s.split(...)` call form. Callers that
+  # need to tell an absent cookie from an empty value read `request.cookies`
+  # and check `key?`.
   #
-  # The write forms are Rails-like:
+  # The write forms are:
   #
   #   cookies[:name] = "value"
   #   cookies[:name] = { value: "value", httponly: true, secure: true,
@@ -43,25 +44,26 @@ module ActionController
   #   cookies.delete(:name, path: "/")
   #   cookies.permanent[:name] = "value"
   #
-  # Unknown option keys raise, as do values that break the browser's
-  # `__Host-`/`__Secure-`/`SameSite=None` rules — a silently dropped
-  # `HttpOnly` or a browser-rejected cookie is worse than a loud error at
-  # the call site.
+  # Unknown option keys raise. So do names, paths, and domains that would
+  # make an invalid `Set-Cookie` header, and values that break the browser's
+  # `__Host-`/`__Secure-`/`SameSite=None` rules. A silently dropped
+  # `HttpOnly` or a browser-rejected cookie is worse than an immediate
+  # `ArgumentError` at the call site.
   class CookieJar
     # @param inbound [Hash{String => String}] the request's parsed cookie
     #   hash (`ActionDispatch::Request#cookies`)
     # @return [void]
     def initialize(inbound = {})
       # The dispatcher copies the transport hash into `request.cookies`
-      # first, so this store is already a plain String-to-String hash; a
-      # second copy here would be dead weight.
+      # first, so this store is already a plain String-to-String hash.
+      # Copying it again here is unnecessary.
       @inbound = inbound
       @writes = []
     end
 
-    # the cookie value, or `""` when absent. A pending write wins over the
-    # inbound value, including a cleared write, so a read after
-    # `cookies.delete` does not see the deleted value.
+    # Returns the cookie value, or `""` when absent. A pending write takes
+    # precedence over the inbound value, including a cleared write, so a read
+    # after `cookies.delete` does not see the deleted value.
     #
     # @param key [Object] the cookie name
     # @return [String] the value, `""` when absent
@@ -71,28 +73,29 @@ module ActionController
       raw(key)
     end
 
-    # record a cookie write. A bare value writes the cookie with defaults;
-    # a Hash carries `value:` plus any transport attributes. A nil value
-    # (bare or under `value:`) deletes the cookie.
+    # Records a cookie write. A plain value writes the cookie with defaults;
+    # a Hash carries `value:` plus any cookie attributes. A nil value (plain
+    # or under `value:`) deletes the cookie.
     #
     # @param key [Object] the cookie name
     # @param value [Object] the value, or the options Hash
-    # @return [String] the value stored on the wire
-    # @raise [ArgumentError] the name is empty or invalid, the options
-    #   carry an unknown key, or the attributes break a cookie prefix rule
+    # @return [String] the stored value
+    # @raise [ArgumentError] the name is empty or not an RFC 6265 token, the
+    #   options carry an unknown key, the path or domain has an invalid
+    #   character, or the attributes break a cookie prefix rule
     def []=(key, value)
       write_from(key, value, false)
     end
 
-    # The shared write path for the plain jar and `cookies.permanent`: parse
-    # the bare-value or options-Hash form, then record the write. `permanent`
-    # only supplies the 20-year expiry the view promises.
+    # The shared write path for the plain jar and `cookies.permanent`. It
+    # parses a plain value or an options Hash, then records the write.
+    # `permanent` only supplies the 20-year expiry the wrapper promises.
     #
     # @api internal
     # @param key [Object] the cookie name
     # @param value [Object] the value, or the options Hash
     # @param permanent [Boolean] add a 20-year expiry when none is given
-    # @return [String] the value stored on the wire
+    # @return [String] the stored value
     def write_from(key, value, permanent)
       if value.nil?
         return delete(key)
@@ -108,16 +111,16 @@ module ActionController
       raw_set(key, stored, value, permanent)
     end
 
-    # a view whose writes expire in 20 years — Rails' `permanent` helper.
-    # A read and a delete go through the same jar.
+    # The `cookies.permanent` wrapper: every write expires in 20 years. A
+    # read and a delete go through the same jar.
     #
-    # @return [PermanentCookieJar] the permanent-write view
+    # @return [PermanentCookieJar] the permanent-write wrapper
     def permanent
       PermanentCookieJar.new(self)
     end
 
-    # the latest stored value for a key, without the option parsing of
-    # `[]=` — the read side the signed view shares.
+    # Returns the latest stored value for a key without the option parsing
+    # in `[]=`. The signed wrapper reads through this method.
     #
     # @api internal
     # @param key [Object] the cookie name
@@ -134,14 +137,16 @@ module ActionController
       ""
     end
 
-    # record one write with canonical options — the write side the signed
-    # view shares. Exposed to the sibling classes, not to apps.
+    # Records one write with normalized attributes. The signed wrapper writes
+    # through this method. Internal: the jar and its wrappers call it; apps
+    # use `[]=`.
     #
     # @api internal
     # @param key [Object] the cookie name
     # @param value [Object] the value coerced to a String
     # @param options [Hash{Symbol => Object}] the app's option Hash
-    # @return [String] the value stored on the wire
+    # @param permanent [Boolean] add a 20-year expiry when none is given
+    # @return [String] the stored value
     def raw_set(key, value, options = {}, permanent = false)
       name = cookie_name(key)
       text = value.to_s
@@ -169,9 +174,9 @@ module ActionController
       ""
     end
 
-    # the writes this request records, for the dispatcher's Set-Cookie
-    # serialization. Not the merged view (`to_h`) — a read of a cookie that
-    # was not written this request must not emit a header.
+    # Returns the writes recorded during this request for the dispatcher's
+    # `Set-Cookie` lines. This is not `to_h`: a cookie that was only read
+    # from the request must not emit a header.
     #
     # @api internal
     # @return [Array<Cookie>] the pending writes
@@ -214,9 +219,10 @@ module ActionController
       self
     end
 
-    # The name validation and the option canonicalization are one path for
-    # every write (plain, signed, permanent, delete) so a prefix rule cannot
-    # be skipped by one form. Empty values are flags on the wire.
+    # Name validation and attribute normalization share one path for every
+    # write (plain, signed, permanent, delete), so a prefix rule cannot be
+    # skipped by one form. An empty attribute value is written as a bare
+    # flag.
     def canonical_options(name, options, permanent)
       path = "/"
       domain = ""
@@ -279,20 +285,39 @@ module ActionController
       if name.empty?
         raise ArgumentError, "cookie name must not be empty"
       end
-      bad = [ ";", ",", "=", " ", "\t", "\r", "\n" ]
       i = 0
-      while i < bad.length
-        if name.include?(bad[i])
-          raise ArgumentError, "cookie name contains #{bad[i]}"
+      while i < name.bytesize
+        byte = name.getbyte(i)
+        if !cookie_name_byte?(byte)
+          raise ArgumentError, "cookie name contains an invalid character"
         end
         i += 1
       end
       name
     end
 
+    # RFC 6265 cookie-name is a token: visible ASCII without separators.
+    def cookie_name_byte?(byte)
+      return false if byte < 0x21 || byte > 0x7E
+      return false if byte == 0x28 || byte == 0x29 || byte == 0x3C || byte == 0x3E
+      return false if byte == 0x40 || byte == 0x2C || byte == 0x3B || byte == 0x3A
+      return false if byte == 0x5C || byte == 0x22 || byte == 0x2F || byte == 0x5B
+      return false if byte == 0x5D || byte == 0x3F || byte == 0x3D || byte == 0x7B
+      return false if byte == 0x7D
+      true
+    end
+
     def path_value(value)
       if !value.is_a?(String) || value.empty? || !value.start_with?("/")
         raise ArgumentError, "cookie path must be a String starting with \"/\""
+      end
+      i = 0
+      while i < value.bytesize
+        byte = value.getbyte(i)
+        if byte < 0x20 || byte > 0x7E || byte == 0x3B
+          raise ArgumentError, "cookie path contains an invalid character"
+        end
+        i += 1
       end
       value
     end
@@ -301,7 +326,42 @@ module ActionController
       if !value.is_a?(String) || value.empty?
         raise ArgumentError, "cookie domain must be a non-empty String"
       end
+      start = 0
+      if value.getbyte(0) == 0x2E
+        start = 1
+      end
+      if start == value.bytesize
+        raise ArgumentError, "cookie domain must not be empty"
+      end
+      label_start = start
+      i = start
+      while i < value.bytesize
+        byte = value.getbyte(i)
+        if byte == 0x2E
+          if i == label_start
+            raise ArgumentError, "cookie domain has an empty label"
+          end
+          label_start = i + 1
+        elsif !domain_byte?(byte)
+          raise ArgumentError, "cookie domain contains an invalid character"
+        elsif byte == 0x2D &&
+              (i == label_start || i + 1 == value.bytesize || value.getbyte(i + 1) == 0x2E)
+          raise ArgumentError, "cookie domain label must not start or end with a hyphen"
+        end
+        i += 1
+      end
+      if label_start == value.bytesize
+        raise ArgumentError, "cookie domain has an empty label"
+      end
       value
+    end
+
+    def domain_byte?(byte)
+      return true if byte >= 0x41 && byte <= 0x5A
+      return true if byte >= 0x61 && byte <= 0x7A
+      return true if byte >= 0x30 && byte <= 0x39
+      return true if byte == 0x2D || byte == 0x2E
+      false
     end
 
     def boolean_value(value, name)
@@ -333,9 +393,9 @@ module ActionController
       value
     end
 
-    # RFC 6265's cookie-date shape, in UTC: `Wdy, DD Mon YYYY HH:MM:SS GMT`.
-    # `Time#strftime` on the pinned toolchain does not carry `%a`/`%b`
-    # through every call path, so the weekday and month tables are explicit.
+    # Formats an RFC 6265 cookie date in UTC: `Wdy, DD Mon YYYY HH:MM:SS GMT`.
+    # `Time#strftime` in this build does not expand `%a`/`%b` on every path,
+    # so the weekday and month tables are explicit.
     def http_date(value)
       utc = value.utc
       weekdays = [ "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" ]
@@ -351,14 +411,14 @@ module ActionController
       value < 10 ? "0" + value.to_s : value.to_s
     end
 
-    private :cookie_name, :path_value, :domain_value, :boolean_value
-    private :same_site_value, :expires_value, :max_age_value, :http_date, :pad_number
+    private :cookie_name, :cookie_name_byte?, :path_value, :domain_value
+    private :domain_byte?, :boolean_value, :same_site_value, :expires_value
+    private :max_age_value, :http_date, :pad_number
   end
 
-  # The `cookies.permanent` view: every write gets a 20-year `expires`
-  # unless the caller named one. Composed by delegation, not by a flag on
-  # the jar — a flag would keep expiring later plain writes from the same
-  # request.
+  # The `cookies.permanent` wrapper: every write gets a 20-year `expires`
+  # unless the caller passes one. It delegates to the jar instead of setting
+  # a flag, so a later plain write in the same request is not affected.
   class PermanentCookieJar
     def initialize(jar)
       @jar = jar
@@ -387,8 +447,8 @@ module ActionController
   end
 
   class API
-    # the request's cookie jar. The dispatcher assigns it before the action;
-    # a controller constructed in a test still gets an empty jar.
+    # The request's cookie jar. The dispatcher assigns it before the action;
+    # a controller without an assigned jar gets an empty one.
     #
     # @return [CookieJar] the request's cookie jar
     # @example
@@ -398,27 +458,15 @@ module ActionController
       @cookies
     end
 
+    # Assigns the request jar. Internal: the dispatcher calls this before the
+    # action; apps read the jar through `cookies`.
+    #
+    # @api internal
     # @param value [CookieJar] the jar the dispatcher assigns
     # @return [CookieJar] the assigned jar
     def cookies=(value)
       @cookies = value
       value
-    end
-  end
-end
-
-# Rails puts the jar at `ActionDispatch::Cookies::CookieJar` and reaches it
-# from a controller as `cookies`. App code that rebuilds a jar from stored
-# values calls `ActionDispatch::Cookies::CookieJar.build(request, hash)`;
-# keeping that spelling as a constructor keeps the Rails call shape without
-# a second jar. `request` is accepted and ignored — this runtime derives no
-# host-scoped `domain: :all` behavior from it.
-module ActionDispatch
-  module Cookies
-    class CookieJar
-      def self.build(request, cookies)
-        ActionController::CookieJar.new(cookies)
-      end
     end
   end
 end

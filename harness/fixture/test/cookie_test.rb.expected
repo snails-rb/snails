@@ -7,4 +7,8 @@ ok test_host_prefix_requires_secure_path_and_no_domain
 ok test_same_site_none_requires_secure
 ok test_unknown_option_is_rejected
 ok test_missing_cookie_reads_empty_string
-CookieTest: 9 tests passed
+ok test_cookie_name_rejects_token_separators
+ok test_path_and_domain_reject_header_characters
+ok test_valid_path_and_domain_are_accepted
+ok test_secure_prefix_requires_secure
+CookieTest: 13 tests passed

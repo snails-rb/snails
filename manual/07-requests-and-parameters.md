@@ -94,7 +94,7 @@ cookies.delete(:session, path: "/")
 
 A write records a `Set-Cookie` line. Several writes in one request produce several lines. The defaults are `path: "/"` and `same_site: :lax`. `secure` and `httponly` stay false until you set them. A nil value deletes the cookie.
 
-Options are `expires:` (a `Time`), `max_age:` (seconds), `path:`, `domain:`, `secure:`, `httponly:`, and `same_site:` (`:lax`, `:strict`, `:none`, or `nil`). An unknown key raises `ArgumentError`. `same_site: :none` needs `secure: true`. A `__Host-` name needs `secure: true`, `path: "/"`, and no `domain:`. A `__Secure-` name needs `secure: true`.
+Options are `expires:` (a `Time`), `max_age:` (seconds), `path:`, `domain:`, `secure:`, `httponly:`, and `same_site:` (`:lax`, `:strict`, `:none`, or `nil`). An unknown key raises `ArgumentError`. An invalid name, path, or domain raises `ArgumentError` too. A name must be an RFC 6265 token: visible ASCII without separators. A path or domain must be header-safe; a `;`, a control byte, or CR/LF raises. `same_site: :none` needs `secure: true`. A `__Host-` name needs `secure: true`, `path: "/"`, and no `domain:`. A `__Secure-` name needs `secure: true`.
 
 `cookies[:missing]` returns `""`, not `nil`. Read `request.cookies` when you need to tell an absent cookie from an empty value. `cookies.permanent[:name] = "value"` adds a 20-year expiry.
 

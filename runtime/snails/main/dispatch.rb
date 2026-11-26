@@ -170,10 +170,9 @@ module Snails
         res.headers[k] = v unless v.nil?
       end
       # Cookie writes the action or a filter recorded. Each pending entry is
-      # one Set-Cookie line; the transport owns escaping and formatting.
-      # `pending` is an `Array[Cookie]` boxed by spinel — index and length
-      # are the supported reads here; iterating with `each` from outside the
-      # jar's class is not.
+      # one `Set-Cookie` line; the transport owns escaping and formatting.
+      # `pending` is a spinel array of `Cookie` values; index and length are
+      # the supported reads at this boundary.
       writes = controller.cookies.pending
       i = 0
       while i < writes.length

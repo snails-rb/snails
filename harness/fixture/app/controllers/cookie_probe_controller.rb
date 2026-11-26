@@ -1,7 +1,7 @@
-# Cookie probe for the core contract tests: a read action exposes both the
-# request hash and the controller jar; a write action records two cookies
-# with different option sets; delete and permanent exercise the two Rails
-# helpers the jar owns.
+# Cookie probe for the framework contract tests: a read action exposes both
+# the request hash and the controller jar; a write action records two cookies
+# with different option sets; delete and permanent exercise the `delete` and
+# `permanent` write forms.
 class HarnessCookieController < ApplicationController
   def read
     render(json: {
