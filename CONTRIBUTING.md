@@ -19,11 +19,11 @@ bash scripts/test-cli.sh
 bash scripts/test-migrate.sh
 ```
 
-The scripts materialize the pinned spinel toolchain themselves; a global `spinel` install is not required. The CI workflow in `.github/workflows/ci.yml` is the authoritative gate. Platform and PostgreSQL coverage run in `platform-ci.yml` after merge.
+The scripts materialize the pinned spinel toolchain themselves; a global `spinel` install is not required. The CI workflow in `.github/workflows/ci.yml` is the authoritative gate. Platform coverage and the PostgreSQL core/app regressions run in `platform-ci.yml` after merge; the PR gate includes the pg app e2e canary.
 
 The three checks above are a quick subset; the change decides the relevant scripts.
 
-The PR's app e2e job runs `bash scripts/test-new.sh --only=demo` for a generated app. Run that locally only to debug an e2e failure or when changing the e2e path itself — a green PR app e2e job is the routine check, not a reason to repeat it locally. The `--only=pg` canary is not in CI; run it locally when a change touches the PostgreSQL project or dev path.
+The PR's app e2e jobs run `bash scripts/test-new.sh --only=demo` and `--only=pg` for generated apps. Run either locally only to debug an e2e failure or when changing the e2e path itself — a green PR app e2e job is the routine check, not a reason to repeat it locally.
 
 Ubuntu runner labels are pinned to the current LTS (`ubuntu-26.04`, `ubuntu-26.04-arm`) instead of `ubuntu-latest`. The `-latest` label moves to a new OS on GitHub's schedule, so a runner migration here is a deliberate PR.
 

@@ -694,12 +694,15 @@ SQL
 canary_pg() {
   # the pg adapter's ONE canary: the --scaffold template on pg (pg boot,
   # BIGSERIAL DDL, CRUD over real HTTP) plus the pg dev server contract.
-  # Available when docker and psql are (its gate starts a one-shot
-  # postgres container).
-  if ! command -v docker >/dev/null || ! command -v psql >/dev/null; then
-    echo "[test-new] docker/psql not found — pg canary skipped"
-    return 0
-  fi
+  # Requires docker, psql, and pg_dump. An explicit --only=pg is the request
+  # to run this canary, so a missing prerequisite must fail instead of
+  # skipping silently.
+  for tool in docker psql pg_dump; do
+    command -v "$tool" >/dev/null || {
+      echo "[test-new] --only=pg needs $tool on PATH — install Docker and the PostgreSQL client" >&2
+      exit 1
+    }
+  done
   local PG_APP="$WORK/demopg"
   echo "[test-new] generating $PG_APP (--scaffold, pg adapter)"
   "$ROOT/bin/snails" new "$PG_APP" --scaffold --database=postgresql >/dev/null
