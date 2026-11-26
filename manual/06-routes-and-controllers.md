@@ -150,23 +150,23 @@ A route's forced format sets `controller.request_format`. A path extension sets 
 
 ## CORS
 
-A browser on another origin can call your API only when you allow it. Set a policy in `config/environment.rb`:
+A browser on another origin can read your API's response only when you allow it. Cross-Origin Resource Sharing (CORS) is the browser rule that decides which origins may read a response. Set a policy in `config/environment.rb`:
 
 ```ruby
 Snails.cors = Snails::Cors::Policy.new(
-  ["https://app.example.com"],
-  ["GET", "POST"],
-  ["Content-Type"],
-  true,
-  600,
-  ["X-Total-Count"]
+  origins: ["https://app.example.com"],
+  allowed_methods: ["GET", "POST"],
+  allowed_headers: ["Content-Type"],
+  allow_credentials: true,
+  max_age: 600,
+  exposed_headers: ["X-Total-Count"]
 )
 ```
 
-The arguments are origins, methods, request header names, credentials, the preflight cache lifetime, and exposed response headers. Origins are exact `scheme://host[:port]` values; a trailing slash or path does not match. The policy validates its values at construction: an invalid origin, method, or header name raises `ArgumentError`. `["*"]` as the first argument allows every origin; it cannot be combined with credentials. `["*"]` as the header list echoes the headers a preflight asks for.
+The keywords name each value. `allowed_headers` lists the request headers a preflight may ask for; `exposed_headers` lists the response headers the browser may read. The defaults are an empty header list, no credentials, no preflight cache lifetime, and no exposed headers. `Snails.cors = nil` turns CORS off. Origins are exact `scheme://host[:port]` values; a trailing slash or path does not match. The policy validates its values at construction: an invalid origin, method, or header name raises `ArgumentError`. `origins: ["*"]` allows every origin; it cannot be combined with credentials. `allowed_headers: ["*"]` echoes the headers a preflight asks for.
 
-A preflight is an `OPTIONS` request with `Origin` and `Access-Control-Request-Method`. The framework responds to it before routing and authentication: 204 with the allow headers, or 204 with no allow header when the origin, method, or header is not allowed. An actual response includes the allow headers before the controller runs, so a 404, 400, 401, or 500 is readable by the browser too. A denied origin gets `Vary: Origin` and no allow header.
+A preflight is an `OPTIONS` request with `Origin` and `Access-Control-Request-Method`. The framework responds to it before routing and authentication: 204 with the allow headers, or 204 with no allow header when the origin, method, or header is not allowed. The dispatcher puts the allow headers on the response before the app runs, so a 404, 400, 401, or 500 the dispatcher or server builds includes them. A request the server rejects before dispatch, such as bad body framing, a 413, or a 408, gets no allow headers. Every response with an `Origin` includes `Vary: Origin`; a denied origin gets no allow header.
 
-CORS controls which origins can read a response. It does not authenticate a request: a disallowed origin can still send one. Add `SameSite` cookies and an `Origin` check for state-changing requests (see [Authentication](08-authentication.md)).
+CORS controls which origins can read a response. It does not authenticate a request: a disallowed origin can still send one. Add `SameSite` cookies and an `Origin` check for state-changing requests; [Authentication](08-authentication.md) shows the check.
 
 [Requests and Parameters](07-requests-and-parameters.md) covers the request object and the params hash in detail.

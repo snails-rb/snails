@@ -63,10 +63,11 @@ class RouteDslTest < TestBase
   # The fixture's /up row is built by the core helper (reopen + bare
   # call exercised through the app's own table); /boom is the error-path
   # target the request-line test dispatches to; /db-probe is the DB-timing
-  # probe; /body-params is the POST target the body-parse test drives.
+  # probe; /body-params is the POST target the body-parse test drives;
+  # /auth-probe is the filter's 401 target.
   def test_fixture_table_row_is_built_by_the_helper
     rows = Snails::RouteTable.table
-    assert_equal 12, rows.length
+    assert_equal 13, rows.length
     assert_equal "GET", rows[0].verb
     assert_equal "/up", rows[0].pattern
     assert_equal :show, rows[0].action
@@ -86,6 +87,8 @@ class RouteDslTest < TestBase
     assert_equal "/cast-error", rows[7].pattern
     assert_equal HarnessBoomController, rows[7].controller
     assert_equal :cast_error, rows[7].action
+    assert_equal "/auth-probe", rows[12].pattern
+    assert_equal HarnessAuthProbeController, rows[12].controller
   end
 end
 

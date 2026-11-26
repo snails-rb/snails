@@ -16,12 +16,12 @@ Snails.logger.progname = "fixture"
 # JSON content type, credentials, and one exposed response header. The
 # default (unset) is no CORS.
 Snails.cors = Snails::Cors::Policy.new(
-  ["https://app.example.com"],
-  ["GET", "POST"],
-  ["Content-Type"],
-  true,
-  600,
-  ["X-Total-Count"]
+  origins: ["https://app.example.com"],
+  allowed_methods: ["GET", "POST"],
+  allowed_headers: ["Content-Type"],
+  allow_credentials: true,
+  max_age: 600,
+  exposed_headers: ["X-Total-Count"]
 )
 
 # The stamped mail registration — test mode captures the gate's

@@ -84,6 +84,12 @@ class CorsTest < TestBase
     bytes[0, cut]
   end
 
+  def response_body(bytes)
+    cut = bytes.index("\r\n\r\n")
+    return "" if cut.nil?
+    bytes[cut + 4, bytes.length - cut - 4]
+  end
+
   # A preflight to an allowed origin, method, and header is answered before
   # routing: 204, the policy's headers, and no controller.
   def test_preflight_is_answered_before_routing
@@ -126,6 +132,17 @@ class CorsTest < TestBase
     assert_absent header_res.headers, "Access-Control-Allow-Origin"
   end
 
+  # A plain OPTIONS without the preflight headers stays a 404.
+  def test_plain_options_is_a_404
+    req = build_request("OPTIONS", "/current-probe")
+    req.req_headers["origin"] = "https://app.example.com"
+    res = Tep::Response.new
+    Tep::APP.dispatch(req, res)
+
+    assert_equal 404, res.status
+    assert_equal "https://app.example.com", res.headers["Access-Control-Allow-Origin"]
+  end
+
   # An actual response from an allowed origin carries the allow headers and
   # the origin Vary; the controller still runs.
   def test_actual_response_carries_allow_headers
@@ -166,6 +183,28 @@ class CorsTest < TestBase
     assert_equal "https://app.example.com", res.headers["Access-Control-Allow-Origin"]
   end
 
+  # The dispatcher's 400 still carries the allow headers.
+  def test_dispatcher_400_carries_allow_headers
+    req = build_request("GET", "/cast-error")
+    req.req_headers["origin"] = "https://app.example.com"
+    res = Tep::Response.new
+    Tep::APP.dispatch(req, res)
+
+    assert_equal 400, res.status
+    assert_equal "https://app.example.com", res.headers["Access-Control-Allow-Origin"]
+  end
+
+  # A filter's 401 still carries the allow headers.
+  def test_unauthorized_response_carries_allow_headers
+    req = build_request("GET", "/auth-probe")
+    req.req_headers["origin"] = "https://app.example.com"
+    res = Tep::Response.new
+    Tep::APP.dispatch(req, res)
+
+    assert_equal 401, res.status
+    assert_equal "https://app.example.com", res.headers["Access-Control-Allow-Origin"]
+  end
+
   # A raised action becomes the server's simple 500, which keeps the
   # response headers the dispatch placed before the action ran.
   def test_server_500_keeps_the_cors_headers
@@ -179,10 +218,30 @@ class CorsTest < TestBase
     assert_includes bytes, "Vary: Origin"
   end
 
+  # A preflight over the real socket is 204 with the allow headers and no body.
+  def test_preflight_over_the_wire
+    bytes = exchange(
+      "OPTIONS /current-probe HTTP/1.1\r\nHost: localhost\r\n" \
+      "Origin: https://app.example.com\r\n" \
+      "Access-Control-Request-Method: GET\r\n" \
+      "Access-Control-Request-Headers: Content-Type\r\n" \
+      "Connection: close\r\n\r\n"
+    ) { |fd| serve_threaded(fd) }
+
+    assert_equal "HTTP/1.1 204 No Content", status_line(bytes)
+    assert_includes bytes, "Access-Control-Allow-Origin: https://app.example.com"
+    assert_includes bytes, "Access-Control-Allow-Methods: GET, POST"
+    assert_includes bytes, "Access-Control-Allow-Headers: Content-Type"
+    assert_includes bytes, "Access-Control-Allow-Credentials: true"
+    assert_includes bytes, "Access-Control-Max-Age: 600"
+    assert_includes bytes, "Vary: Origin"
+    assert_equal "", response_body(bytes)
+  end
+
   # Policy validation rejects the combinations the Fetch rules forbid.
   def test_policy_rejects_wildcard_with_credentials
     begin
-      Snails::Cors::Policy.new(["*"], ["GET"], [], true)
+      Snails::Cors::Policy.new(origins: ["*"], allowed_methods: ["GET"], allow_credentials: true)
       raise("expected ArgumentError")
     rescue ArgumentError
     end
@@ -190,7 +249,7 @@ class CorsTest < TestBase
 
   def test_policy_rejects_mixed_wildcard
     begin
-      Snails::Cors::Policy.new(["*", "https://app.example.com"], ["GET"])
+      Snails::Cors::Policy.new(origins: ["*", "https://app.example.com"], allowed_methods: ["GET"])
       raise("expected ArgumentError")
     rescue ArgumentError
     end
@@ -198,7 +257,7 @@ class CorsTest < TestBase
 
   def test_policy_rejects_an_empty_list
     begin
-      Snails::Cors::Policy.new([], ["GET"])
+      Snails::Cors::Policy.new(origins: [], allowed_methods: ["GET"])
       raise("expected ArgumentError")
     rescue ArgumentError
     end
@@ -216,27 +275,27 @@ class CorsTest < TestBase
   # invalid or unsafe response header.
   def test_policy_rejects_malformed_values
     begin
-      Snails::Cors::Policy.new(["https://app.example.com/"], ["GET"])
+      Snails::Cors::Policy.new(origins: ["https://app.example.com/"], allowed_methods: ["GET"])
       raise("expected ArgumentError")
     rescue ArgumentError
     end
     begin
-      Snails::Cors::Policy.new(["https://app.example.com\r\nX-Evil: 1"], ["GET"])
+      Snails::Cors::Policy.new(origins: ["https://app.example.com\r\nX-Evil: 1"], allowed_methods: ["GET"])
       raise("expected ArgumentError")
     rescue ArgumentError
     end
     begin
-      Snails::Cors::Policy.new(["https://app.example.com"], ["GE T"])
+      Snails::Cors::Policy.new(origins: ["https://app.example.com"], allowed_methods: ["GE T"])
       raise("expected ArgumentError")
     rescue ArgumentError
     end
     begin
-      Snails::Cors::Policy.new(["https://app.example.com"], ["GET"], ["Content Type"])
+      Snails::Cors::Policy.new(origins: ["https://app.example.com"], allowed_methods: ["GET"], allowed_headers: ["Content Type"])
       raise("expected ArgumentError")
     rescue ArgumentError
     end
     begin
-      Snails::Cors::Policy.new(["https://app.example.com"], ["GET"], [], false, 0, ["X-Total-Count\r\nX-Evil: 1"])
+      Snails::Cors::Policy.new(origins: ["https://app.example.com"], allowed_methods: ["GET"], exposed_headers: ["X-Total-Count\r\nX-Evil: 1"])
       raise("expected ArgumentError")
     rescue ArgumentError
     end
@@ -244,7 +303,7 @@ class CorsTest < TestBase
 
   # A wildcard header policy echoes the requested header names it accepts.
   def test_preflight_echoes_wildcard_headers
-    policy = Snails::Cors::Policy.new(["https://app.example.com"], ["GET"], ["*"])
+    policy = Snails::Cors::Policy.new(origins: ["https://app.example.com"], allowed_methods: ["GET"], allowed_headers: ["*"])
     req = preflight_request("https://app.example.com", "GET", "Content-Type, X-Trace")
     res = Tep::Response.new
     Snails::Cors.preflight(req, res, policy)
@@ -267,10 +326,14 @@ FixtureRunner.run(CorsTest, [
   "test_preflight_is_answered_before_routing",
   "test_denied_origin_gets_no_allow_header",
   "test_denied_method_and_header_get_no_allow_header",
+  "test_plain_options_is_a_404",
   "test_actual_response_carries_allow_headers",
   "test_vary_merge_is_case_insensitive",
   "test_route_miss_carries_allow_headers",
+  "test_dispatcher_400_carries_allow_headers",
+  "test_unauthorized_response_carries_allow_headers",
   "test_server_500_keeps_the_cors_headers",
+  "test_preflight_over_the_wire",
   "test_policy_rejects_wildcard_with_credentials",
   "test_policy_rejects_mixed_wildcard",
   "test_policy_rejects_an_empty_list",

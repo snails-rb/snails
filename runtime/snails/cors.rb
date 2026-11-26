@@ -30,21 +30,21 @@ module Snails
 
   module Cors
     # The browser-facing allow-list. Origins are exact `scheme://host[:port]`
-    # strings or `"*"`; a trailing slash or path is not an origin and does not
-    # match. allowed_methods are HTTP verbs; allowed_headers are names a
-    # preflight may ask for, or `["*"]` to echo the list.
+    # strings, `"*"`, or `"null"`; a trailing slash or path is not an origin
+    # and does not match. allowed_methods are HTTP verbs; allowed_headers are
+    # names a preflight may ask for, or `["*"]` to echo the list.
     #
     # @example
     #   Snails.cors = Snails::Cors::Policy.new(
-    #     ["https://app.example.com"],
-    #     ["GET", "POST"],
-    #     ["Content-Type"],
-    #     true,
-    #     600,
-    #     ["X-Total-Count"]
+    #     origins: ["https://app.example.com"],
+    #     allowed_methods: ["GET", "POST"],
+    #     allowed_headers: ["Content-Type"],
+    #     allow_credentials: true,
+    #     max_age: 600,
+    #     exposed_headers: ["X-Total-Count"]
     #   )
     class Policy
-      # the exact origins the policy allows, or `["*"]`.
+      # the exact origins the policy allows, `["*"]`, or `["null"]`.
       attr_reader :origins
       # the uppercase methods a preflight may ask for.
       attr_reader :allowed_methods
@@ -57,7 +57,7 @@ module Snails
       # response header names the browser may read; empty omits the header.
       attr_reader :exposed_headers
 
-      # @param origins [Array<String>] exact origins, or `["*"]`
+      # @param origins [Array<String>] exact origins, `["*"]`, or `["null"]`
       # @param allowed_methods [Array<String>] HTTP methods
       # @param allowed_headers [Array<String>] allowed request header names;
       #   `["*"]` allows any
@@ -66,9 +66,9 @@ module Snails
       # @param exposed_headers [Array<String>] response headers the browser may
       #   read
       # @return [void]
-      # @raise [ArgumentError] an empty list, a malformed member, `"*"` mixed
-      #   with named origins, or `"*"` with credentials
-      def initialize(origins, allowed_methods, allowed_headers = [], allow_credentials = false, max_age = 0, exposed_headers = [])
+      # @raise [ArgumentError] empty origins or allowed_methods, a malformed
+      #   member, `"*"` mixed with named origins, or `"*"` with credentials
+      def initialize(origins:, allowed_methods:, allowed_headers: [], allow_credentials: false, max_age: 0, exposed_headers: [])
         @origins = origin_values(origins)
         @allowed_methods = token_values(allowed_methods, "methods")
         @allowed_headers = token_values(allowed_headers, "headers")
@@ -225,7 +225,7 @@ module Snails
     # answer a preflight when the request is one. A request is a preflight
     # when it is `OPTIONS`, carries an `Origin`, and names a method in
     # `Access-Control-Request-Method`. A denied request still gets a 204 with
-    # no CORS headers, so the browser blocks without learning the policy.
+    # no allow headers, so the browser blocks without learning the policy.
     #
     # @api internal
     # @param req [Tep::Request] the parsed request

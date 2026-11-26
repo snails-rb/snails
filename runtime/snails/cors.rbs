@@ -12,12 +12,12 @@ module Snails
       attr_reader exposed_headers: Array[String]
 
       def initialize: (
-        Array[String] origins,
-        Array[String] allowed_methods,
-        ?Array[String] allowed_headers,
-        ?bool allow_credentials,
-        ?Integer max_age,
-        ?Array[String] exposed_headers
+        origins: Array[String],
+        allowed_methods: Array[String],
+        ?allowed_headers: Array[String],
+        ?allow_credentials: bool,
+        ?max_age: Integer,
+        ?exposed_headers: Array[String]
       ) -> void
 
       private def origin_values: (untyped values) -> Array[String]
