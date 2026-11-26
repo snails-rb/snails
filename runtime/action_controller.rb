@@ -1,6 +1,6 @@
 # Entry index for the ActionController slice.
 require_relative "action_controller/api"
-require_relative "action_controller/cookies"
+require_relative "action_controller/snails/cookies"
 require_relative "action_controller/json_render"
 require_relative "action_controller/current"
 require_relative "action_controller/exceptions"
