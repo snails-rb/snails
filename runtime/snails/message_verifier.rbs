@@ -1,0 +1,12 @@
+module Snails
+  class MessageVerifier
+    @secret: String
+
+    def initialize: (?String secret) -> void
+    def generate: (String value, ?purpose: String?) -> String
+    def verified: (String token, ?purpose: String?) -> String?
+
+    private def signature: (String payload, String? purpose) -> String
+    private def purpose_key: (String? purpose) -> String
+  end
+end

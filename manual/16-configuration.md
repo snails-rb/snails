@@ -32,7 +32,7 @@ The framework supplies these defaults when an app declares none:
 | Reader | Default | Notes |
 |---|---|---|
 | `app_name` | `"app"` | The server banner and container name. `snails new` fills this in. |
-| `secret_key_base` | reads `SECRET_KEY_BASE` | Raises when unset or empty. Override when the key comes from a secret manager. |
+| `secret_key_base` | reads `SECRET_KEY_BASE` | Raises when unset or empty. `Snails::MessageVerifier` and `cookies.signed` read it. Override when the key comes from a secret manager. |
 | `time_zone` | `"UTC"` | Read-only; set it with `Snails.time_zone = "Seoul"` in `config/environment.rb`. |
 | `version` | `nil` | No default. Declare it when the app has a version; a log record omits it otherwise. |
 | `revision` | `ENV["REVISION"]`, then a `REVISION` file | Memoized for the process. There is no git fallback — a binary may run without the repository. |
@@ -102,7 +102,7 @@ set +a
 | `PORT` | server | Listen port; `--port` overrides it. Default `3000` |
 | `WORKERS` | server | Accepted for compatibility; the server runs one process |
 | `SPINEL_WORKERS` | server | OS worker threads per process, counting main. Unset uses one OS worker per core plus main; a one-core host that also runs jobs should set it to 3 |
-| `SECRET_KEY_BASE` | all | Signing key read by `Snails.app.secret_key_base` |
+| `SECRET_KEY_BASE` | all | Signing key read by `Snails.app.secret_key_base`, `Snails::MessageVerifier`, and `cookies.signed` |
 | `REVISION` | all | Deployment identifier, ahead of a `REVISION` file |
 | `DATABASE_PATH` | sqlite | Database file; relative paths resolve from the app root. Default `storage/development.sqlite3` |
 | `DATABASE_POOL_SIZE` | sqlite, PostgreSQL | Connection count; default `8` |

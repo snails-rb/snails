@@ -119,6 +119,17 @@ module ActionController
       PermanentCookieJar.new(self)
     end
 
+    # The `cookies.signed` wrapper: it signs writes and verifies reads over
+    # the same jar. A read that does not verify returns nil, so a tampered
+    # value is indistinguishable from an absent one.
+    #
+    # @return [SignedCookieJar] the signed wrapper
+    # @example
+    #   cookies.signed[:token] = "abc"
+    def signed
+      SignedCookieJar.new(self)
+    end
+
     # Returns the latest stored value for a key without the option parsing
     # in `[]=`. The signed wrapper reads through this method.
     #
@@ -198,14 +209,6 @@ module ActionController
         i += 1
       end
       merged
-    end
-
-    # `to_h` under its Hash-style name, for code that rebuilds a jar from
-    # stored values.
-    #
-    # @return [Hash{String => String}] the merged cookie store
-    def to_hash
-      to_h
     end
 
     # iterate the merged store. A write during the block is allowed: the
@@ -435,14 +438,132 @@ module ActionController
     def delete(key, **options)
       @jar.delete(key, **options)
     end
+  end
 
-    def to_h
-      @jar.to_h
+  # The `cookies.signed` wrapper: same storage, signed on the way out and
+  # verified on the way in. A read that does not verify returns nil — a
+  # tampered value, a bad signature, a value signed for another cookie name,
+  # and an absent cookie all read the same.
+  class SignedCookieJar
+    def initialize(jar)
+      @jar = jar
     end
 
-    def each
-      @jar.each { |k, v| yield k, v }
-      self
+    # Returns the verified value for a cookie, or nil when the cookie is
+    # absent or does not verify.
+    #
+    # @param key [Object] the cookie name
+    # @return [String, nil] the signed value, or nil when absent or invalid
+    def [](key)
+      raw = @jar.raw(key)
+      return nil if raw == ""
+      verifier.verified(raw, purpose: purpose_for(key))
+    end
+
+    # Records a signed cookie write. A nil value deletes the cookie.
+    #
+    # @param key [Object] the cookie name
+    # @param value [Object] the value, or the options Hash
+    # @return [String] the stored value
+    def []=(key, value)
+      write_from(key, value, false)
+    end
+
+    # The shared signed write path for this wrapper and its permanent
+    # wrapper. A Hash carries `value:` plus the cookie attributes; a plain
+    # value uses the defaults. The signed token replaces the value.
+    #
+    # @api internal
+    # @param key [Object] the cookie name
+    # @param value [Object] the value, or the options Hash
+    # @param permanent [Boolean] add a 20-year expiry when none is given
+    # @return [String] the stored value
+    def write_from(key, value, permanent)
+      if value.nil?
+        return @jar.delete(key)
+      end
+      if !value.is_a?(Hash)
+        signed = verifier.generate(value.to_s, purpose: purpose_for(key))
+        return @jar.raw_set(key, signed, {}, permanent)
+      end
+      if !value.key?(:value)
+        raise ArgumentError, "cookies.signed[:#{key}] needs a value: key"
+      end
+      stored = value[:value]
+      return @jar.delete(key) if stored.nil?
+      signed = verifier.generate(stored.to_s, purpose: purpose_for(key))
+      @jar.raw_set(key, signed, value, permanent)
+    end
+
+    # Returns the wrapper whose signed writes expire in 20 years.
+    #
+    # @return [SignedPermanentCookieJar] the permanent signed-cookie wrapper
+    def permanent
+      SignedPermanentCookieJar.new(self)
+    end
+
+    # Deletes a cookie through the base jar.
+    #
+    # @param key [Object] the cookie name
+    # @param options [Hash{Symbol => Object}] path, domain, and attribute
+    #   options passed to the base jar
+    # @return [String] `""`
+    def delete(key, **options)
+      @jar.delete(key, **options)
+    end
+
+    def verifier
+      Snails::MessageVerifier.new(cookie_secret)
+    end
+
+    # A cookie-specific key keeps signed cookies apart from generic
+    # MessageVerifier tokens, even when the app chooses the same purpose
+    # string. The key is derived from SECRET_KEY_BASE and never leaves this
+    # wrapper.
+    def cookie_secret
+      Tep::Crypto.sp_crypto_hmac_sha256_hex(Snails.app.secret_key_base, "snails.cookies") + ""
+    end
+
+    def purpose_for(key)
+      "cookie." + key.to_s
+    end
+
+    private :verifier, :cookie_secret, :purpose_for
+  end
+
+  # The `cookies.signed.permanent` wrapper: sign the value and add the same
+  # 20-year expiry `cookies.permanent` promises.
+  class SignedPermanentCookieJar
+    def initialize(signed)
+      @signed = signed
+    end
+
+    # Returns the verified value through the signed wrapper.
+    #
+    # @param key [Object] the cookie name
+    # @return [String, nil] the signed value, or nil when absent or invalid
+    def [](key)
+      @signed[key]
+    end
+
+    # Records a signed write with a 20-year expiry unless the caller passes
+    # `expires:`.
+    #
+    # @param key [Object] the cookie name
+    # @param value [Object] the value, or the options Hash
+    # @return [String] the stored value
+    def []=(key, value)
+      @signed.write_from(key, value, true)
+    end
+
+    # Deletes a cookie through the signed wrapper.
+    #
+    # @param key [Object] the cookie name
+    # @param options [Hash{Symbol => Object}] path, domain, and attribute
+    #   options passed to the base jar
+    # @return [String] `""`
+    def delete(key, **options)
+      @signed.delete(key, **options)
     end
   end
 

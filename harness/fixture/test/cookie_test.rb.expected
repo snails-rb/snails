@@ -11,4 +11,6 @@ ok test_cookie_name_rejects_token_separators
 ok test_path_and_domain_reject_header_characters
 ok test_valid_path_and_domain_are_accepted
 ok test_secure_prefix_requires_secure
-CookieTest: 13 tests passed
+ok test_to_h_merges_inbound_and_pending_writes
+ok test_each_walks_the_snapshot
+CookieTest: 15 tests passed
