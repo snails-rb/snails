@@ -457,7 +457,7 @@ module ActionController
     end
   end
 
-  # The `cookies.signed` view: same storage, signed on the way out and
+  # The `cookies.signed` wrapper: same storage, signed on the way out and
   # verified on the way in. A read that does not verify returns nil — a
   # tampered value, a bad signature, a value signed for another cookie name,
   # and an absent cookie all read the same.
@@ -476,15 +476,15 @@ module ActionController
       write_from(key, value, false)
     end
 
-    # The shared signed write path for this view and its permanent view.
-    # A Hash carries `value:` plus the transport attributes; a bare value
-    # uses the defaults. The signed text replaces the value on the wire.
+    # The shared signed write path for this wrapper and its permanent
+    # wrapper. A Hash carries `value:` plus the cookie attributes; a plain
+    # value uses the defaults. The signed token replaces the value.
     #
     # @api internal
     # @param key [Object] the cookie name
     # @param value [Object] the value, or the options Hash
     # @param permanent [Boolean] add a 20-year expiry when none is given
-    # @return [String] the signed value stored on the wire
+    # @return [String] the stored value
     def write_from(key, value, permanent)
       if value.nil?
         return @jar.delete(key)
@@ -494,7 +494,7 @@ module ActionController
         return @jar.raw_set(key, signed, {}, permanent)
       end
       if !value.key?(:value)
-        raise ArgumentError, "cookies[:#{key}] needs a value: key"
+        raise ArgumentError, "cookies.signed[:#{key}] needs a value: key"
       end
       stored = value[:value]
       return @jar.delete(key) if stored.nil?
@@ -511,17 +511,25 @@ module ActionController
     end
 
     def verifier
-      Snails::MessageVerifier.new
+      Snails::MessageVerifier.new(cookie_secret)
+    end
+
+    # A cookie-specific key keeps signed cookies apart from generic
+    # MessageVerifier tokens, even when the app chooses the same purpose
+    # string. The key is derived from SECRET_KEY_BASE and never leaves this
+    # wrapper.
+    def cookie_secret
+      Tep::Crypto.sp_crypto_hmac_sha256_hex(Snails.app.secret_key_base, "snails.cookies") + ""
     end
 
     def purpose_for(key)
       "cookie." + key.to_s
     end
 
-    private :verifier, :purpose_for
+    private :verifier, :cookie_secret, :purpose_for
   end
 
-  # The `cookies.signed.permanent` view: sign the value and add the same
+  # The `cookies.signed.permanent` wrapper: sign the value and add the same
   # 20-year expiry `cookies.permanent` promises.
   class SignedPermanentCookieJar
     def initialize(signed)

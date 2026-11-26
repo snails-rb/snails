@@ -61,6 +61,7 @@ module ActionController
     def delete: (untyped key, **untyped options) -> String
 
     private def verifier: () -> Snails::MessageVerifier
+    private def cookie_secret: () -> String
     private def purpose_for: (untyped key) -> String
   end
 

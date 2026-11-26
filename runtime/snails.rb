@@ -5,7 +5,7 @@
 # the app's config/application.rb reopen.
 require_relative "snails/utils"
 require_relative "snails/root_path"
-require_relative "snails/secure_compare"
+require_relative "snails/security"
 require_relative "snails/message_verifier"
 require_relative "snails/error_boundary"
 require_relative "snails/env"

@@ -101,7 +101,7 @@ token = verifier.generate("account:42", purpose: "reset")
 verifier.verified(token, purpose: "reset")  # "account:42"
 ```
 
-A tampered token, a token for another purpose, and a token signed with another secret read `nil`. The claims and refresh rotation are yours. [Requests and Parameters](07-requests-and-parameters.md) covers `cookies.signed`.
+A tampered token, a token for another purpose, and a token signed with another secret read `nil`. Signing prevents tampering, not reading: the payload is Base64-encoded, not encrypted. The verifier has no expiry; the payload format, expiry, and refresh rotation are app code. [Requests and Parameters](07-requests-and-parameters.md) covers `cookies.signed`.
 
 ## What the framework owns
 
@@ -115,6 +115,6 @@ def current_account
 end
 ```
 
-`find_by` is enough when the token column is unique. A token table with an expiry or scope column is your schema. Nothing in the framework stores a session for you or rotates tokens. `Snails.secure_compare` compares two Strings in constant time.
+`find_by` is enough when the token column is unique. A token table with an expiry or scope column is your schema. The framework does not store sessions or rotate tokens. `Snails::Security.secure_compare` compares two equal-length Strings in constant time; a length mismatch returns immediately.
 
 The signing key for tokens you issue yourself comes from `Snails.app.secret_key_base`. [Configuration](16-configuration.md) covers that setting.

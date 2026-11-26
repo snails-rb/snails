@@ -1,11 +1,10 @@
 # Signed String tokens: a URL-safe base64 payload and an HMAC-SHA256
 # signature under a key derived from the app's signing key and a purpose.
 #
-# The wire format is this runtime's own — a token minted here is read here.
-# It does not reproduce another framework's signed-message envelope, so a
-# reference framework cannot read a token from this verifier and the reverse
-# is also true. The purpose is part of the key, not the token: a value signed
-# for `reset` does not verify under `cookie.session`.
+# The token format belongs to this verifier: a token minted here is read
+# here. Tokens from another framework do not verify here, and this verifier
+# does not mint their format. The purpose is part of the key, not the token:
+# a value signed for `reset` does not verify under `cookie.session`.
 require "base64"
 
 module Snails
@@ -32,7 +31,8 @@ module Snails
     # @param value [String] the value to sign
     # @param purpose [String, nil] the namespace the token belongs to
     # @return [String] the token, `payload.signature`
-    # @raise [ArgumentError] the value is not a String
+    # @raise [ArgumentError] the value is not a String, or the purpose is
+    #   not a String or nil
     def generate(value, purpose: nil)
       if !value.is_a?(String)
         raise ArgumentError, "generate expects a String"
@@ -49,7 +49,8 @@ module Snails
     # @param token [String] the token to verify
     # @param purpose [String, nil] the namespace the token must belong to
     # @return [String, nil] the signed value, or nil when it does not verify
-    # @raise [ArgumentError] the token is not a String
+    # @raise [ArgumentError] the token is not a String, or the purpose is
+    #   not a String or nil
     def verified(token, purpose: nil)
       if !token.is_a?(String)
         raise ArgumentError, "verified expects a String"
@@ -58,7 +59,7 @@ module Snails
       return nil if separator.nil?
       payload = token[0, separator]
       supplied = token[separator + 1, token.length - separator - 1]
-      return nil unless Snails.secure_compare(supplied, signature(payload, purpose))
+      return nil unless Snails::Security.secure_compare(supplied, signature(payload, purpose))
       begin
         Base64.urlsafe_decode64(payload)
       rescue ArgumentError
@@ -76,7 +77,10 @@ module Snails
     # domain string. The result is hex text used as the next HMAC's key; it
     # never leaves this verifier.
     def purpose_key(purpose)
-      domain = purpose.nil? ? "snails.message_verifier" : "snails.message_verifier." + purpose.to_s
+      if !purpose.nil? && !purpose.is_a?(String)
+        raise ArgumentError, "purpose must be a String or nil"
+      end
+      domain = purpose.nil? ? "snails.message_verifier" : "snails.message_verifier." + purpose
       Tep::Crypto.sp_crypto_hmac_sha256_hex(@secret, domain) + ""
     end
 
