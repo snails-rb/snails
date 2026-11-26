@@ -163,7 +163,7 @@ Snails.cors = Snails::Cors::Policy.new(
 )
 ```
 
-The arguments are origins, methods, request header names, credentials, the preflight cache lifetime, and exposed response headers. Origins are exact `scheme://host[:port]` values; a trailing slash or path does not match. `["*"]` as the first argument allows every origin; it cannot be combined with credentials. `["*"]` as the header list echoes the headers a preflight asks for.
+The arguments are origins, methods, request header names, credentials, the preflight cache lifetime, and exposed response headers. Origins are exact `scheme://host[:port]` values; a trailing slash or path does not match. The policy validates its values at construction: an invalid origin, method, or header name raises `ArgumentError`. `["*"]` as the first argument allows every origin; it cannot be combined with credentials. `["*"]` as the header list echoes the headers a preflight asks for.
 
 A preflight is an `OPTIONS` request with `Origin` and `Access-Control-Request-Method`. The framework responds to it before routing and authentication: 204 with the allow headers, or 204 with no allow header when the origin, method, or header is not allowed. An actual response includes the allow headers before the controller runs, so a 404, 400, 401, or 500 is readable by the browser too. A denied origin gets `Vary: Origin` and no allow header.
 

@@ -205,15 +205,61 @@ class CorsTest < TestBase
   end
 
   def test_setter_rejects_a_non_policy
-    raised = false
     begin
       Snails.cors = "nope"
+      raise("expected TypeError")
     rescue TypeError
-      raised = true
-    rescue ArgumentError
-      raised = true
     end
-    raise("expected TypeError or ArgumentError") unless raised
+  end
+
+  # The policy rejects origins, methods, and header names that would make an
+  # invalid or unsafe response header.
+  def test_policy_rejects_malformed_values
+    begin
+      Snails::Cors::Policy.new(["https://app.example.com/"], ["GET"])
+      raise("expected ArgumentError")
+    rescue ArgumentError
+    end
+    begin
+      Snails::Cors::Policy.new(["https://app.example.com\r\nX-Evil: 1"], ["GET"])
+      raise("expected ArgumentError")
+    rescue ArgumentError
+    end
+    begin
+      Snails::Cors::Policy.new(["https://app.example.com"], ["GE T"])
+      raise("expected ArgumentError")
+    rescue ArgumentError
+    end
+    begin
+      Snails::Cors::Policy.new(["https://app.example.com"], ["GET"], ["Content Type"])
+      raise("expected ArgumentError")
+    rescue ArgumentError
+    end
+    begin
+      Snails::Cors::Policy.new(["https://app.example.com"], ["GET"], [], false, 0, ["X-Total-Count\r\nX-Evil: 1"])
+      raise("expected ArgumentError")
+    rescue ArgumentError
+    end
+  end
+
+  # A wildcard header policy echoes the requested header names it accepts.
+  def test_preflight_echoes_wildcard_headers
+    policy = Snails::Cors::Policy.new(["https://app.example.com"], ["GET"], ["*"])
+    req = preflight_request("https://app.example.com", "GET", "Content-Type, X-Trace")
+    res = Tep::Response.new
+    Snails::Cors.preflight(req, res, policy)
+    assert_equal 204, res.status
+    assert_equal "Content-Type, X-Trace", res.headers["Access-Control-Allow-Headers"]
+  end
+
+  # A malformed requested header name denies the preflight instead of
+  # echoing it.
+  def test_preflight_rejects_malformed_requested_header
+    req = preflight_request("https://app.example.com", "GET", "Content-Type, Bad Header")
+    res = Tep::Response.new
+    Snails::Cors.preflight(req, res, Snails.cors)
+    assert_equal 204, res.status
+    assert_absent res.headers, "Access-Control-Allow-Origin"
   end
 end
 
@@ -229,4 +275,7 @@ FixtureRunner.run(CorsTest, [
   "test_policy_rejects_mixed_wildcard",
   "test_policy_rejects_an_empty_list",
   "test_setter_rejects_a_non_policy",
+  "test_policy_rejects_malformed_values",
+  "test_preflight_echoes_wildcard_headers",
+  "test_preflight_rejects_malformed_requested_header",
 ])

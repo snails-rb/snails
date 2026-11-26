@@ -9,4 +9,7 @@ ok test_policy_rejects_wildcard_with_credentials
 ok test_policy_rejects_mixed_wildcard
 ok test_policy_rejects_an_empty_list
 ok test_setter_rejects_a_non_policy
-CorsTest: 11 tests passed
+ok test_policy_rejects_malformed_values
+ok test_preflight_echoes_wildcard_headers
+ok test_preflight_rejects_malformed_requested_header
+CorsTest: 14 tests passed

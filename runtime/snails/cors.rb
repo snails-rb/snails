@@ -20,10 +20,10 @@ module Snails
   #
   # @param policy [Snails::Cors::Policy, nil] the policy, or nil to disable
   # @return [Snails::Cors::Policy, nil] the assigned policy
-  # @raise [ArgumentError] the value is neither a policy nor nil
+  # @raise [TypeError] the value is neither a policy nor nil
   def self.cors=(policy)
     if !policy.nil? && !policy.is_a?(Snails::Cors::Policy)
-      raise ArgumentError, "Snails.cors expects a Snails::Cors::Policy or nil"
+      raise TypeError, "Snails.cors expects a Snails::Cors::Policy or nil"
     end
     @cors = policy
   end
@@ -69,12 +69,12 @@ module Snails
       # @raise [ArgumentError] an empty list, a malformed member, `"*"` mixed
       #   with named origins, or `"*"` with credentials
       def initialize(origins, allowed_methods, allowed_headers = [], allow_credentials = false, max_age = 0, exposed_headers = [])
-        @origins = names(origins, "origins")
-        @allowed_methods = names(allowed_methods, "methods")
-        @allowed_headers = names(allowed_headers, "headers")
+        @origins = origin_values(origins)
+        @allowed_methods = token_values(allowed_methods, "methods")
+        @allowed_headers = token_values(allowed_headers, "headers")
         @allow_credentials = boolean_value(allow_credentials, "credentials")
         @max_age = integer_value(max_age, "max_age")
-        @exposed_headers = names(exposed_headers, "exposed_headers")
+        @exposed_headers = token_values(exposed_headers, "exposed_headers")
         raise ArgumentError, "CORS origins must not be empty" if @origins.empty?
         raise ArgumentError, "CORS methods must not be empty" if @allowed_methods.empty?
         if @origins.include?("*")
@@ -92,7 +92,85 @@ module Snails
         end
       end
 
-      def names(values, label)
+      def origin_values(values)
+        if !values.is_a?(Array)
+          raise ArgumentError, "CORS origins must be an Array of Strings"
+        end
+        out = []
+        i = 0
+        while i < values.length
+          out.push(origin_value(values[i]))
+          i += 1
+        end
+        out
+      end
+
+      def origin_value(value)
+        if value == "*" || value == "null"
+          return value
+        end
+        if !value.is_a?(String) || value.empty?
+          raise ArgumentError, "CORS origins must contain non-empty Strings"
+        end
+        if value.start_with?("http://")
+          rest = value[7, value.length - 7]
+        elsif value.start_with?("https://")
+          rest = value[8, value.length - 8]
+        else
+          raise ArgumentError, "CORS origins must start with http:// or https://"
+        end
+        if rest.empty?
+          raise ArgumentError, "CORS origin needs a host"
+        end
+        i = 0
+        while i < rest.bytesize
+          byte = rest.getbyte(i)
+          if byte <= 0x20 || byte >= 0x7F || byte == 0x3B || byte == 0x2C ||
+             byte == 0x2F || byte == 0x3F || byte == 0x23
+            raise ArgumentError, "CORS origin contains an invalid character"
+          end
+          i += 1
+        end
+        validate_origin_port(rest)
+        value
+      end
+
+      def validate_origin_port(rest)
+        if rest.start_with?("[")
+          return
+        end
+        last_colon = -1
+        i = 0
+        while i < rest.bytesize
+          if rest.getbyte(i) == 0x3A
+            last_colon = i
+          end
+          i += 1
+        end
+        return if last_colon < 0
+        host = rest[0, last_colon]
+        port = rest[last_colon + 1, rest.length - last_colon - 1]
+        if host.empty? || port.empty?
+          raise ArgumentError, "CORS origin needs a host and a numeric port"
+        end
+        if host.include?(":")
+          raise ArgumentError, "CORS origin host must not contain a colon"
+        end
+        i = 0
+        while i < port.length
+          byte = port.getbyte(i)
+          if byte < 0x30 || byte > 0x39
+            raise ArgumentError, "CORS origin port must be numeric"
+          end
+          i += 1
+        end
+        number = port.to_i
+        if number < 1 || number > 65535
+          raise ArgumentError, "CORS origin port must be in 1..65535"
+        end
+      end
+
+      def token_values(values, label)
         if !values.is_a?(Array)
           raise ArgumentError, "CORS #{label} must be an Array of Strings"
         end
@@ -100,13 +178,31 @@ module Snails
         i = 0
         while i < values.length
           value = values[i]
-          if !value.is_a?(String) || value.empty?
-            raise ArgumentError, "CORS #{label} must contain non-empty Strings"
+          if !token_value?(value)
+            raise ArgumentError, "CORS #{label} must contain HTTP tokens"
           end
           out.push(value)
           i += 1
         end
         out
+      end
+
+      def token_value?(value)
+        if !value.is_a?(String) || value.empty?
+          return false
+        end
+        i = 0
+        while i < value.bytesize
+          byte = value.getbyte(i)
+          return false if byte < 0x21 || byte > 0x7E
+          return false if byte == 0x28 || byte == 0x29 || byte == 0x3C || byte == 0x3E
+          return false if byte == 0x40 || byte == 0x2C || byte == 0x3B || byte == 0x3A
+          return false if byte == 0x5C || byte == 0x22 || byte == 0x2F || byte == 0x5B
+          return false if byte == 0x5D || byte == 0x3F || byte == 0x3D || byte == 0x7B
+          return false if byte == 0x7D
+          i += 1
+        end
+        true
       end
 
       def boolean_value(value, label)
@@ -122,7 +218,8 @@ module Snails
         value
       end
 
-      private :names, :boolean_value, :integer_value
+      private :origin_values, :origin_value, :validate_origin_port
+      private :token_values, :token_value?, :boolean_value, :integer_value
     end
 
     # answer a preflight when the request is one. A request is a preflight
@@ -154,7 +251,8 @@ module Snails
       res.headers["Access-Control-Allow-Origin"] = allow_origin(policy, origin)
       res.headers["Access-Control-Allow-Methods"] = policy.allowed_methods.join(", ")
       if policy.allowed_headers.include?("*")
-        res.headers["Access-Control-Allow-Headers"] = requested unless requested.empty?
+        names = requested_header_names(requested)
+        res.headers["Access-Control-Allow-Headers"] = names.join(", ") unless names.nil? || names.empty?
       else
         res.headers["Access-Control-Allow-Headers"] = policy.allowed_headers.join(", ") unless policy.allowed_headers.empty?
       end
@@ -210,12 +308,13 @@ module Snails
 
     def self.request_headers_allowed?(policy, requested)
       return true if requested.empty?
+      names = requested_header_names(requested)
+      return false if names.nil?
       headers = policy.allowed_headers
       return true if headers.include?("*")
-      parts = requested.split(",")
       i = 0
-      while i < parts.length
-        name = parts[i].strip
+      while i < names.length
+        name = names[i]
         allowed = false
         j = 0
         while j < headers.length
@@ -225,6 +324,40 @@ module Snails
           j += 1
         end
         return false unless allowed
+        i += 1
+      end
+      true
+    end
+
+    def self.requested_header_names(requested)
+      return [] if requested.empty?
+      names = []
+      parts = requested.split(",")
+      i = 0
+      while i < parts.length
+        name = parts[i].strip
+        if name.empty? || !header_name_value?(name)
+          return nil
+        end
+        names.push(name)
+        i += 1
+      end
+      names
+    end
+
+    def self.header_name_value?(name)
+      if !name.is_a?(String) || name.empty?
+        return false
+      end
+      i = 0
+      while i < name.bytesize
+        byte = name.getbyte(i)
+        return false if byte < 0x21 || byte > 0x7E
+        return false if byte == 0x28 || byte == 0x29 || byte == 0x3C || byte == 0x3E
+        return false if byte == 0x40 || byte == 0x2C || byte == 0x3B || byte == 0x3A
+        return false if byte == 0x5C || byte == 0x22 || byte == 0x2F || byte == 0x5B
+        return false if byte == 0x5D || byte == 0x3F || byte == 0x3D || byte == 0x7B
+        return false if byte == 0x7D
         i += 1
       end
       true
@@ -256,6 +389,7 @@ module Snails
     end
 
     private_class_method :origin_allowed?, :verb_allowed?, :request_headers_allowed?
+    private_class_method :requested_header_names, :header_name_value?
     private_class_method :allow_origin, :add_vary
   end
 end
