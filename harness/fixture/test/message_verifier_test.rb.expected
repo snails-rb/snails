@@ -3,7 +3,7 @@ ok test_tampered_token_returns_nil
 ok test_wrong_purpose_returns_nil
 ok test_wrong_secret_returns_nil
 ok test_secure_compare
-ok test_fixed_length_secure_compare
+ok test_fixed_length_secure_compare_is_private
 ok test_generic_token_does_not_verify_as_signed_cookie
 ok test_unsigned_cookie_reads_nil
 ok test_signed_cookie_round_trip

@@ -64,14 +64,13 @@ class MessageVerifierTest < TestBase
     end
   end
 
-  # The fixed-length form raises on a length mismatch instead of returning
-  # false.
-  def test_fixed_length_secure_compare
-    assert_true Snails::Security.fixed_length_secure_compare("abc", "abc")
+  # The fixed-length helper is internal; secure_compare is the public API.
+  def test_fixed_length_secure_compare_is_private
     begin
-      Snails::Security.fixed_length_secure_compare("abc", "abcd")
-      raise("expected ArgumentError")
-    rescue ArgumentError
+      Snails::Security.fixed_length_secure_compare("abc", "abc")
+      raise("expected NoMethodError")
+    rescue NoMethodError
+      return
     end
   end
 
@@ -178,7 +177,7 @@ FixtureRunner.run(MessageVerifierTest, [
   "test_wrong_purpose_returns_nil",
   "test_wrong_secret_returns_nil",
   "test_secure_compare",
-  "test_fixed_length_secure_compare",
+  "test_fixed_length_secure_compare_is_private",
   "test_generic_token_does_not_verify_as_signed_cookie",
   "test_unsigned_cookie_reads_nil",
   "test_signed_cookie_round_trip",

@@ -211,14 +211,6 @@ module ActionController
       merged
     end
 
-    # `to_h` under its Hash-style name, for code that rebuilds a jar from
-    # stored values.
-    #
-    # @return [Hash{String => String}] the merged cookie store
-    def to_hash
-      to_h
-    end
-
     # iterate the merged store. A write during the block is allowed: the
     # block walks the snapshot `to_h` builds, not the live stores.
     #
@@ -445,15 +437,6 @@ module ActionController
 
     def delete(key, **options)
       @jar.delete(key, **options)
-    end
-
-    def to_h
-      @jar.to_h
-    end
-
-    def each
-      @jar.each { |k, v| yield k, v }
-      self
     end
   end
 

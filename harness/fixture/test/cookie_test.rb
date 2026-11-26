@@ -218,6 +218,33 @@ class CookieTest < TestBase
     jar["__Secure-session"] = { value: "v", secure: true }
     assert_equal 1, jar.pending.length
   end
+
+  # The base jar's `to_h` merges inbound values with pending writes; a
+  # cleared write appears as an empty string.
+  def test_to_h_merges_inbound_and_pending_writes
+    jar = ActionController::CookieJar.new({ "inbound" => "keep", "session" => "old" })
+    jar["session"] = "new"
+    jar.delete("gone")
+    merged = jar.to_h
+    assert_equal "keep", merged["inbound"]
+    assert_equal "new", merged["session"]
+    assert_equal "", merged["gone"]
+    assert_equal 3, merged.length
+  end
+
+  # `each` walks the snapshot `to_h` builds; a write in the block does not
+  # join the current walk.
+  def test_each_walks_the_snapshot
+    jar = ActionController::CookieJar.new({ "session" => "abc" })
+    seen = []
+    jar.each do |name, value|
+      seen.push(name + "=" + value)
+      jar["later"] = "no"
+    end
+    assert_equal 1, seen.length
+    assert_equal "session=abc", seen[0]
+    assert_equal "no", jar["later"]
+  end
 end
 
 FixtureRunner.run(CookieTest, [
@@ -234,4 +261,6 @@ FixtureRunner.run(CookieTest, [
   "test_path_and_domain_reject_header_characters",
   "test_valid_path_and_domain_are_accepted",
   "test_secure_prefix_requires_secure",
+  "test_to_h_merges_inbound_and_pending_writes",
+  "test_each_walks_the_snapshot",
 ])
