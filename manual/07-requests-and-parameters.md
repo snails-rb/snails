@@ -100,7 +100,7 @@ Options are `expires:` (a `Time`), `max_age:` (seconds), `path:`, `domain:`, `se
 
 The jar is the supported write path. Do not set `Set-Cookie` through `response.headers`. That hash holds one value per header and cannot hold several cookies.
 
-Your app owns session state, not the framework.
+The framework does not provide sessions. If you need sessions, implement them in your app.
 
 ## Narrow input before it reaches a model
 

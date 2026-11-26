@@ -101,11 +101,6 @@ module ActionDispatch
     attr_accessor :referer
     attr_accessor :host
     attr_reader :format
-    # The request's parsed cookies, keyed by the name the browser sent. The
-    # dispatcher assigns the transport's parsed hash and this reader exposes a
-    # plain copy; a request built in a test starts empty. Read-only by
-    # contract: writing here does not send a cookie — use the controller's
-    # `cookies` jar for that.
     attr_reader :cookies
 
     # a fresh request; the optional env hash is copied into the internal header
