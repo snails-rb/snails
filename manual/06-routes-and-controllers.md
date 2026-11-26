@@ -148,4 +148,25 @@ Call `super` to keep the filters, the action, and the implicit 204. An override 
 
 A route's forced format sets `controller.request_format`. A path extension sets `params["format"]`. With no route choice, `request_format` is `:json`.
 
+## CORS
+
+A browser on another origin can read your API's response only when you allow it. Cross-Origin Resource Sharing (CORS) is the browser rule that decides which origins may read a response. Set a policy in `config/environment.rb`:
+
+```ruby
+Snails.cors = Snails::Cors::Policy.new(
+  origins: ["https://app.example.com"],
+  allowed_methods: ["GET", "POST"],
+  allowed_headers: ["Content-Type"],
+  allow_credentials: true,
+  max_age: 600,
+  exposed_headers: ["X-Total-Count"]
+)
+```
+
+The keywords name each value. `allowed_headers` lists the request headers a preflight may ask for; `exposed_headers` lists the response headers the browser may read. The defaults are an empty header list, no credentials, no preflight cache lifetime, and no exposed headers. `Snails.cors = nil` turns CORS off. Origins are exact `scheme://host[:port]` values; a trailing slash or path does not match. The policy validates its values at construction: an invalid origin, method, or header name raises `ArgumentError`. `origins: ["*"]` allows every origin; it cannot be combined with credentials. `allowed_headers: ["*"]` echoes the headers a preflight asks for.
+
+A preflight is an `OPTIONS` request with `Origin` and `Access-Control-Request-Method`. The framework responds to it before routing and authentication: 204 with the allow headers, or 204 with no allow header when the origin, method, or header is not allowed. The dispatcher puts the allow headers on the response before the app runs, so a 404, 400, 401, or 500 the dispatcher or server builds includes them. A request the server rejects before dispatch, such as bad body framing, a 413, or a 408, gets no allow headers. Every response with an `Origin` includes `Vary: Origin`; a denied origin gets no allow header.
+
+CORS controls which origins can read a response. It does not authenticate a request: a disallowed origin can still send one. Add `SameSite` cookies and an `Origin` check for state-changing requests; [Authentication](08-authentication.md) shows the check.
+
 [Requests and Parameters](07-requests-and-parameters.md) covers the request object and the params hash in detail.

@@ -12,6 +12,18 @@ Snails.time_zone = "UTC"
 Snails.logger.level = :info
 Snails.logger.progname = "fixture"
 
+# The CORS policy the boundary cases drive: one named origin, GET/POST,
+# JSON content type, credentials, and one exposed response header. The
+# default (unset) is no CORS.
+Snails.cors = Snails::Cors::Policy.new(
+  origins: ["https://app.example.com"],
+  allowed_methods: ["GET", "POST"],
+  allowed_headers: ["Content-Type"],
+  allow_credentials: true,
+  max_age: 600,
+  exposed_headers: ["X-Total-Count"]
+)
+
 # The stamped mail registration — test mode captures the gate's
 # deliveries (delivery_log_test asserts the registration ran).
 ActionMailer::Base.delivery_method = ActionMailer::DeliveryLog if Snails.env.test?

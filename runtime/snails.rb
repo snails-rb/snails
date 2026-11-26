@@ -21,6 +21,7 @@ require_relative "snails/logger/log_delivery_job"
 require_relative "snails/logger/otlp_transport"
 require_relative "snails/version"
 require_relative "snails/application"
+require_relative "snails/cors"
 
 require_relative "snails/form/rule_options"
 require_relative "snails/form/rule_engine"

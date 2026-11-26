@@ -161,7 +161,7 @@ module Tep
           # process's: a thread that unwound here would take only itself down,
           # but the client still deserves the 500. The request path already
           # wrote the `request.failed` record.
-          send_simple(client, 500, "internal server error")
+          send_simple(client, 500, "internal server error", res)
           return false
         end
 
@@ -277,11 +277,22 @@ module Tep
         end
       end
 
-      def send_simple(client, status, msg)
+      def send_simple(client, status, msg, res = nil)
         reason = Tep.reason(status)
-        head = "HTTP/1.0 " + status.to_s + " " + reason + "\r\n" +
-               "Content-Length: " + msg.length.to_s + "\r\n" +
-               "Connection: close\r\n\r\n" + msg
+        head = "HTTP/1.0 " + status.to_s + " " + reason + "\r\n"
+        # A failed request keeps the headers the dispatch already placed on
+        # the response — the CORS headers a browser needs to read the 500.
+        # Body-framing errors pass no response and write the bare head.
+        if !res.nil?
+          res.headers.each do |k, v|
+            head << k + ": " + v + "\r\n"
+          end
+          res.set_cookies.each do |line|
+            head << "Set-Cookie: " + line + "\r\n"
+          end
+        end
+        head << "Content-Length: " + msg.length.to_s + "\r\n" +
+                "Connection: close\r\n\r\n" + msg
         Sock.sphttp_write_str(client, head)
       end
 
