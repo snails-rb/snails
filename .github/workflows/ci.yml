@@ -1,16 +1,17 @@
 name: ci
 
-# The pull-request gate: the Linux amd64 suite on sqlite only.
-# Everything that needs PostgreSQL, macOS, arm64, or the app image runs in
-# platform-ci on the merge commit, so a PR does not pay for a second long
-# matrix. The pg cases inside these scripts skip when no server is reachable;
-# platform-ci's Linux pg jobs are where they actually run.
+# The pull-request gate: the Linux amd64 suites on sqlite, plus the pg app
+# end-to-end canary, which starts its own throwaway PostgreSQL containers.
+# Everything else that needs PostgreSQL (the core pg regressions and the pg
+# app's bin/test), macOS, arm64, or the app image runs in platform-ci on the
+# merge commit, so a PR does not pay for a second long matrix. The pg cases
+# inside the sqlite scripts skip when no server is reachable; platform-ci's
+# Linux pg jobs are where they actually run.
 #
-# Three jobs by kind, not by speed: contract checks against the repo trees,
-# the core harness (compiles the core once and runs its cases), and the
-# app end-to-end path (generates an app, compiles it, boots it, runs its
-# harness). The e2e job is the slowest and would otherwise hold the other two
-# behind it in a single job.
+# Four jobs by kind, not by speed: contract checks against the repo trees,
+# the core harness (compiles the core once and runs its cases), and the app
+# end-to-end canaries (demo and pg). The e2e jobs are the slowest and would
+# otherwise hold the other two behind them in a single job.
 
 on:
   pull_request:
@@ -76,8 +77,8 @@ jobs:
       - name: Small harness (core spinel compile + contracts)
         run: bash scripts/test-runtime.sh
 
-  e2e:
-    name: linux amd64 (app e2e)
+  e2e-demo:
+    name: linux amd64 (app e2e demo)
     runs-on: ubuntu-26.04
     timeout-minutes: 40
     steps:
@@ -90,3 +91,29 @@ jobs:
       # generated app tree, not runtime/.
       - name: App end-to-end (demo)
         run: bash scripts/test-new.sh --only=demo
+
+  e2e-pg:
+    name: linux amd64 (app e2e pg)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout snails
+        uses: actions/checkout@v7
+      - uses: ./.github/actions/linux-build-deps
+      # The pg canary renders the schema dump through pg_dump against a
+      # postgres:18 container, and pg_dump must be the same major as the server.
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/spinel-toolchain
+      # Generates the pg --scaffold app, compiles and boots it, and runs its
+      # harness plus the pg dev server contract. A different object from the
+      # demo canary: this one exercises the PostgreSQL adapter and dev boot.
+      - name: App end-to-end (pg)
+        run: bash scripts/test-new.sh --only=pg
