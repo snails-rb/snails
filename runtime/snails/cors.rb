@@ -29,9 +29,10 @@ module Snails
   end
 
   module Cors
-    # The browser-facing allow-list. Origins are exact strings (scheme, host,
-    # and port) or `"*"`; allowed_methods are HTTP verbs; allowed_headers
-    # are names a preflight may ask for, or `["*"]` to echo the list.
+    # The browser-facing allow-list. Origins are exact `scheme://host[:port]`
+    # strings or `"*"`; a trailing slash or path is not an origin and does not
+    # match. allowed_methods are HTTP verbs; allowed_headers are names a
+    # preflight may ask for, or `["*"]` to echo the list.
     #
     # @example
     #   Snails.cors = Snails::Cors::Policy.new(
@@ -39,7 +40,8 @@ module Snails
     #     ["GET", "POST"],
     #     ["Content-Type"],
     #     true,
-    #     600
+    #     600,
+    #     ["X-Total-Count"]
     #   )
     class Policy
       # the exact origins the policy allows, or `["*"]`.
@@ -53,7 +55,7 @@ module Snails
       # the preflight cache lifetime; 0 omits the header.
       attr_reader :max_age
       # response header names the browser may read; empty omits the header.
-      attr_reader :expose
+      attr_reader :exposed_headers
 
       # @param origins [Array<String>] exact origins, or `["*"]`
       # @param allowed_methods [Array<String>] HTTP methods
@@ -61,17 +63,18 @@ module Snails
       #   `["*"]` allows any
       # @param allow_credentials [Boolean] allow credentials
       # @param max_age [Integer] preflight cache seconds; 0 omits the header
-      # @param expose [Array<String>] response headers the browser may read
+      # @param exposed_headers [Array<String>] response headers the browser may
+      #   read
       # @return [void]
       # @raise [ArgumentError] an empty list, a malformed member, `"*"` mixed
       #   with named origins, or `"*"` with credentials
-      def initialize(origins, allowed_methods, allowed_headers = [], allow_credentials = false, max_age = 0, expose = [])
+      def initialize(origins, allowed_methods, allowed_headers = [], allow_credentials = false, max_age = 0, exposed_headers = [])
         @origins = names(origins, "origins")
         @allowed_methods = names(allowed_methods, "methods")
         @allowed_headers = names(allowed_headers, "headers")
         @allow_credentials = boolean_value(allow_credentials, "credentials")
         @max_age = integer_value(max_age, "max_age")
-        @expose = names(expose, "expose")
+        @exposed_headers = names(exposed_headers, "exposed_headers")
         raise ArgumentError, "CORS origins must not be empty" if @origins.empty?
         raise ArgumentError, "CORS methods must not be empty" if @allowed_methods.empty?
         if @origins.include?("*")
@@ -127,6 +130,7 @@ module Snails
     # `Access-Control-Request-Method`. A denied request still gets a 204 with
     # no CORS headers, so the browser blocks without learning the policy.
     #
+    # @api internal
     # @param req [Tep::Request] the parsed request
     # @param res [Tep::Response] the response to fill
     # @param policy [Snails::Cors::Policy, nil] the policy; defaults to
@@ -164,6 +168,7 @@ module Snails
     # app so an app-set `Vary` is merged rather than dropped. A denied origin
     # gets `Vary: Origin` and no allow header.
     #
+    # @api internal
     # @param req [Tep::Request] the parsed request
     # @param res [Tep::Response] the response to fill
     # @param policy [Snails::Cors::Policy, nil] the policy; defaults to
@@ -177,8 +182,8 @@ module Snails
       return unless origin_allowed?(policy, origin)
       res.headers["Access-Control-Allow-Origin"] = allow_origin(policy, origin)
       res.headers["Access-Control-Allow-Credentials"] = "true" if policy.allow_credentials
-      unless policy.expose.empty?
-        res.headers["Access-Control-Expose-Headers"] = policy.expose.join(", ")
+      unless policy.exposed_headers.empty?
+        res.headers["Access-Control-Expose-Headers"] = policy.exposed_headers.join(", ")
       end
     end
 
@@ -244,7 +249,7 @@ module Snails
       parts = current.split(",")
       i = 0
       while i < parts.length
-        return if parts[i].strip == value
+        return if parts[i].strip.downcase == value.downcase
         i += 1
       end
       res.headers["Vary"] = current + ", " + value

@@ -138,8 +138,21 @@ class CorsTest < TestBase
     assert_equal 200, res.status
     assert_equal "https://app.example.com", res.headers["Access-Control-Allow-Origin"]
     assert_equal "true", res.headers["Access-Control-Allow-Credentials"]
+    assert_equal "X-Total-Count", res.headers["Access-Control-Expose-Headers"]
     assert_true res.headers["Vary"].include?("Origin")
     raise("controller did not run") if HarnessCurrentProbeController.seen_request.nil?
+  end
+
+  # A Vary value that differs only by case is already present; applying CORS
+  # does not add a duplicate.
+  def test_vary_merge_is_case_insensitive
+    req = build_request("GET", "/current-probe")
+    req.req_headers["origin"] = "https://app.example.com"
+    res = Tep::Response.new
+    res.headers["Vary"] = "origin"
+    Snails::Cors.apply(req, res)
+    assert_equal "origin", res.headers["Vary"]
+    assert_equal "https://app.example.com", res.headers["Access-Control-Allow-Origin"]
   end
 
   # The framework's 404 still carries the allow headers.
@@ -209,6 +222,7 @@ FixtureRunner.run(CorsTest, [
   "test_denied_origin_gets_no_allow_header",
   "test_denied_method_and_header_get_no_allow_header",
   "test_actual_response_carries_allow_headers",
+  "test_vary_merge_is_case_insensitive",
   "test_route_miss_carries_allow_headers",
   "test_server_500_keeps_the_cors_headers",
   "test_policy_rejects_wildcard_with_credentials",

@@ -13,13 +13,15 @@ Snails.logger.level = :info
 Snails.logger.progname = "fixture"
 
 # The CORS policy the boundary cases drive: one named origin, GET/POST,
-# JSON content type, credentials. The default (unset) is no CORS.
+# JSON content type, credentials, and one exposed response header. The
+# default (unset) is no CORS.
 Snails.cors = Snails::Cors::Policy.new(
   ["https://app.example.com"],
   ["GET", "POST"],
   ["Content-Type"],
   true,
-  600
+  600,
+  ["X-Total-Count"]
 )
 
 # The stamped mail registration — test mode captures the gate's

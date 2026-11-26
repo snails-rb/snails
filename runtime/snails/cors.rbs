@@ -9,7 +9,7 @@ module Snails
       attr_reader allowed_headers: Array[String]
       attr_reader allow_credentials: bool
       attr_reader max_age: Integer
-      attr_reader expose: Array[String]
+      attr_reader exposed_headers: Array[String]
 
       def initialize: (
         Array[String] origins,
@@ -17,7 +17,7 @@ module Snails
         ?Array[String] allowed_headers,
         ?bool allow_credentials,
         ?Integer max_age,
-        ?Array[String] expose
+        ?Array[String] exposed_headers
       ) -> void
 
       private def names: (untyped values, String label) -> Array[String]
