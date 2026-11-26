@@ -1,0 +1,156 @@
+require_relative "test_helper"
+require_relative "harness_runner"
+
+# Cookies are HTTP transport: the request's parsed hash reaches
+# `request.cookies`, the controller jar reads the same inbound values, and
+# every write becomes one Set-Cookie line with the attributes the app asked
+# for. A read after a delete must not see the deleted inbound value.
+Snails.env = "test"
+
+class CookieTest < TestBase
+  def assert_equal(expected, actual)
+    raise("expected #{expected.inspect}, got #{actual.inspect}") unless expected == actual
+  end
+
+  def assert_includes(text, expected)
+    raise("expected #{text.inspect} to include #{expected.inspect}") unless text.include?(expected)
+  end
+
+  def build_request(path)
+    req = Tep::Request.new
+    req.verb = "GET"
+    req.path = path
+    req.raw_path = path
+    req.remote_host = +"127.0.0.1"
+    req
+  end
+
+  # A request cookie reaches both the request hash and the controller jar;
+  # a missing cookie reads "" in both.
+  def test_inbound_cookie_reaches_request_and_jar
+    req = build_request("/cookie-read")
+    req.cookies["session"] = "abc"
+    res = Tep::Response.new
+    Snails::Main.dispatch(req, res)
+
+    assert_equal 200, res.status
+    assert_equal '{"request":"abc","jar":"abc","missing":""}', res.body
+  end
+
+  # Two writes produce two lines; each carries its own attributes, and a
+  # bare value gets the Rails defaults (Path=/ and SameSite=Lax).
+  def test_write_emits_multiple_set_cookie_lines_with_options
+    res = Tep::Response.new
+    Snails::Main.dispatch(build_request("/cookie-write"), res)
+
+    assert_equal 204, res.status
+    assert_equal 2, res.set_cookies.length
+    first = res.set_cookies[0]
+    second = res.set_cookies[1]
+    assert_equal true, first.start_with?("session=abc%20123%3B")
+    assert_includes first, "Path=/"
+    assert_includes first, "Max-Age=3600"
+    assert_includes first, "Secure"
+    assert_includes first, "HttpOnly"
+    assert_includes first, "SameSite=Strict"
+    assert_equal true, second.start_with?("second=two")
+    assert_includes second, "Path=/"
+    assert_includes second, "SameSite=Lax"
+  end
+
+  # `cookies.delete` emits a cleared value with Max-Age=0 and an epoch
+  # Expires, so the browser removes the cookie instead of keeping the old
+  # value.
+  def test_delete_emits_cleared_cookie
+    res = Tep::Response.new
+    Snails::Main.dispatch(build_request("/cookie-delete"), res)
+
+    assert_equal 1, res.set_cookies.length
+    line = res.set_cookies[0]
+    assert_equal true, line.start_with?("session=")
+    assert_includes line, "Max-Age=0"
+    assert_includes line, "Expires="
+  end
+
+  # `cookies.permanent` adds a far-future Expires to a write.
+  def test_permanent_sets_expiry
+    res = Tep::Response.new
+    Snails::Main.dispatch(build_request("/cookie-permanent"), res)
+
+    assert_equal 1, res.set_cookies.length
+    line = res.set_cookies[0]
+    assert_equal true, line.start_with?("session=forever")
+    assert_includes line, "Expires="
+  end
+
+  # A read after a delete returns "" even though the inbound cookie held a
+  # value — the pending tombstone wins over the inbound store.
+  def test_delete_wins_over_inbound_on_read
+    jar = ActionController::CookieJar.new({ "session" => "abc" })
+    jar.delete("session")
+    assert_equal "", jar["session"]
+  end
+
+  # The __Host- prefix rules are browser rules; a violation is a loud
+  # ArgumentError here instead of a silently dropped cookie.
+  def test_host_prefix_requires_secure_path_and_no_domain
+    jar = ActionController::CookieJar.new
+    begin
+      jar["__Host-session"] = { value: "v", path: "/", domain: "example.com" }
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "__Host-"
+    end
+    begin
+      jar["__Host-session"] = { value: "v", path: "/" }
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "__Host-"
+    end
+    jar["__Host-session"] = { value: "v", path: "/", secure: true }
+    assert_equal 1, jar.pending.length
+  end
+
+  # SameSite=None is only legal on a Secure cookie.
+  def test_same_site_none_requires_secure
+    jar = ActionController::CookieJar.new
+    begin
+      jar["session"] = { value: "v", same_site: :none }
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "SameSite"
+    end
+    jar["session"] = { value: "v", same_site: :none, secure: true }
+    assert_equal 1, jar.pending.length
+  end
+
+  # A misspelled option must not silently drop the flag.
+  def test_unknown_option_is_rejected
+    jar = ActionController::CookieJar.new
+    begin
+      jar["session"] = { value: "v", http_only: true }
+      raise("expected ArgumentError")
+    rescue ArgumentError => e
+      assert_includes e.message, "unknown cookie option"
+    end
+  end
+
+  # A missing cookie reads "" rather than nil; presence is a key? question
+  # on `request.cookies`.
+  def test_missing_cookie_reads_empty_string
+    jar = ActionController::CookieJar.new
+    assert_equal "", jar["missing"]
+  end
+end
+
+FixtureRunner.run(CookieTest, [
+  "test_inbound_cookie_reaches_request_and_jar",
+  "test_write_emits_multiple_set_cookie_lines_with_options",
+  "test_delete_emits_cleared_cookie",
+  "test_permanent_sets_expiry",
+  "test_delete_wins_over_inbound_on_read",
+  "test_host_prefix_requires_secure_path_and_no_domain",
+  "test_same_site_none_requires_secure",
+  "test_unknown_option_is_rejected",
+  "test_missing_cookie_reads_empty_string",
+])

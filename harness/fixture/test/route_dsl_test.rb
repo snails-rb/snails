@@ -66,7 +66,7 @@ class RouteDslTest < TestBase
   # probe; /body-params is the POST target the body-parse test drives.
   def test_fixture_table_row_is_built_by_the_helper
     rows = Snails::RouteTable.table
-    assert_equal 8, rows.length
+    assert_equal 12, rows.length
     assert_equal "GET", rows[0].verb
     assert_equal "/up", rows[0].pattern
     assert_equal :show, rows[0].action

@@ -68,6 +68,40 @@ request.raw_post         # the same text without touching the cursor
 
 The parser has already consumed the body into `params`. Don't read it again in a `before_action`. `request.raw_post` returns the bytes without moving the cursor.
 
+## Cookies
+
+The request's parsed cookies are a String-keyed hash on `request.cookies`:
+
+```ruby
+request.cookies["session"]       # the value, or nil when the cookie is absent
+```
+
+The controller's `cookies` jar reads the same values and records writes:
+
+```ruby
+cookies[:session]                  # the value, or "" when absent
+cookies[:session] = "abc123"       # Set-Cookie: session=abc123; Path=/; SameSite=Lax
+cookies[:session] = {
+  value: "abc123",
+  httponly: true,
+  secure: true,
+  same_site: :strict,
+  path: "/",
+  max_age: 3600
+}
+cookies.delete(:session, path: "/")
+```
+
+A write records a `Set-Cookie` line. Several writes in one request produce several lines. The defaults are `path: "/"` and `same_site: :lax`. `secure` and `httponly` stay false until you set them. A nil value deletes the cookie.
+
+Options are `expires:` (a `Time`), `max_age:` (seconds), `path:`, `domain:`, `secure:`, `httponly:`, and `same_site:` (`:lax`, `:strict`, `:none`, or `nil`). An unknown key raises `ArgumentError`. `same_site: :none` needs `secure: true`. A `__Host-` name needs `secure: true`, `path: "/"`, and no `domain:`. A `__Secure-` name needs `secure: true`.
+
+`cookies[:missing]` returns `""`, not `nil`. Read `request.cookies` when you need to tell an absent cookie from an empty value. `cookies.permanent[:name] = "value"` adds a 20-year expiry.
+
+The jar is the supported write path. Do not set `Set-Cookie` through `response.headers`. That hash holds one value per header and cannot hold several cookies.
+
+A session is your model, not a framework feature. [Authentication](08-authentication.md) shows a cookie session backed by a table.
+
 ## Narrow input before it reaches a model
 
 `ActionController::Params` narrows the plain hash before it reaches a model. Call it in the controller, where a bad request is still cheap to reject:
