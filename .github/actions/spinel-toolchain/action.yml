@@ -2,7 +2,7 @@ name: spinel toolchain
 description: >
   Install the spinel rev pinned in pins.toml and put spin on PATH for the rest
   of the job. Call it after checkout; the caller owns the system packages the
-  build needs (clang, libclang, sqlite3, libpq, jemalloc).
+  build needs (a C compiler via build-essential, sqlite3, libpq, jemalloc).
 
   A per-revision, pin-exact install: the gates materialize their toolchain
   from this PATH install and accept it only while it reports the pinned
