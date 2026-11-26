@@ -30,6 +30,7 @@ module ActionDispatch
     @headers: ActionDispatch::Http::Headers?
     @user_agent: String
     @params: Hash[String, untyped]
+    @cookies: Hash[String, String]
 
     def remote_ip: () -> String
     def remote_ip=: (String) -> String
@@ -68,6 +69,8 @@ module ActionDispatch
     def headers: () -> ActionDispatch::Http::Headers
     def params: () -> Hash[String, untyped]
     def params=: (Hash[String, untyped]) -> Hash[String, untyped]
+    def cookies: () -> Hash[String, String]
+    def cookies=: (untyped value) -> Hash[String, String]
     def self.for: (Hash[String, untyped] env, ?Hash[String, untyped] params) -> Request
   end
 end

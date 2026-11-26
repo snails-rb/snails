@@ -22,6 +22,16 @@ module Snails
         @headers = headers
       end
 
+      # every `Set-Cookie` line as its own String. `Net::HTTP` folds the
+      # repeated header into one comma-joined field on `headers[]`, and
+      # `Expires` dates contain commas, so the cookie lines must come from
+      # `get_fields`.
+      #
+      # @return [Array[String]] the Set-Cookie lines, empty when none
+      def set_cookies
+        @headers.get_fields("set-cookie") || []
+      end
+
       # the body as parsed JSON, or the raw body when it is not JSON.
       #
       # @return [Object, nil] the parsed value, the raw String when parsing

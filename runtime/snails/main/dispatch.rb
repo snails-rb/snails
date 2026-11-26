@@ -114,7 +114,9 @@ module Snails
       request_obj.host = req.req_headers.fetch("host", "localhost")
       request_obj.body = req.raw_body
       request_obj.user_agent = user_agent
+      request_obj.cookies = req.cookies
       controller.request = request_obj
+      controller.cookies = ActionController::CookieJar.new(request_obj.cookies)
       controller.request_format = matched.req_format.nil? ? :json : matched.req_format
       # The request line's matched fields. `Tep::App#dispatch` owns the
       # line itself (it also knows the duration), so this path reports
@@ -166,6 +168,17 @@ module Snails
       # unset it, so it is not written.
       controller.headers.each do |k, v|
         res.headers[k] = v unless v.nil?
+      end
+      # Cookie writes the action or a filter recorded. Each pending entry is
+      # one `Set-Cookie` line; the transport owns escaping and formatting.
+      # `pending` is a spinel array of `Cookie` values; index and length are
+      # the supported reads at this boundary.
+      writes = controller.cookies.pending
+      i = 0
+      while i < writes.length
+        cookie = writes[i]
+        res.set_cookie(cookie.name, cookie.value, cookie.options)
+        i += 1
       end
     end
   end

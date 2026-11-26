@@ -101,6 +101,7 @@ module ActionDispatch
     attr_accessor :referer
     attr_accessor :host
     attr_reader :format
+    attr_reader :cookies
 
     # a fresh request; the optional env hash is copied into the internal header
     # store. Callers never receive the hash back — `headers` is the read-only
@@ -134,6 +135,9 @@ module ActionDispatch
       @params = {}
       # Declared in the .rbs, so it needs the same initialized value.
       @user_agent = +""
+      # The dispatcher assigns the parsed cookie hash; a standalone request
+      # reads an empty store rather than a nil one.
+      @cookies = {}
     end
 
     # the writer accepts a symbol (`request.format = :json`) and stores the
@@ -276,6 +280,20 @@ module ActionDispatch
 
     def params=(value)
       @params = value
+    end
+
+    # Stores the transport's parsed cookies as a plain String-to-String hash.
+    # The transport hash has a default value, and reading a subscript directly
+    # through it does not compile in this build; copying here gives
+    # `request.cookies` and the controller jar one concrete store.
+    #
+    # @api internal
+    # @param value [Hash{String => String}] the transport's parsed cookies
+    # @return [Hash{String => String}] the stored copy
+    def cookies=(value)
+      @cookies = {}
+      value.each { |k, v| @cookies[k.to_s] = v }
+      @cookies
     end
 
     # build a request from a Rack-shaped env hash, the test harness entry point

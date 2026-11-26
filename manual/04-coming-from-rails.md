@@ -29,7 +29,7 @@ If you know Rails, you already know most of Snails. You declare routes the same 
 Some Rails features you may reach for don't exist here, by design:
 
 - No model callbacks, associations, or validations on the database layer — validation lives in form objects instead (see [Forms and Validation](13-forms.md)).
-- No HTML view helpers, CSRF tokens, sessions, or cookies middleware — the framework is API-only by design. Request cookies are parsed, but there's no session store.
+- No HTML view helpers, CSRF tokens, or session store — the framework is API-only by design. Cookies are part of HTTP: the `cookies` jar reads request cookies and writes `Set-Cookie` headers. If you need sessions, implement them in your app.
 - No gems in the runtime sense — your app and the framework compile together into one binary.
 - No `rescue_from`. A controller rescues in an action, or overrides `process_action` for an app-wide response (see [Error Handling](20-error-handling.md)).
 - No `ActiveSupport::Concern`, `included do`, or `class_methods`. A concern is a plain module. Write the methods it adds.

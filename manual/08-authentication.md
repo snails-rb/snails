@@ -1,6 +1,6 @@
 # Authentication
 
-Snails gives you HTTP authentication, not the user model. The controller reads a token or a username and password from the request, and your app decides whether it belongs to a user. The helper returns 401 when it doesn't. No session store, no cookie middleware, and no token table are built in.
+Snails gives you HTTP authentication, not the user model. The controller reads a token or a username and password from the request, and your app decides whether it belongs to a user. The helper returns 401 when it doesn't. No session store and no token table are built in. The `cookies` jar reads and writes cookies.
 
 ## Read a token
 
@@ -103,6 +103,6 @@ def current_account
 end
 ```
 
-`find_by` is enough when the token column is unique. A token table with an expiry or scope column is your schema. Nothing in the framework stores sessions, rotates tokens, or compares secrets in constant time.
+`find_by` is enough when the token column is unique. A token table with an expiry or scope column is your schema. Nothing in the framework stores a session for you, rotates tokens, or compares secrets in constant time.
 
 The signing key for tokens you issue yourself comes from `Snails.app.secret_key_base`. [Configuration](16-configuration.md) covers that setting.
