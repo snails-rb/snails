@@ -103,6 +103,25 @@ verifier.verified(token, purpose: "reset")  # "account:42"
 
 A tampered token, a token for another purpose, and a token signed with another secret read `nil`. Signing prevents tampering, not reading: the payload is Base64-encoded, not encrypted. The verifier has no expiry; the payload format, expiry, and refresh rotation are app code. [Requests and Parameters](07-requests-and-parameters.md) covers `cookies.signed`.
 
+## Check the Origin on state-changing requests
+
+Cross-Origin Resource Sharing (CORS) decides which origins can read a response; it does not stop another origin from sending a request. The app checks the `Origin` header on a state-changing request against the origin it expects:
+
+```ruby
+before_action :require_same_origin, only: [:create, :update, :destroy]
+
+private
+
+def require_same_origin
+  origin = request.headers["Origin"]
+  if origin != "https://app.example.com"
+    render(json: { "error" => "forbidden" }, status: :forbidden)
+  end
+end
+```
+
+A browser sends `Origin` on cross-origin requests and on same-origin POST requests. A same-origin GET usually has no `Origin`, so check only the actions that change state. `SameSite` cookies limit when the browser sends the cookie; the `Origin` check decides whether the request may change state.
+
 ## What the framework owns
 
 The framework owns the header parsing and the 401 response format. Your app owns the credential store and the comparison. A token lookup is a model query like any other:

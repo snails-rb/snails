@@ -53,7 +53,7 @@ ActionMailer::Base.delivery_method = ActionMailer::DeliveryLog if Snails.env.tes
 
 A time-zone name is resolved and validated here. `"Seoul"` and `"Asia/Seoul"` both name the same zone. An unknown name raises at boot, so a typo can't leave the process silently in UTC. Change this line rather than setting `TZ` in the environment — `TZ` is process-global and the framework sets it from this setting.
 
-The logger settings, the mail provider, and any boot override belong here too. The file is app-owned. `snails sync` never rewrites it.
+The logger settings, the mail provider, and any boot override belong here too. A cross-origin (CORS) policy also belongs here; [Routes and Controllers](06-routes-and-controllers.md) covers the policy. The file is app-owned. `snails sync` never rewrites it.
 
 ## Boot order
 
