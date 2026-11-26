@@ -148,4 +148,24 @@ Call `super` to keep the filters, the action, and the implicit 204. An override 
 
 A route's forced format sets `controller.request_format`. A path extension sets `params["format"]`. With no route choice, `request_format` is `:json`.
 
+## CORS
+
+A browser on another origin can call your API only when you allow it. Set a policy in `config/environment.rb`:
+
+```ruby
+Snails.cors = Snails::Cors::Policy.new(
+  ["https://app.example.com"],
+  ["GET", "POST"],
+  ["Content-Type"],
+  true,
+  600
+)
+```
+
+The arguments are origins, methods, request header names, credentials, and the preflight cache lifetime. `["*"]` as the first argument allows every origin; it cannot be combined with credentials. `["*"]` as the header list echoes the headers a preflight asks for.
+
+A preflight is an `OPTIONS` request with `Origin` and `Access-Control-Request-Method`. The framework responds to it before routing and authentication: 204 with the allow headers, or 204 with no allow header when the origin, method, or header is not allowed. An actual response includes the allow headers before the controller runs, so a 404, 400, 401, or 500 is readable by the browser too. A denied origin gets `Vary: Origin` and no allow header.
+
+CORS controls which origins can read a response. It does not authenticate a request: a disallowed origin can still send one. Add `SameSite` cookies and an `Origin` check for state-changing requests (see [Authentication](08-authentication.md)).
+
 [Requests and Parameters](07-requests-and-parameters.md) covers the request object and the params hash in detail.

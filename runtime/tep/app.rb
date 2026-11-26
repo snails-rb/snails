@@ -85,6 +85,15 @@ module Tep
       res.headers_only = true if req.verb == "HEAD"
       Snails::Logger::Context.begin_request
       started = Sock.sphttp_now_us
+      # A CORS preflight is answered before routing, auth, and the DB scope.
+      # The browser sends no credentials on it, so no app filter may see it.
+      if Snails::Cors.preflight(req, res)
+        log_request_completed(req, started, res.status)
+        return
+      end
+      # Actual-response headers go on before the app runs, so a 404, 400, or
+      # 401 the dispatch builds still carries them.
+      Snails::Cors.apply(req, res)
       begin
         Sqlx::Database.with_connection { Snails::Main.dispatch(req, res) }
       rescue Exception => failure
@@ -92,6 +101,9 @@ module Tep
         log_request_failed(req, started, 500, failure)
         raise
       end
+      # The app may have replaced Vary; merge the origin value again rather
+      # than let a controller drop it.
+      Snails::Cors.apply(req, res)
       if res.status >= 500
         log_request_failed(req, started, res.status, nil)
       else

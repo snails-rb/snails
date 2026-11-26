@@ -1,0 +1,37 @@
+module Snails
+  def self.cors: () -> Snails::Cors::Policy?
+  def self.cors=: (Snails::Cors::Policy?) -> Snails::Cors::Policy?
+
+  module Cors
+    class Policy
+      attr_reader origins: Array[String]
+      attr_reader allowed_methods: Array[String]
+      attr_reader allowed_headers: Array[String]
+      attr_reader allow_credentials: bool
+      attr_reader max_age: Integer
+      attr_reader expose: Array[String]
+
+      def initialize: (
+        Array[String] origins,
+        Array[String] allowed_methods,
+        ?Array[String] allowed_headers,
+        ?bool allow_credentials,
+        ?Integer max_age,
+        ?Array[String] expose
+      ) -> void
+
+      private def names: (untyped values, String label) -> Array[String]
+      private def boolean_value: (untyped value, String label) -> bool
+      private def integer_value: (untyped value, String label) -> Integer
+    end
+
+    def self.preflight: (untyped req, untyped res, ?Snails::Cors::Policy? policy) -> bool
+    def self.apply: (untyped req, untyped res, ?Snails::Cors::Policy? policy) -> void
+
+    private def self.origin_allowed?: (Snails::Cors::Policy policy, String origin) -> bool
+    private def self.verb_allowed?: (Snails::Cors::Policy policy, String verb) -> bool
+    private def self.request_headers_allowed?: (Snails::Cors::Policy policy, String requested) -> bool
+    private def self.allow_origin: (Snails::Cors::Policy policy, String origin) -> String
+    private def self.add_vary: (untyped res, String value) -> void
+  end
+end
