@@ -1,7 +1,7 @@
 name: linux build deps
 description: >
   The system packages every Linux job needs before the spinel toolchain
-  installs: clang and libclang for the compile, sqlite3 for the adapter and the
+  installs: build-essential for the C compiler, sqlite3 for the adapter and the
   migration runner, and the development headers the fixtures link against
   (sqlite3, pq, jemalloc). Call it before .github/actions/spinel-toolchain.
 
@@ -13,6 +13,6 @@ runs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          clang libclang-dev \
+          build-essential \
           sqlite3 libsqlite3-dev \
           libpq-dev libjemalloc-dev
