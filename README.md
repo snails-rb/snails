@@ -104,7 +104,7 @@ The manual is the product documentation for developers building an app. It lives
 
 ## Development
 
-Snails is split into the framework (`runtime/`), the CLI (`cli/`), and the project scaffolder (`scaffold/`). An app copies `runtime/` into itself as `snails-core/` and pins the revision in its own `pins.toml`.
+Snails is split into the framework (`runtime/`), the CLI (`cli/`), and the project generator (`scaffold/`). An app copies `runtime/` into itself as `snails-core/` and pins the revision in its own `pins.toml`.
 
 ```
 runtime/        # app-agnostic framework code — copied into a consuming app as snails-core/

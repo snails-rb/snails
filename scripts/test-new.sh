@@ -1,5 +1,5 @@
 #!/bin/bash
-# Regression test for the scaffolder (`bin/snails new`) — generates
+# Regression test for `bin/snails new` — generates
 # projects and runs their harness gates (`bin/test`: build, boot, cases
 # against the live server) and dev servers (`bin/dev`: foreground serve;
 # the sqlite file survives, the boot banner lands in the app tree's
@@ -14,7 +14,7 @@
 #
 # Acceptance is a FIXED set of canaries plus a cheap option matrix —
 # not the options cartesian product. The canaries compile, so their
-# count must not grow with scaffolder options:
+# count must not grow with project options:
 #
 #   demo — the --scaffold (posts/comments) template on the default adapter,
 #          plus a model declared under a namespace (its file is scanned,
@@ -247,7 +247,7 @@ canary_demo() {
   # compiled attach are all exercised. The legacy-layout and stale-core
   # proofs are destructive, so they run last.
   local APP="$WORK/demo"
-  echo "[test-new] scaffolding $APP (--scaffold, default adapter)"
+  echo "[test-new] generating $APP (--scaffold, default adapter)"
   "$ROOT/bin/snails" new "$APP" --scaffold >/dev/null
   [[ -d "$APP/storage" ]] || {
     echo "[test-new] new --scaffold did not create the sqlite storage directory" >&2
@@ -273,7 +273,7 @@ canary_demo() {
   echo "[test-new] require-all generator agrees with the demo template ($APP)"
   "$ROOT/bin/snails" gen-require-all "$APP" --check
 
-  # The scaffolder materializes the pinned spinel toolchain next to the
+  # `snails new` materializes the pinned spinel toolchain next to the
   # app's pins.toml (gitignored state, never source) — every compile in
   # this tree runs the pin, not whatever is on PATH.
   [[ -x "$APP/.spinel/toolchain/spin" && -x "$APP/.spinel/toolchain/spinel" ]] || {
@@ -701,7 +701,7 @@ canary_pg() {
     return 0
   fi
   local PG_APP="$WORK/demopg"
-  echo "[test-new] scaffolding $PG_APP (--scaffold, pg adapter)"
+  echo "[test-new] generating $PG_APP (--scaffold, pg adapter)"
   "$ROOT/bin/snails" new "$PG_APP" --scaffold --database=postgresql >/dev/null
   # Same form as the sqlite scaffold: baseline as a UTC migration, no
   # schema dump — and on pg `migrate dump` needs a server to replay into
