@@ -1,6 +1,6 @@
 # Coming from Rails
 
-If you know Rails, you already know most of Snails. You declare routes the same way, controllers respond with JSON instead of views, and models are plain classes over your tables. This chapter translates the Rails habits you bring: where routes live now, what replaces Active Record, and which Rails features you won't find here.
+If you know Rails, you already know most of Snails. You declare routes the same way, controllers respond with JSON instead of server-rendered views, and models are plain classes over your tables. This chapter translates the Rails habits you bring: where routes live now, what replaces Active Record, and which Rails features you won't find here.
 
 ## What stays the same
 
@@ -13,7 +13,7 @@ If you know Rails, you already know most of Snails. You declare routes the same 
 
 | In Rails | In Snails |
 |---|---|
-| Views and templates | Nothing renders HTML — your app responds with JSON (see [Routes and Controllers](06-routes-and-controllers.md)) |
+| Views and templates | Nothing renders HTML on the server. Your app responds with JSON (see [Routes and Controllers](06-routes-and-controllers.md)) |
 | Active Record models | Plain model classes over your tables (see [Database and Models](09-database-and-models.md)) |
 | `Gemfile` and Bundler | `spin.toml` declares what the build needs |
 | A server process you install | One native binary that includes the server |
@@ -23,6 +23,8 @@ If you know Rails, you already know most of Snails. You declare routes the same 
 | `rails db:migrate` | `snails migrate apply`, with `load` for first setup |
 | `rails test` | `bin/test` |
 | `perform_later` and job callbacks | `ActiveJob.enqueue`, `schedule`, and `recurring`; one class-side `perform` (see [Background Jobs](15-background-jobs.md)) |
+
+The frontend is a separate SPA or native app. Cookies, signed cookies, and CORS are built in.
 
 ## What isn't here
 

@@ -1,6 +1,6 @@
 # Welcome to Snails
 
-Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions: routes, controllers, models, forms, mailers, and jobs in Ruby, and migrations in SQL. It compiles your app code, the framework, and the HTTP server into one native executable. The server doesn't need Ruby at runtime, and there's no view layer or asset pipeline.
+Snails is a Rails-like framework for API-only Ruby apps. It keeps the Rails conventions: routes, controllers, models, forms, mailers, and jobs in Ruby, and migrations in SQL. It compiles your app code, the framework, and the HTTP server into one native executable. The server doesn't need Ruby at runtime, and there's no server-rendered view layer or asset pipeline. The frontend is a separate SPA or native app. Cookies, signed cookies, and CORS are built in.
 
 It drops the runtime machinery: no Active Record and no gem compatibility. Models are plain classes over SQL, migrations are SQL files, and `bin/test` runs against a real HTTP server. The build generates the column readers, path helpers, and the app's require list. Coding agents change the trade-off: they write SQL, work across a backend and a frontend, and implement what a gem would have provided instead of adding a dependency. See [The Snails Design](https://snails-rb.org/blog/the-snails-design/) for the reasoning and the agent workflow behind these choices.
 

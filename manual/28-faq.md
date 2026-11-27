@@ -48,7 +48,7 @@ A schema change is a SQL statement. Keeping it as a SQL file makes the change re
 
 ### Does Snails render HTML?
 
-No. There's no view layer or asset pipeline. Every controller responds with JSON, a redirect, or a status. The frontend is a separate app, in the same repository or its own, not a layer inside this binary.
+No. There's no server-rendered view layer or asset pipeline. Every controller responds with JSON, a redirect, or a status. The frontend is a separate SPA or native app, in the same repository or its own, not a layer inside this binary.
 
 ### How do I run one test file?
 
