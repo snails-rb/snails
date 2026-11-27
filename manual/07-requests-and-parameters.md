@@ -14,9 +14,9 @@ params["comment"]["body"] # => "hello"
 params["post_id"]       # => "42"       from the route
 ```
 
-A JSON object keeps its nesting, so `{"user": {"name": "Sue"}}` and an urlencoded `user[name]=Sue` build the same tree. A JSON array can't be represented in the body reader. Its elements collapse into one `[]` key and the last one wins. Send a nested object when every element must survive.
+A JSON object keeps its nesting, so `{"user": {"name": "Sue"}}` and an urlencoded `user[name]=Sue` build the same tree. A JSON array keeps every element, the same way an urlencoded `tags[]=red&tags[]=blue` does. Scalar values are Strings, as in the other body types: JSON numbers and booleans become `"3"` and `"true"`, and `null` becomes `""`. Read an array directly, or filter the keys of its objects with `ActionController::Params.permit`; `str` is for scalar fields. When you need the JSON values with their own types, parse `request.raw_post`.
 
-To read only the body, use `request.request_parameters`. It holds the body's fields and nothing else; the query string and the path captures are not merged in. Inside a controller, `params` and `request.params` are the same hash.
+To read only the body, use `request.request_parameters`. It holds the body's fields and nothing else; the query string and the path captures are not merged in. A JSON body keeps its arrays and nested objects there too, and scalar values are Strings there as well. Inside a controller, `params` and `request.params` are the same hash.
 
 Request params are mutable and String-keyed. `params[:id]` is always `nil`. Read `params["id"]`.
 
