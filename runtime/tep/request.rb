@@ -132,12 +132,13 @@ module Tep
     end
 
     # whether the body arrived as JSON, the encoding a client sends when it asks
-    # for `contentType: "application/json"`.
+    # for `contentType: "application/json"`. The `+json` structured suffix
+    # (`application/vnd.api+json`) counts too.
     #
-    # @return [Boolean] true when the Content-Type is application/json;
+    # @return [Boolean] true when the body media type is JSON;
     #   `parse_body_params` below parses such a body into params
     def json?
-      @req_headers["content-type"].downcase.start_with?("application/json")
+      ActionDispatch::Http::MediaType.json?(@req_headers["content-type"])
     end
 
     # whether the body arrived in a form the runtime could not read: JSON that

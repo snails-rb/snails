@@ -1,0 +1,7 @@
+ok test_body_only_params_survive_a_query_override
+ok test_a_json_structured_suffix_is_parsed
+ok test_a_urlencoded_body_has_its_own_view
+ok test_a_request_without_a_body_reports_empty_metadata
+ok test_content_type_readers
+ok test_content_length_defaults_to_zero
+RequestMetadataTest: 6 tests passed

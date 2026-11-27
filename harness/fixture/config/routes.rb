@@ -6,6 +6,7 @@ require_relative "../app/controllers/auth_probe_controller"
 require_relative "../app/controllers/db_probe_controller"
 require_relative "../app/controllers/body_params_controller"
 require_relative "../app/controllers/cookie_probe_controller"
+require_relative "../app/controllers/request_probe_controller"
 
 module Snails
   module RouteTable
@@ -19,6 +20,8 @@ module Snails
        get("/current-probe", HarnessCurrentProbeController, :show),
        get("/db-probe", HarnessDbProbeController, :show),
        post("/body-params", HarnessBodyParamsController, :show),
+       get("/request-probe", HarnessRequestProbeController, :show),
+       post("/request-probe", HarnessRequestProbeController, :show),
        get("/cast-error", HarnessBoomController, :cast_error),
        get("/cookie-read", HarnessCookieController, :read),
        get("/cookie-write", HarnessCookieController, :write),

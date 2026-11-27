@@ -13,27 +13,25 @@ module Snails
       @route_table ||= Snails::RouteTable.table
     end
 
-    # the controller's params: body fields, the query string over them, and the
-    # route's path captures over both, each half nested by
-    # `ActionDispatch::ParamBuilder`.
+    # the request body's own params: urlencoded fields, multipart text parts,
+    # or JSON leaves, nested by `ActionDispatch::ParamBuilder`. Query and path
+    # captures are not folded in; the dispatcher keeps this hash as
+    # `request.request_parameters` and builds the merged params beside it.
     #
     # Multipart and JSON fields are flattened by name, so a repeated field keeps
-    # its last value; urlencoded and query params keep every value.
+    # its last value; urlencoded params keep every value.
     #
     # @param req [Tep::Request] the parsed request
-    # @param path_params [Hash{String => String}] the router's captures
-    # @return [Hash{String => Object}, nil] nil when the input is malformed
+    # @return [Hash{String => untyped}, nil] nil when the body is malformed
     #   (a body the runtime could not parse, a bad %-escape, invalid UTF-8,
     #   nesting too deep, or a name used as both an Array and a Hash); the
     #   dispatcher answers 400.
-    def self.request_params(req, path_params)
+    def self.body_params(req)
       return nil if req.body_parse_failed?
-      query = ActionDispatch::ParamBuilder.from_query_string(req.raw_query)
-      return nil if query.nil?
-      body = {}
       if req.form?
-        body = ActionDispatch::ParamBuilder.from_query_string(req.raw_body)
-      elsif req.multipart? || req.json?
+        return ActionDispatch::ParamBuilder.from_query_string(req.raw_body)
+      end
+      if req.multipart? || req.json?
         keys = []
         values = []
         present = []
@@ -42,10 +40,29 @@ module Snails
           values.push(v)
           present.push(true)
         end
-        body = ActionDispatch::ParamBuilder.build(keys, values, present)
+        return ActionDispatch::ParamBuilder.build(keys, values, present)
       end
-      return nil if body.nil?
-      out = body
+      {}
+    end
+
+    # the controller's params: the body fields, the query string over them,
+    # and the route's path captures over both.
+    #
+    # The body hash is copied at the top level before the query is merged:
+    # `request.request_parameters` keeps the same body hash, so merging into
+    # it directly would make a query-only name appear in the body view.
+    #
+    # @param req [Tep::Request] the parsed request
+    # @param path_params [Hash{String => String}] the router's captures
+    # @param body [Hash{String => untyped}] the body-only params
+    # @return [Hash{String => untyped}, nil] nil when the query string is
+    #   malformed (a bad %-escape or invalid UTF-8); the dispatcher answers
+    #   400.
+    def self.request_params(req, path_params, body)
+      query = ActionDispatch::ParamBuilder.from_query_string(req.raw_query)
+      return nil if query.nil?
+      out = {}
+      body.each { |k, v| out[k] = v }
       query.each { |k, v| out[k] = v }
       path_params.each { |k, v| out[k] = v }
       out
@@ -84,7 +101,8 @@ module Snails
         res.headers["Content-Type"] = "application/json; charset=utf-8"
         return
       end
-      params = Snails::Main.request_params(req, matched.path_params)
+      body = Snails::Main.body_params(req)
+      params = body.nil? ? nil : Snails::Main.request_params(req, matched.path_params, body)
       if params.nil?
         res.status = 400
         res.body = ActionController::JsonRender.encode({ "error" => "bad_request" })
@@ -113,11 +131,16 @@ module Snails
       request_obj.referer = req.req_headers.fetch("referer", "")
       request_obj.host = req.req_headers.fetch("host", "localhost")
       request_obj.body = req.raw_body
+      request_obj.content_length = req.content_length
+      request_obj.params = params
+      request_obj.request_parameters = body
       request_obj.user_agent = user_agent
       request_obj.cookies = req.cookies
+      response_format = matched.req_format.nil? ? :json : matched.req_format
+      request_obj.format = response_format
       controller.request = request_obj
       controller.cookies = ActionController::CookieJar.new(request_obj.cookies)
-      controller.request_format = matched.req_format.nil? ? :json : matched.req_format
+      controller.request_format = response_format
       # The request line's matched fields. `Tep::App#dispatch` owns the
       # line itself (it also knows the duration), so this path reports
       # what it matched rather than writing a line per action.

@@ -64,10 +64,11 @@ class RouteDslTest < TestBase
   # call exercised through the app's own table); /boom is the error-path
   # target the request-line test dispatches to; /db-probe is the DB-timing
   # probe; /body-params is the POST target the body-parse test drives;
-  # /auth-probe is the filter's 401 target.
+  # /request-probe is the request-metadata target; /auth-probe is the
+  # filter's 401 target.
   def test_fixture_table_row_is_built_by_the_helper
     rows = Snails::RouteTable.table
-    assert_equal 13, rows.length
+    assert_equal 15, rows.length
     assert_equal "GET", rows[0].verb
     assert_equal "/up", rows[0].pattern
     assert_equal :show, rows[0].action
@@ -84,11 +85,15 @@ class RouteDslTest < TestBase
     assert_equal HarnessCurrentProbeController, rows[4].controller
     assert_equal "/db-probe", rows[5].pattern
     assert_equal HarnessDbProbeController, rows[5].controller
-    assert_equal "/cast-error", rows[7].pattern
-    assert_equal HarnessBoomController, rows[7].controller
-    assert_equal :cast_error, rows[7].action
-    assert_equal "/auth-probe", rows[12].pattern
-    assert_equal HarnessAuthProbeController, rows[12].controller
+    assert_equal "/request-probe", rows[7].pattern
+    assert_equal "GET", rows[7].verb
+    assert_equal "/request-probe", rows[8].pattern
+    assert_equal "POST", rows[8].verb
+    assert_equal "/cast-error", rows[9].pattern
+    assert_equal HarnessBoomController, rows[9].controller
+    assert_equal :cast_error, rows[9].action
+    assert_equal "/auth-probe", rows[14].pattern
+    assert_equal HarnessAuthProbeController, rows[14].controller
   end
 end
 
