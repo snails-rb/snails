@@ -22,6 +22,14 @@ Snails keeps the Rails conventions an API needs and builds the framework in plai
 
 In production, on a 1 GB node, the app process uses about 20 MB RSS and the binary is 4.3 MB. The node uses 362 MB, leaving 589 MB available. [The Snails Design](https://snails-rb.org/blog/the-snails-design/) makes the case. [A native Rails-like Ruby app using 20 MB of memory](https://snails-rb.org/blog/a-native-rails-like-ruby-app-using-20-mb-of-memory/) has the full story. [Coming from Rails](manual/04-coming-from-rails.md) covers the port. The frontend is a separate SPA or native app. Cookies, signed cookies, and CORS are built in. If you need server-rendered pages or the full Rails stack, Rails is the better fit.
 
+## Demo
+
+![Terminal demo: snails new demo --scaffold, bin/test, bin/dev, and a posts API request](demo/demo.gif)
+
+`snails new demo --scaffold` creates a posts-and-comments API, `bin/test` runs the suite against a real server, and `bin/dev` serves it. A `POST /posts` stores a row and `GET /posts/1` reads it back. `/up` is the framework's default health check — every Snails app answers it.
+
+The recording starts with the pinned compiler cached and the first app build warmed; a cold first build takes about two minutes.
+
 ## Install
 
 ```sh
@@ -112,6 +120,7 @@ scaffold/       # snails new and --scaffold templates, plus the harness skeleton
 bin/snails      # the CLI entry point
 cli/            # the CLI implementation shipped in the dist
 scripts/        # repository-only verification and release tools (not in the dist)
+demo/           # README demo tape and rendered GIF
 install.sh      # curl installer for the CLI
 pins.toml       # SPINEL_REV — the spinel revision this framework is verified with
 manual/         # product documentation (English)
