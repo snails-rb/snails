@@ -1,5 +1,5 @@
 # The route-declaration DSL behind every app's `config/routes.rb`: verb
-# helpers and `resources`, with `RouteTable` reopened by the app.
+# helpers, `resources`, and `resource`, with `RouteTable` reopened by the app.
 #
 # Helpers build `Route` rows without reading controller constants, so a row may
 # name a class boot has not loaded; the table is built on the first dispatch.
@@ -76,7 +76,7 @@ module Snails
     #   resources("/posts", Api::PostsController, :json)
     #   resources("/devices", Api::DevicesController, :json, [:create, :show])
     def self.resources(path, controller, format = nil, only = nil)
-      check_only(only)
+      check_actions(only, [:index, :create, :show, :update, :destroy], "resources")
       rows = []
       rows << ActionDispatch::Router::Route.new("GET", path, controller, :index, format) if action_selected?(only, :index)
       rows << ActionDispatch::Router::Route.new("POST", path, controller, :create, format) if action_selected?(only, :create)
@@ -86,20 +86,52 @@ module Snails
       rows
     end
 
-    # every name in `only` must be one of the five RESTful actions. A typo there
-    # would otherwise silently drop the row and the app would see a 404 where it
-    # declared a route. It raises at table construction (boot), not at the
-    # first request. A nil list has no names to check.
+    # the four RESTful rows of a singular resource as `Array[Route]`: one path
+    # with no `:id` segment, because the resource exists once per client. show
+    # is the GET row, create POST, update PUT, destroy DELETE. The caller
+    # concatenates the result into its table; first-match order is preserved
+    # exactly as declared.
     #
-    # @param only [Array[Symbol], nil] the action subset `resources` will keep
-    # @raise [ArgumentError] `only` names an action outside the five RESTful ones
-    def self.check_only(only)
+    # @param path [String] the singular path as written — a nested resource's
+    #   parent segments are path text ("/users/:user_id/profile")
+    # @param controller [Class] the controller class every row dispatches to
+    # @param format [Symbol, nil] the route-forced format on every row
+    #   (nil = infer from path)
+    # @param only [Array[Symbol], nil] the actions to keep, e.g.
+    #   `[:show, :create, :destroy]` — nil keeps all four. Rows come out in
+    #   REST order regardless of the order named
+    # @return [Array<ActionDispatch::Router::Route>] the selected rows
+    # @raise [ArgumentError] `only` names something outside the four singular
+    #   actions — a typo would otherwise silently drop the row
+    # @example
+    #   resource("/profile", Api::ProfileController, :json)
+    #   resource("/v1/session", Api::SessionsController, :json, [:show, :create, :destroy])
+    def self.resource(path, controller, format = nil, only = nil)
+      check_actions(only, [:show, :create, :update, :destroy], "resource")
+      rows = []
+      rows << ActionDispatch::Router::Route.new("GET", path, controller, :show, format) if action_selected?(only, :show)
+      rows << ActionDispatch::Router::Route.new("POST", path, controller, :create, format) if action_selected?(only, :create)
+      rows << ActionDispatch::Router::Route.new("PUT", path, controller, :update, format) if action_selected?(only, :update)
+      rows << ActionDispatch::Router::Route.new("DELETE", path, controller, :destroy, format) if action_selected?(only, :destroy)
+      rows
+    end
+
+    # every name in `only` must be one of `allowed`. A typo there would
+    # otherwise silently drop the row and the app would see a 404 where it
+    # declared a route. It raises when the table is built, before a route can
+    # 404. A nil list has no names to check.
+    #
+    # @param only [Array[Symbol], nil] the action subset the helper will keep
+    # @param allowed [Array[Symbol]] the actions the helper can declare
+    # @param helper [String] the declaration name used in the error
+    # @raise [ArgumentError] `only` names an action outside `allowed`
+    def self.check_actions(only, allowed, helper)
       return if only.nil?
       i = 0
       while i < only.length
         name = only[i]
-        if name != :index && name != :create && name != :show && name != :update && name != :destroy
-          raise ArgumentError, "resources: unknown action #{name}"
+        unless action_selected?(allowed, name)
+          raise ArgumentError, "#{helper}: unknown action #{name}"
         end
         i += 1
       end
@@ -121,9 +153,9 @@ module Snails
       false
     end
 
-    # `check_only` / `action_selected?` back `resources` only — an app calls
-    # `resources`, never these. Private on purpose: not supported for app
-    # use, free to change or vanish without notice.
-    private_class_method :check_only, :action_selected?
+    # `check_actions` / `action_selected?` back `resources` and `resource` — an
+    # app calls one of those, never these. Private on purpose: not supported
+    # for app use, free to change or vanish without notice.
+    private_class_method :check_actions, :action_selected?
   end
 end

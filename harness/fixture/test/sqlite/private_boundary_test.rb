@@ -45,6 +45,17 @@ class PrivateBoundaryTest < TestBase
     raise "expected ActionDispatch::Router.format_extension to be private"
   end
 
+  # The route DSL's action checker sits behind `resources`/`resource`; an
+  # app calling it from outside is refused.
+  def test_route_table_action_checker_is_private
+    begin
+      Snails::RouteTable.check_actions([:show], [:show], "resource")
+    rescue NoMethodError
+      return
+    end
+    raise "expected Snails::RouteTable.check_actions to be private"
+  end
+
   # The civil helpers sit behind the public date/time calculations; an app
   # calling one from outside is refused.
   def test_date_time_helpers_are_private
@@ -183,6 +194,7 @@ FixtureRunner.run(PrivateBoundaryTest, [
   "test_active_job_enqueue_recurring_is_private",
   "test_json_render_helpers_are_private",
   "test_router_helpers_are_private",
+  "test_route_table_action_checker_is_private",
   "test_date_time_helpers_are_private",
   "test_time_zone_helpers_are_private",
   "test_harness_request_builder_is_private",

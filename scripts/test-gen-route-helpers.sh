@@ -231,6 +231,101 @@ mk_app res3 res-extra.rb
 bash "$G" res3 >/dev/null 2>&1
 chk "a resources argument the runtime cannot take is refused" $? 2
 
+# 4c. resource — four rows on one path, no :id; a nested path keeps its
+#     parent param; the expansion refuses a marker, a non-symbol only list,
+#     and a local replacement.
+cat > singular.rb <<'RB'
+module Snails
+  module RouteTable
+    def self.table
+      [
+        resource("/v1/session", Api::SessionsController, :json, [:show, :create, :destroy]),
+        resource("/users/:user_id/profile", Api::ProfilesController)
+      ]
+    end
+  end
+end
+RB
+mk_app singular singular.rb
+bash "$G" singular >/dev/null 2>&1
+chk "resource expands" $? 0
+grep -q 'def self.session_path$' singular/gen/route_helpers.rb
+chk "a singular resource names its path after the last static segment" $? 0
+grep -q 'def self.session_path(id)' singular/gen/route_helpers.rb 2>/dev/null
+chk "a singular resource has no id parameter" $? 1
+grep -q 'def self.profile_path(user_id)' singular/gen/route_helpers.rb
+chk "a nested singular resource keeps the parent param" $? 0
+grep -q '"/users/" + user_id.to_s + "/profile"' singular/gen/route_helpers.rb
+chk "the nested singular path keeps its parent segment" $? 0
+
+cat > singular-flat.rb <<'RB'
+module Snails
+  module RouteTable
+    def self.table
+      [
+        *resource("/v1/session", Api::SessionsController, :json, [:show, :create])
+      ]
+    end
+  end
+end
+RB
+mk_app singflat singular-flat.rb
+bash "$G" singflat >/dev/null 2>&1
+chk "the flat-array form splats a singular resource" $? 0
+grep -q 'def self.session_path$' singflat/gen/route_helpers.rb
+chk "the splatted singular resource emits its helper" $? 0
+
+cat > singular-marker.rb <<'RB'
+module Snails
+  module RouteTable
+    def self.table
+      [
+        resource("/v1/session", Api::SessionsController)  # as: current_session
+      ]
+    end
+  end
+end
+RB
+mk_app singmark singular-marker.rb
+bash "$G" singmark >/dev/null 2>&1
+chk "a marker on a resource row is refused" $? 2
+
+cat > singular-only.rb <<'RB'
+module Snails
+  module RouteTable
+    def self.table
+      [
+        resource("/v1/session", Api::SessionsController, nil, ["show"])
+      ]
+    end
+  end
+end
+RB
+mk_app singonly singular-only.rb
+bash "$G" singonly >/dev/null 2>&1
+chk "a resource only list must be literal symbols" $? 2
+
+cat > singular-reserved.rb <<'RB'
+module Snails
+  module RouteTable
+    def self.resource(path, controller, action = :show)
+      ActionDispatch::Router::Route.new("GET", path, controller, action)
+    end
+
+    def self.table
+      [
+        resource("/v1/session", Api::SessionsController)
+      ]
+    end
+  end
+end
+RB
+mk_app singreserved singular-reserved.rb
+out="$(bash "$G" singreserved 2>&1)"
+chk "a local resource definition is refused" $? 2
+if [[ $out == *"cannot replace"* ]]; then match=0; else match=1; fi
+chk "the refusal says the name is reserved" "$match" 0
+
 # 5. Collisions — one name, two patterns — are refused; a repeated
 #    (name, pattern) pair is one helper, not a collision.
 cat > collide.rb <<'RB'

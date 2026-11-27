@@ -11,26 +11,29 @@
 # What it reads: config/routes.rb, parsed by the pinned spinel
 # (`spinel --dump-ast`) — the same parser the app compiles with. The table is
 # the literal array returned by `def self.table`; its elements are verb-helper
-# calls, `Route.new` calls, and `resources` calls (bare or splatted). A row is
-# a declaration, so it may be formatted freely across lines; a row whose
-# arguments are not literals (a variable, a computed path, a loop) is refused,
-# because the helper would have to guess.
+# calls, `Route.new` calls, and `resources`/`resource` calls (bare or
+# splatted). A row is a declaration, so it may be formatted freely across
+# lines; a row whose arguments are not literals (a variable, a computed path,
+# a loop) is refused, because the helper would have to guess.
 #
 # Local helper definitions (`def self.posted(path, controller, action =
 # :create)`) are learned from their parameters and the `Route.new` in their
 # body — a conditional inside the body no longer hides the verb. The four core
 # verb helpers and their default actions are the seed (runtime/snails/
-# route_dsl.rb); a local definition replaces the same-name seed entry.
+# route_dsl.rb); a local definition replaces the same-name seed entry. The
+# expansion names `resources` and `resource` are reserved — a local definition
+# with either name is refused.
 #
 # Names: the generator's own derivation — the pattern's static segments
 # joined by "_", falling back to controller/action when the pattern has
 # none. `resources` names its collection after the last static segment and
-# its member after the naive singular. A row that needs a different name
-# carries the build-time marker `# as: <name>` (the same pattern as the
-# generated lines in the load-list region): the runtime ignores comments, so
-# the marker adds nothing to the runtime surface. The marker belongs to the
-# row that starts on that line. A derived name that is not a Ruby identifier
-# (say, a path with a `#` in it) is refused rather than emitted.
+# its member after the naive singular. `resource` names its one path after
+# the last static segment. A row that needs a different name carries the
+# build-time marker `# as: <name>` (the same pattern as the generated lines in
+# the load-list region): the runtime ignores comments, so the marker adds
+# nothing to the runtime surface. The marker belongs to the row that starts on
+# that line. A derived name that is not a Ruby identifier (say, a path with a
+# `#` in it) is refused rather than emitted.
 #
 # Collisions: two rows deriving the same name from *different* patterns
 # are refused. One of them would have to win, and a helper that quietly
@@ -202,7 +205,7 @@ emit_call_row() {
   local helper="$1" pattern="$2" controller="$3" action="$4" line="$5"
   local marker="${MARKERS[$line]:-}" name verb
   if ! helper_known "$helper"; then
-    die 2 "config/routes.rb:$line: unknown helper $helper — rows are get/post/put/delete, Route.new, or resources calls"
+    die 2 "config/routes.rb:$line: unknown helper $helper — rows are get/post/put/delete, Route.new, resources, or resource calls"
   fi
   verb="$(helper_field "$helper" verb)"
   if [[ $action == "-" || -z $action ]]; then
@@ -249,6 +252,31 @@ emit_resources_row() {
   done
 }
 
+# emit_resource_row <pattern> <controller> <only> <line> — the four RESTful
+# rows of one singular resource, with the `only:` subset. All rows share one
+# path (there is no `:id`), so one helper is emitted. The rows come out in
+# REST order regardless of the order in `only:`.
+emit_resource_row() {
+  local pattern="$1" controller="$2" only="$3" line="$4"
+  local base wanted="" action name verb row_pattern
+  [[ -z ${MARKERS[$line]:-} ]] ||
+    die 2 "config/routes.rb:$line: # as: cannot name a resource row — name a hand-written row instead"
+  [[ $only == "-" ]] || wanted="$only"
+  base="$(resource_base_name "$pattern")"
+  for action in show create update destroy; do
+    [[ -n $wanted && " $wanted " != *" $action "* ]] && continue
+    name="$base"
+    case "$action" in
+      show) verb=GET; row_pattern="$pattern" ;;
+      create) verb=POST; row_pattern="$pattern" ;;
+      update) verb=PUT; row_pattern="$pattern" ;;
+      destroy) verb=DELETE; row_pattern="$pattern" ;;
+    esac
+    validate_name "$name" "$line" "$row_pattern"
+    emit_row "$name" "$verb" "$row_pattern"
+  done
+}
+
 # The reader (gen-route-helpers-ast.awk) prints helper lines first, then the
 # table rows, so a local definition is known before a row that uses it.
 read_items() {
@@ -263,6 +291,7 @@ read_items() {
       call) emit_call_row "$a" "$b" "$c" "$d" "$e" ;;
       route) emit_route_row "$a" "$b" "$c" "$d" "$e" ;;
       resources) emit_resources_row "$a" "$b" "$c" "$d" ;;
+      resource) emit_resource_row "$a" "$b" "$c" "$d" ;;
     esac
   done <"$ITEMS"
 }
