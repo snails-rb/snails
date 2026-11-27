@@ -70,7 +70,15 @@ def default_host = "api.example.test"
 get("/posts", headers: { "Authorization" => "Token abc123" })
 ```
 
-Requests go over real HTTP. `get` takes `params:` (query) and `headers:`. `post`, `put`, and `delete` take a body `params:`, `headers:`, and `as: :json`.
+Requests go over real HTTP. `get` takes `params:` (query) and `headers:`. `post`, `put`, and `delete` take a body `params:`, `headers:`, and `as: :json`. `options` takes `headers:` only — use it for a CORS preflight when the app sets a policy (see [Routes and Controllers](06-routes-and-controllers.md#cors)):
+
+```ruby
+options("/posts", headers: {
+  "Origin" => "https://app.example.com",
+  "Access-Control-Request-Method" => "POST"
+})
+assert_response 204
+```
 
 ## Assertions
 

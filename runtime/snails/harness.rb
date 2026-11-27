@@ -47,16 +47,21 @@ module Snails
 
     # one real HTTP request to the running server.
     #
-    # @param method [Symbol] :get, :post, :put, or :delete
+    # @param method [Symbol] :get, :post, :put, :delete, or :options
     # @param path [String] the request path, query string included
     # @param base_url [String] the server origin the path is requested against
-    # @param params [Hash, nil] query string for :get, request body for the
-    #   other verbs; nil sends none
+    # @param params [Hash, nil] query string for :get, request body for
+    #   :post, :put, and :delete; :options takes none
     # @param headers [Hash, nil] plain hash of request headers
     # @param as [Symbol, nil] :json encodes the body as JSON; otherwise
     #   form-encoded
     # @return [Response] the wrapped response
+    # @raise [ArgumentError] the method is not one of the five verbs, or
+    #   :options is given a body
     def self.request(method, path, base_url, params, headers, as)
+      if method == :options && !params.nil?
+        raise ArgumentError, "Harness.request: :options takes no params"
+      end
       uri = URI(base_url)
       target = path.dup
       if params && method == :get
@@ -208,6 +213,23 @@ module Snails
 
       def delete(path, params: nil, headers: nil, as: nil)
         @response = Snails::Harness.request(:delete, path, @base_url, params, with_host(headers), as)
+      end
+
+      # a CORS preflight probe: OPTIONS with the given headers and no body.
+      # The dispatcher answers a valid preflight before routing and auth, so
+      # the probe needs no cookie or token.
+      #
+      # @param path [String] the request path
+      # @param headers [Hash, nil] plain hash of request headers — a preflight
+      #   carries `Origin` and `Access-Control-Request-Method`
+      # @return [void] stores the response on `response`
+      # @example
+      #   options("/posts", headers: {
+      #     "Origin" => "https://app.example.com",
+      #     "Access-Control-Request-Method" => "POST"
+      #   })
+      def options(path, headers: nil)
+        @response = Snails::Harness.request(:options, path, @base_url, nil, with_host(headers), nil)
       end
 
       # pass when the status matches. Four category symbols take a range or
@@ -495,7 +517,14 @@ module Snails
     end
 
     # The Net::HTTP request object behind `Harness.request`. The verb decides
-    # the class; every other argument travels on the object.
+    # the class; every other argument travels on the object. An unknown verb
+    # raises instead of falling back to another verb — a silent fallback would
+    # send the wrong request and let the case assert the wrong thing.
+    #
+    # @param method [Symbol] :get, :post, :put, :delete, or :options
+    # @param path [String] the request target
+    # @return [Net::HTTPGenericRequest] the request the client will send
+    # @raise [ArgumentError] the method is not one of the five verbs
     #
     # Private on purpose: `Harness.request` is the entry; this builder is
     # free to change without notice.
@@ -506,8 +535,12 @@ module Snails
         Net::HTTP::Post.new(path)
       elsif method == :put
         Net::HTTP::Put.new(path)
-      else
+      elsif method == :delete
         Net::HTTP::Delete.new(path)
+      elsif method == :options
+        Net::HTTP::Options.new(path)
+      else
+        raise ArgumentError, "Harness.request: unsupported method #{method.inspect} — use :get, :post, :put, :delete, or :options"
       end
     end
 

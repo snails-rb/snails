@@ -1,0 +1,4 @@
+ok test_options_helper_sends_a_preflight
+ok test_unsupported_verb_is_refused
+ok test_options_refuses_a_body
+HarnessRequestTest: 3 tests passed
