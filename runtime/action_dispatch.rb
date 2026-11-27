@@ -6,7 +6,7 @@
 require_relative "action_dispatch/router"
 require_relative "action_dispatch/exceptions"
 require_relative "action_dispatch/headers"
-require_relative "action_dispatch/media_type"
+require_relative "action_dispatch/snails/media_type"
 require_relative "action_dispatch/request"
 require_relative "action_dispatch/multipart"
 require_relative "action_dispatch/param_builder"
