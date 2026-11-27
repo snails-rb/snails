@@ -1,0 +1,4 @@
+ok test_named_origins_match_exactly
+ok test_wildcard_does_not_allow_a_missing_origin
+ok test_null_origin_is_literal
+CorsOriginTest: 3 tests passed

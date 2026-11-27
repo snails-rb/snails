@@ -92,6 +92,29 @@ module Snails
         end
       end
 
+      # whether the policy allows the origin. Matching is exact: a trailing
+      # slash, a path, or different casing does not match. A missing or empty
+      # origin is never allowed, even under `"*"`, because an Origin check
+      # must not treat "no origin" as an allowed origin.
+      #
+      # @param origin [String, nil] the Origin header value
+      # @return [Boolean] true when the policy lists the origin or `"*"`
+      # @raise [ArgumentError] the value is neither a String nor nil
+      # @example
+      #   policy.origin_allowed?("https://app.example.com") # => true
+      def origin_allowed?(origin)
+        if !origin.nil? && !origin.is_a?(String)
+          raise ArgumentError, "origin_allowed? expects a String or nil"
+        end
+        return false if origin.nil? || origin.empty?
+        i = 0
+        while i < @origins.length
+          return true if @origins[i] == "*" || @origins[i] == origin
+          i += 1
+        end
+        false
+      end
+
       def origin_values(values)
         if !values.is_a?(Array)
           raise ArgumentError, "CORS origins must be an Array of Strings"
@@ -244,7 +267,7 @@ module Snails
       add_vary(res, "Origin")
       add_vary(res, "Access-Control-Request-Method")
       add_vary(res, "Access-Control-Request-Headers")
-      return true unless origin_allowed?(policy, origin)
+      return true unless policy.origin_allowed?(origin)
       return true unless verb_allowed?(policy, requested_method)
       requested = req.req_headers["access-control-request-headers"].to_s
       return true unless request_headers_allowed?(policy, requested)
@@ -277,22 +300,12 @@ module Snails
       origin = req.req_headers["origin"].to_s
       return if origin.empty?
       add_vary(res, "Origin")
-      return unless origin_allowed?(policy, origin)
+      return unless policy.origin_allowed?(origin)
       res.headers["Access-Control-Allow-Origin"] = allow_origin(policy, origin)
       res.headers["Access-Control-Allow-Credentials"] = "true" if policy.allow_credentials
       unless policy.exposed_headers.empty?
         res.headers["Access-Control-Expose-Headers"] = policy.exposed_headers.join(", ")
       end
-    end
-
-    def self.origin_allowed?(policy, origin)
-      origins = policy.origins
-      i = 0
-      while i < origins.length
-        return true if origins[i] == "*" || origins[i] == origin
-        i += 1
-      end
-      false
     end
 
     def self.verb_allowed?(policy, verb)
@@ -388,7 +401,7 @@ module Snails
       res.headers["Vary"] = current + ", " + value
     end
 
-    private_class_method :origin_allowed?, :verb_allowed?, :request_headers_allowed?
+    private_class_method :verb_allowed?, :request_headers_allowed?
     private_class_method :requested_header_names, :header_name_value?
     private_class_method :allow_origin, :add_vary
   end

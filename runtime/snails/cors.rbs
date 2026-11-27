@@ -20,6 +20,8 @@ module Snails
         ?exposed_headers: Array[String]
       ) -> void
 
+      def origin_allowed?: (String? origin) -> bool
+
       private def origin_values: (untyped values) -> Array[String]
       private def origin_value: (untyped value) -> String
       private def validate_origin_port: (String rest) -> void
@@ -32,7 +34,6 @@ module Snails
     def self.preflight: (untyped req, untyped res, ?Snails::Cors::Policy? policy) -> bool
     def self.apply: (untyped req, untyped res, ?Snails::Cors::Policy? policy) -> void
 
-    private def self.origin_allowed?: (Snails::Cors::Policy policy, String origin) -> bool
     private def self.verb_allowed?: (Snails::Cors::Policy policy, String verb) -> bool
     private def self.request_headers_allowed?: (Snails::Cors::Policy policy, String requested) -> bool
     private def self.requested_header_names: (String requested) -> Array[String]?
