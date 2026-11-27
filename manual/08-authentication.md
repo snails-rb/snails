@@ -105,22 +105,29 @@ A tampered token, a token for another purpose, and a token signed with another s
 
 ## Check the Origin on state-changing requests
 
-Cross-Origin Resource Sharing (CORS) decides which origins can read a response; it does not stop another origin from sending a request. The app checks the `Origin` header on a state-changing request against the origin it expects:
+Cross-Origin Resource Sharing (CORS) decides which origins can read a response. It does not stop another origin from sending a request. The app checks the `Origin` header on a state-changing request against the origins it trusts:
 
 ```ruby
-before_action :require_same_origin, only: [:create, :update, :destroy]
+before_action :require_trusted_origin, only: [:create, :update, :destroy]
 
 private
 
-def require_same_origin
+def require_trusted_origin
+  policy = Snails.cors
   origin = request.headers["Origin"]
-  if origin != "https://app.example.com"
+  if policy.nil? || !policy.origin_allowed?(origin)
     render(json: { "error" => "forbidden" }, status: :forbidden)
   end
 end
 ```
 
-A browser sends `Origin` on cross-origin requests and on same-origin POST requests. A same-origin GET usually has no `Origin`, so check only the actions that change state. `SameSite` cookies limit when the browser sends the cookie; the `Origin` check decides whether the request may change state.
+`origin_allowed?` matches the header against the policy's origins. The match is exact: a trailing slash or different casing does not count. It returns `false` for a missing or empty origin, so allow that case explicitly when non-browser clients must write. `Snails.cors` is `nil` when CORS is off. The check above then rejects every write, so configure the policy or keep the trust list in the app.
+
+A browser sends `Origin` on cross-origin requests and on same-origin POST requests. A same-origin GET usually has no `Origin`, so check only the actions that change state. `SameSite` cookies limit when the browser sends the cookie. The `Origin` check decides whether the request may change state.
+
+CORS and the check decide different things. CORS says which origins can read a response; the check says which origins can change state. Reusing the CORS policy is correct only when both sets are the same.
+
+A `"*"` policy allows every origin and is not a trust list for state changes. `"null"` is the serialized null origin. List it only when a sandboxed or local context must write.
 
 ## What the framework owns
 
