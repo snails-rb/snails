@@ -29,16 +29,22 @@ module Tep
     # out of the controller's nested poly hash. Same reasoning as
     # req_headers.
     attr_accessor :req_params, :query, :req_headers, :raw_body, :cookies
-    # the query string as it arrived; `body_fields` — the body's fields by name
-    # (multipart text parts, and JSON leaves flattened the same way).
-    # `Snails::Main.request_params` builds the controller's params from both
-    # (runtime/action_dispatch/param_builder.rb), because the flat hashes
-    # declared above keep only a repeated key's last value and cannot say
-    # `ids[]=1&ids[]=2`.
+    # the query string as it arrived; `body_fields` — the multipart text
+    # parts by name. `Snails::Main.body_params` rebuilds their nesting
+    # (runtime/action_dispatch/param_builder.rb), because this flat hash keeps
+    # only a repeated key's last value and cannot say `ids[]=1&ids[]=2`.
+    # A JSON body is structured instead: `json_body` holds its hashes and
+    # arrays, with the same String leaf rule.
     #
-    # @return [String, Hash{String => String}] the raw query string, then
-    #   the body's fields
+    # @return [String, Hash{String => String}] the raw query string, then the
+    #   multipart text fields
     attr_accessor :raw_query, :body_fields
+    # a JSON object as the body's structured fields — hashes and arrays keep
+    # their shape; leaves are Strings (nil -> ""). Set by `parse_body_params`;
+    # `Snails::Main.body_params` returns it for a JSON request.
+    #
+    # @return [Hash{String => untyped}] the JSON body fields
+    attr_accessor :json_body
     attr_accessor :remote_host
     attr_accessor :ivars
 
@@ -51,6 +57,7 @@ module Tep
       @query        = Tep.str_hash   # raw query string only
       @raw_query    = +""
       @body_fields  = Tep.str_hash
+      @json_body    = {}
       @req_headers  = Tep.str_hash   # downcased names; not shared with Response
       @cookies      = Tep.str_hash   # parsed from Cookie: header
       @raw_body     = +""
@@ -214,10 +221,10 @@ module Tep
       :ok
     end
 
-    # put the body's fields into @req_params: urlencoded pairs, multipart text
-    # parts (file parts go to @uploads), or a JSON object flattened by
-    # `flatten_json`. The two body drains share it; they differ only in how they
-    # wait for bytes.
+    # read the body into its params view: urlencoded pairs into @req_params,
+    # multipart text parts into @body_fields (and @req_params), or a JSON
+    # object into the structured `json_body` (file parts go to @uploads). The
+    # two body drains share it; they differ only in how they wait for bytes.
     #
     # A body it cannot read sets `body_parse_failed?` instead of keeping
     # whatever it managed to read: the dispatcher answers 400, and the
@@ -246,7 +253,7 @@ module Tep
         begin
           parsed = JSON.parse(@raw_body)
           if parsed.is_a?(Hash)
-            flatten_json(parsed, "")
+            @json_body = build_json_body(parsed)
           else
             # A JSON body that is not an object has no field names to read,
             # so there is nothing to build params from.
@@ -258,30 +265,36 @@ module Tep
       end
     end
 
-    # a parsed JSON object into @req_params and @body_fields, spelled the way a
-    # form posts it: `{"blob": {"filename": "a.png"}}` becomes `blob[filename]`,
-    # the key structure `Snails::Main.request_params` already nests from a multipart
-    # body's fields. Scalars arrive as `to_s`, null as "".
+    # a parsed JSON object as the body's structured fields: hashes and arrays
+    # keep their shape, leaves are Strings (nil -> ""). The top-level object is
+    # the only shape `parse_body_params` accepts.
     #
-    # An array cannot be represented in either flat hash: its elements are walked
-    # into the same `prefix[]` key, so the last one wins.
+    # @param object [Hash] the parsed JSON object
+    # @return [Hash{String => untyped}] the structured body fields
+    def build_json_body(object)
+      out = {}
+      object.each { |k, v| out[k.to_s] = build_json_value(v) }
+      out
+    end
+
+    # one parsed JSON value in the params shape: a Hash keeps its keys, an
+    # Array keeps every element, a scalar is `to_s`, and nil is "". The body
+    # keeps its nesting and array cardinality; only the leaf type follows the
+    # params String rule.
     #
-    # @param prefix [String] the key path built so far ("" at the top)
-    # @return [void]
-    def flatten_json(value, prefix)
+    # @param value [Object] a parsed JSON value
+    # @return [Object] the params value
+    def build_json_value(value)
       if value.is_a?(Hash)
-        value.each do |k, v|
-          key = prefix.length == 0 ? k.to_s : prefix + "[" + k.to_s + "]"
-          flatten_json(v, key)
-        end
+        build_json_body(value)
       elsif value.is_a?(Array)
-        value.each { |element| flatten_json(element, "#{prefix}[]") }
+        out = []
+        value.each { |element| out.push(build_json_value(element)) }
+        out
       elsif value.nil?
-        @req_params[prefix] = +""
-        @body_fields[prefix] = +""
+        +""
       else
-        @req_params[prefix] = value.to_s
-        @body_fields[prefix] = value.to_s
+        value.to_s
       end
     end
 
@@ -323,8 +336,8 @@ module Tep
       outcome
     end
 
-    # Private on purpose: the three consume methods are the entries; the
-    # shared policy loop is free to change without notice.
-    private :drain_body
+    # Private on purpose: the consume methods are the entries; the shared
+    # policy loop and the JSON shape builder are free to change without notice.
+    private :drain_body, :build_json_body, :build_json_value
   end
 end

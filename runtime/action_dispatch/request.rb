@@ -348,8 +348,9 @@ module ActionDispatch
     end
 
     # the body-only params: what the request body carried, without the query
-    # string or the route's path captures. The dispatcher assigns it before
-    # the action.
+    # string or the route's path captures. A JSON body keeps its arrays and
+    # nested objects; leaves follow the params String rule. The dispatcher
+    # assigns it before the action.
     #
     # @return [Hash{String => untyped}] the body-only params
     attr_reader :request_parameters

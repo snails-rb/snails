@@ -13,13 +13,15 @@ module Snails
       @route_table ||= Snails::RouteTable.table
     end
 
-    # the request body's own params: urlencoded fields, multipart text parts,
-    # or JSON leaves, nested by `ActionDispatch::ParamBuilder`. Query and path
-    # captures are not folded in; the dispatcher keeps this hash as
+    # the request body's own params: urlencoded fields and multipart text
+    # parts, nested by `ActionDispatch::ParamBuilder`, or a JSON object as its
+    # structured hash with String leaves. Query and path captures are not
+    # folded in; the dispatcher keeps this hash as
     # `request.request_parameters` and builds the merged params beside it.
     #
-    # Multipart and JSON fields are flattened by name, so a repeated field keeps
-    # its last value; urlencoded params keep every value.
+    # Multipart fields are flattened by name, so a repeated field keeps its last
+    # value; urlencoded params keep every value, and a JSON body keeps its
+    # arrays and nested objects.
     #
     # @param req [Tep::Request] the parsed request
     # @return [Hash{String => untyped}, nil] nil when the body is malformed
@@ -31,7 +33,7 @@ module Snails
       if req.form?
         return ActionDispatch::ParamBuilder.from_query_string(req.raw_body)
       end
-      if req.multipart? || req.json?
+      if req.multipart?
         keys = []
         values = []
         present = []
@@ -41,6 +43,9 @@ module Snails
           present.push(true)
         end
         return ActionDispatch::ParamBuilder.build(keys, values, present)
+      end
+      if req.json?
+        return req.json_body
       end
       {}
     end
