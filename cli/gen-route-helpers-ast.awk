@@ -5,15 +5,18 @@
 #   call      <helper> <pattern> <controller> <action> <line>
 #   route     <verb> <pattern> <controller> <action> <line>
 #   resources <pattern> <controller> <only> <line>
+#   resource  <pattern> <controller> <only> <line>
 #
 # "-" marks an empty field. A row the reader cannot represent fails with exit 2
 # — the generator never guesses a path.
 #
 # Rows are the literal array elements of `def self.table`: a verb-helper call,
-# a Route.new call, or a resources call (bare or splatted). Anything else — a
-# computed path, a method call, a loop — cannot be resolved statically and is
-# refused. Local helper definitions are learned from their parameters and the
-# Route.new call in their body, so an `if` inside one no longer hides it.
+# a Route.new call, or a `resources`/`resource` call (bare or splatted).
+# Anything else — a computed path, a method call, a loop — cannot be resolved
+# statically and is refused. Local helper definitions are learned from their
+# parameters and the Route.new call in their body, so an `if` inside one no
+# longer hides it. The expansion names are reserved: a local definition cannot
+# replace them.
 #
 # Invoked by cli/gen-route-helpers.sh; POSIX awk only.
 
@@ -122,6 +125,8 @@ function default_action(parameters,    n, parts, i, node) {
 }
 
 function learn_helpers(def_id) {
+  if (string[def_id, "name"] == "resources" || string[def_id, "name"] == "resource")
+    fail("line " node_line(def_id) ": " string[def_id, "name"] " is a route DSL expansion; a local definition cannot replace it")
   printf "helper\t%s\t%s\t%s\n", string[def_id, "name"], route_verb_in(reference[def_id, "body"]),
          default_action(reference[def_id, "parameters"])
 }
@@ -154,11 +159,11 @@ function emit_route(id,    local_args) {
          node_line(id)
 }
 
-function emit_resources(id,    local_args, count, only, i, n, parts) {
+function emit_expansion(kind, id,    local_args, count, only, local_only, i, n, parts) {
   local_args = reference[id, "arguments"]
   count = argument_count(local_args)
   if (count < 2 || count > 4)
-    fail("line " node_line(id) ": resources takes path, controller, format, and only — a further argument cannot run")
+    fail("line " node_line(id) ": " kind " takes path, controller, format, and only — a further argument cannot run")
   only = "-"
   if (count == 4) {
     local_only = argument_at(local_args, 4)
@@ -168,33 +173,43 @@ function emit_resources(id,    local_args, count, only, i, n, parts) {
       for (i = 1; i <= n; i++) {
         if (parts[i] == "") continue
         if (type[parts[i]] != "SymbolNode")
-          fail("line " node_line(id) ": resources only: must be a literal symbol array")
+          fail("line " node_line(id) ": " kind " only: must be a literal symbol array")
         only = only (only == "" ? "" : " ") string[parts[i], "value"]
       }
       if (only == "") only = "-"
     } else if (type[local_only] != "NilNode") {
-      fail("line " node_line(id) ": resources only: must be a list of symbols or nil")
+      fail("line " node_line(id) ": " kind " only: must be a list of symbols or nil")
     }
   }
-  printf "resources\t%s\t%s\t%s\t%d\n",
-         require_string(argument_at(local_args, 1), "resources path"),
-         require_const(argument_at(local_args, 2), "resources controller"),
+  printf "%s\t%s\t%s\t%s\t%d\n", kind,
+         require_string(argument_at(local_args, 1), kind " path"),
+         require_const(argument_at(local_args, 2), kind " controller"),
          only, node_line(id)
+}
+
+function emit_resources(id) {
+  emit_expansion("resources", id)
+}
+
+function emit_resource(id) {
+  emit_expansion("resource", id)
 }
 
 function table_element(id,    name, receiver, inner) {
   if (type[id] == "SplatNode") {
     inner = reference[id, "expression"]
-    if (type[inner] != "CallNode" || string[inner, "name"] != "resources" || receiver_text(inner) != "")
-      fail("line " node_line(id) ": a splat in the table must wrap a resources(...) call")
-    emit_resources(inner)
+    if (type[inner] != "CallNode" || (string[inner, "name"] != "resources" && string[inner, "name"] != "resource") || receiver_text(inner) != "")
+      fail("line " node_line(id) ": a splat in the table must wrap a resources(...) or resource(...) call")
+    if (string[inner, "name"] == "resources") emit_resources(inner)
+    else emit_resource(inner)
     return
   }
   if (type[id] != "CallNode")
-    fail("line " node_line(id) ": unsupported table row (" type[id] ") — rows are literal get/post/put/delete, Route.new, or resources calls")
+    fail("line " node_line(id) ": unsupported table row (" type[id] ") — rows are literal get/post/put/delete, Route.new, resources, or resource calls")
   name = string[id, "name"]
   receiver = receiver_text(id)
   if (name == "resources" && receiver == "") { emit_resources(id); return }
+  if (name == "resource" && receiver == "") { emit_resource(id); return }
   if (name == "new" && last_segment(receiver) == "Route") { emit_route(id); return }
   if (receiver == "" || receiver == "self") { emit_call(id); return }
   fail("line " node_line(id) ": unsupported table row " receiver "." name " — a row is a literal declaration, not a method call")

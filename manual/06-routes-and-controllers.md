@@ -36,9 +36,26 @@ resources("/devices", Api::DevicesController, :json, [:create, :show])
 # GET /devices, POST /devices, GET /devices/:id
 ```
 
-An action outside `:index`, `:create`, `:show`, `:update`, and `:destroy` raises at boot, so a typo can't silently remove a route. The format argument forces the request format for every entry. The common `:json` value matches the API default.
+An action outside `:index`, `:create`, `:show`, `:update`, and `:destroy` is refused when the route table is built, so a typo can't silently remove a route. The format argument forces the request format for every entry. The common `:json` value matches the API default.
 
 A route matches the GET entry for a HEAD request too. The action sees `request.head?` and the server sends the status and headers without the body. A known extension on the last path segment — `/posts.json` — matches the `/posts` entry and sets `params["format"]`.
+
+### Singular resource
+
+A singular resource exists once per client — a profile, a current session, a cart. `resource` expands to four entries on one path, with no `:id`:
+
+```ruby
+resource("/profile", Api::ProfileController, :json)
+# GET /profile, POST /profile, PUT /profile, DELETE /profile
+```
+
+The actions are `:show`, `:create`, `:update`, and `:destroy`. There is no `:index` because there is only one, and no `:new` or `:edit` because the framework is API-only. The fourth positional argument filters the actions, like `resources`:
+
+```ruby
+resource("/v1/session", Api::SessionsController, :json, [:show, :create, :destroy])
+```
+
+An action outside those four is refused when the route table is built, so a typo can't silently remove a route. A nested path keeps its parent segments: `resource("/users/:user_id/profile", ...)` generates `profile_path(user_id)`.
 
 ## Path helpers
 
@@ -49,9 +66,10 @@ RouteHelpers.posts_path              # "/posts"
 RouteHelpers.post_path(42)           # "/posts/42"
 RouteHelpers.comments_path(42)       # "/posts/42/comments"
 RouteHelpers.comment_path(42, 7)     # "/posts/42/comments/7"
+RouteHelpers.profile_path            # "/profile"
 ```
 
-A path with a dynamic segment takes one argument per segment. The generator refuses two entries that derive the same path helper name from different patterns and tells you to add a `# as:` marker. A `resources` entry can't carry a marker. Name a hand-written entry instead when its path helper name must differ.
+A path with a dynamic segment takes one argument per segment. The generator refuses two entries that derive the same path helper name from different patterns and tells you to add a `# as:` marker. A `resources` or `resource` entry can't carry a marker. Name a hand-written entry instead when its path helper name must differ.
 
 ## Write the controller
 

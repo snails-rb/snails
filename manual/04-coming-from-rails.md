@@ -4,7 +4,7 @@ If you know Rails, you already know most of Snails. You declare routes the same 
 
 ## What stays the same
 
-- Routes live in `config/routes.rb` and use the same declarations — `get`, `post`, `put`, `delete`, and `resources`.
+- Routes live in `config/routes.rb` and use the same declarations — `get`, `post`, `put`, `delete`, `resources`, and `resource`.
 - Controllers are classes with actions, and parameters arrive in a String-keyed hash.
 - The database changes the same way: a numbered file under `db/migrate/`, applied in order, with a schema dump your tests load. See [Migrations](12-migrations.md).
 - A test suite runs with one command: `bin/test`. See [Testing](24-testing.md).
