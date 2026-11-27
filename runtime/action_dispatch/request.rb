@@ -100,6 +100,12 @@ module ActionDispatch
     attr_accessor :request_method
     attr_accessor :referer
     attr_accessor :host
+    # the response format the matched route forces, as a String ("json" by
+    # default). Not app API: the controller reads its own `request_format` for
+    # the same value.
+    #
+    # @api internal
+    # @return [String] the matched response format
     attr_reader :format
     attr_reader :cookies
 
@@ -133,6 +139,10 @@ module ActionDispatch
       # Every ivar this class declares gets a value here, or the AOT test
       # binary dies on the read.
       @params = {}
+      @request_parameters = {}
+      # The dispatcher copies the transport's parsed length; 0 is the value
+      # outside a dispatch.
+      @content_length = 0
       # Declared in the .rbs, so it needs the same initialized value.
       @user_agent = +""
       # The dispatcher assigns the parsed cookie hash; a standalone request
@@ -141,8 +151,10 @@ module ActionDispatch
     end
 
     # the writer accepts a symbol (`request.format = :json`) and stores the
-    # canonical string.
+    # canonical string. Not app API: `controller.request_format` is the
+    # documented reader.
     #
+    # @api internal
     # @param value [Object] the format, as a Symbol or a String
     # @return [String] the stored format
     def format=(value)
@@ -271,15 +283,86 @@ module ActionDispatch
       @headers ||= ActionDispatch::Http::Headers.new(@env)
     end
 
-    # the request params, keyed by String.
+    # the Content-Type header as the client sent it, including parameters.
+    # nil when the header is absent or empty.
     #
-    # @return [Hash{String => Object}] the request params
+    # @return [String, nil] the raw header value
+    # @example
+    #   request.content_type # => "application/json; charset=utf-8"
+    def content_type
+      value = headers["Content-Type"]
+      return nil if value.nil?
+      text = value.to_s
+      return nil if text.length == 0
+      text
+    end
+
+    # the media type (`type/subtype`) from Content-Type, lowercased and
+    # without parameters; nil when the header is absent or empty.
+    #
+    # @return [String, nil] the parsed media type
+    # @example
+    #   request.media_type # => "application/json"
+    def media_type
+      ActionDispatch::Http::MediaType.parse(headers["Content-Type"])
+    end
+
+    # whether the body's media type is JSON: `application/json` or a type
+    # with the `+json` structured suffix. The transport parses a body under
+    # the same rule, so the predicate and the parsed fields agree for a
+    # dispatched request.
+    #
+    # @return [Boolean] true when the body media type is JSON
+    def json?
+      ActionDispatch::Http::MediaType.json?(headers["Content-Type"])
+    end
+
+    # the body length in bytes the transport parsed from Content-Length. 0
+    # when the request carried no body.
+    #
+    # @return [Integer] the body length in bytes
+    attr_reader :content_length
+
+    # Assigns the transport's body length. Internal: the dispatcher calls
+    # this before the action.
+    #
+    # @api internal
+    # @param value [Integer] the body length in bytes
+    # @return [Integer] the assigned length
+    def content_length=(value)
+      @content_length = value
+      value
+    end
+
+    # the merged request params: the body fields, then the query string, then
+    # the route's path captures. The dispatcher assigns the same hash to the
+    # controller's `params`.
+    #
+    # @return [Hash{String => untyped}] the merged params
     def params
       @params
     end
 
     def params=(value)
       @params = value
+    end
+
+    # the body-only params: what the request body carried, without the query
+    # string or the route's path captures. The dispatcher assigns it before
+    # the action.
+    #
+    # @return [Hash{String => untyped}] the body-only params
+    attr_reader :request_parameters
+
+    # Assigns the body-only params. Internal: the dispatcher calls this
+    # before the action; apps read the hash through `request_parameters`.
+    #
+    # @api internal
+    # @param value [Hash{String => untyped}] the body-only params
+    # @return [Hash{String => untyped}] the assigned params
+    def request_parameters=(value)
+      @request_parameters = value
+      value
     end
 
     # Stores the transport's parsed cookies as a plain String-to-String hash.

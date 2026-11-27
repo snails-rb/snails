@@ -1,0 +1,8 @@
+module ActionDispatch
+  module Http
+    module MediaType
+      def self.parse: (String? value) -> String?
+      def self.json?: (String? value) -> bool
+    end
+  end
+end

@@ -30,6 +30,8 @@ module ActionDispatch
     @headers: ActionDispatch::Http::Headers?
     @user_agent: String
     @params: Hash[String, untyped]
+    @request_parameters: Hash[String, untyped]
+    @content_length: Integer
     @cookies: Hash[String, String]
 
     def remote_ip: () -> String
@@ -53,11 +55,9 @@ module ActionDispatch
     def raw_post: () -> String
     def initialize: (?Hash[String, untyped]? env) -> void
     def get?: () -> bool
-    def post?: () -> bool
     def head?: () -> bool
     def xhr?: () -> bool
     def fullpath: () -> String
-    def original_fullpath: () -> String
     def ssl?: () -> bool
     def protocol: () -> String
     def base_url: () -> String
@@ -67,8 +67,15 @@ module ActionDispatch
     def user_agent: () -> String
     def user_agent=: (String) -> String
     def headers: () -> ActionDispatch::Http::Headers
+    def content_type: () -> String?
+    def media_type: () -> String?
+    def json?: () -> bool
+    def content_length: () -> Integer
+    def content_length=: (Integer) -> Integer
     def params: () -> Hash[String, untyped]
     def params=: (Hash[String, untyped]) -> Hash[String, untyped]
+    def request_parameters: () -> Hash[String, untyped]
+    def request_parameters=: (Hash[String, untyped]) -> Hash[String, untyped]
     def cookies: () -> Hash[String, String]
     def cookies=: (untyped value) -> Hash[String, String]
     def self.for: (Hash[String, untyped] env, ?Hash[String, untyped] params) -> Request

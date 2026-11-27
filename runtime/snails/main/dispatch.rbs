@@ -1,7 +1,8 @@
 module Snails
   module Main
     def self.route_table: () -> Array[::ActionDispatch::Router::Route]
-    def self.request_params: (untyped req, Hash[String, String] path_params) -> Hash[String, untyped]?
+    def self.body_params: (untyped req) -> Hash[String, untyped]?
+    def self.request_params: (untyped req, Hash[String, String] path_params, Hash[String, untyped] body) -> Hash[String, untyped]?
     def self.dispatch: (untyped req, untyped res) -> untyped
   end
 end

@@ -4,7 +4,7 @@ A controller reads one request object and one params hash. The hash is built fro
 
 ## How params are built
 
-JSON, urlencoded, and multipart bodies all reach the controller as the same String-keyed hash. Nested fields keep their structure:
+JSON, urlencoded, and multipart bodies all reach the controller as the same String-keyed hash. A body counts as JSON when its media type is `application/json` or ends with `+json` (`application/vnd.api+json`). Nested fields keep their structure:
 
 ```ruby
 # POST /posts/42/comments?page=2, body: {"comment": {"body": "hello"}}
@@ -15,6 +15,8 @@ params["post_id"]       # => "42"       from the route
 ```
 
 A JSON object keeps its nesting, so `{"user": {"name": "Sue"}}` and an urlencoded `user[name]=Sue` build the same tree. A JSON array can't be represented in the body reader. Its elements collapse into one `[]` key and the last one wins. Send a nested object when every element must survive.
+
+To read only the body, use `request.request_parameters`. It holds the body's fields and nothing else; the query string and the path captures are not merged in. Inside a controller, `params` and `request.params` are the same hash.
 
 Request params are mutable and String-keyed. `params[:id]` is always `nil`. Read `params["id"]`.
 
@@ -46,6 +48,10 @@ request.get?             # true for GET
 request.head?            # true for HEAD
 request.xhr?             # true when X-Requested-With is XMLHttpRequest
 request.ssl?             # true behind a TLS terminator that sets X-Forwarded-Proto
+request.content_type     # "application/json; charset=utf-8", or nil when absent
+request.media_type       # "application/json", without parameters
+request.content_length   # bytes, 0 when the request has no body
+request.json?            # true for application/json and +json media types
 ```
 
 Headers are a read-only, case-insensitive view. Both the wire name and the internal env key are accepted:
