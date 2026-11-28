@@ -11,10 +11,15 @@ module Snails
     @transport: untyped
     @sample_rate: Float?
     @sampler: Snails::Tracer::Sampler?
+    @db_query_text: bool
+    @finished: Array[Snails::Tracer::Span]
+    @finished_lock: Mutex
 
     def initialize: () -> void
     def transport: () -> untyped
     def transport=: (untyped value) -> untyped
+    def db_query_text: () -> bool
+    def db_query_text=: (bool value) -> bool
     def enabled?: () -> bool
     def sample_rate: () -> Float
     def sample_rate=: (Float | Integer value) -> Float
@@ -23,9 +28,10 @@ module Snails
     def current_span: () -> Snails::Tracer::Span?
     def trace_id: () -> String?
     def traceparent: () -> String?
+    def record_span: (Snails::Tracer::Span span) -> void
+    def flush: () -> void
 
     private def sampler: () -> Snails::Tracer::Sampler
-    private def record_exception: (Snails::Tracer::Span span, Exception failure) -> void
     private def new_trace_id: () -> String
     private def new_span_id: () -> String
   end

@@ -16,6 +16,10 @@ require_relative "scheduler"
 # Tep::Presence.untrack_by_fd.
 require_relative "presence"
 require_relative "broadcast"
+# The Snails request instrumentation at the Tep HTTP boundary. It loads before
+# app.rb so the dispatcher can call it; the tracer it reads is loaded later in
+# the boot graph, and every reference is a call-time read.
+require_relative "snails/trace"
 # App owns the broadcast-subscriber registries (and the app's display name)
 # on the Tep::APP singleton; broadcast.rb, cable.rb and the servers read it.
 require_relative "app"

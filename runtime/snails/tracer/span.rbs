@@ -13,6 +13,7 @@ module Snails
       @status: Symbol
       @status_message: String?
       @finished: bool
+      @tracer: Snails::Tracer?
 
       attr_reader name: String
       attr_reader trace_id: String
@@ -24,7 +25,7 @@ module Snails
       attr_reader status: Symbol
       attr_reader status_message: String?
 
-      def initialize: (name: String, trace_id: String, span_id: String, parent_span_id: String?, kind: Symbol, start_time: Time, ?attributes: Hash[String, untyped]) -> void
+      def initialize: (name: String, trace_id: String, span_id: String, parent_span_id: String?, kind: Symbol, start_time: Time, ?attributes: Hash[String, untyped], ?tracer: Snails::Tracer?) -> void
       def recording?: () -> bool
       def finished?: () -> bool
       def attributes: () -> Hash[String, untyped]
@@ -34,6 +35,7 @@ module Snails
       def set_attribute: (String key, untyped value) -> untyped
       def add_event: (String name, ?attributes: Hash[String, untyped]) -> void
       def set_status: (Symbol status, ?message: String?) -> Symbol
+      def record_exception: (Exception failure) -> void
       def finish: () -> void
 
       private def ensure_open: (String what) -> void

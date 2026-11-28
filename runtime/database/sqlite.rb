@@ -726,6 +726,12 @@ module Sqlx
     # @raise [Sqlx::RecordNotUnique] a UNIQUE constraint rejects the statement
     # @raise [Sqlx::Busy] the file's lock stayed held past the busy timeout
     def self.exec(sql)
+      Sqlx::Trace.span(sql, "sqlite", false) do |span|
+        exec_statement(sql, span)
+      end
+    end
+
+    def self.exec_statement(sql, span)
       conn = current_conn
       record_query(sql)
       started = Snails::Logger::Context.now_us
@@ -768,6 +774,12 @@ module Sqlx
     #   Sqlx::Database.exec_read("SELECT id FROM t WHERE a = ?", [ "x" ])
     #   # => [ { "id" => 7 } ]
     def self.exec_read(sql, values)
+      Sqlx::Trace.span(sql, "sqlite", true) do |span|
+        exec_read_statement(sql, values, span)
+      end
+    end
+
+    def self.exec_read_statement(sql, values, span)
       current_conn
       bound = values.nil? ? [] : values
       key = cache_key_for(sql, bound)
@@ -777,6 +789,8 @@ module Sqlx
         cached = query_cache_fetch(key, generation)
         unless cached.nil?
           record_cache_hit(sql)
+          Sqlx::Trace.add_attribute(span, "snails.db.cache_hit", true)
+          Sqlx::Trace.add_attribute(span, "db.response.returned_rows", cached.length)
           return cached
         end
       end
@@ -788,6 +802,7 @@ module Sqlx
         rows = read_rows(stmt, sql)
         finalize(stmt)
         query_cache_store(key, rows, generation) if cacheable
+        Sqlx::Trace.add_attribute(span, "db.response.returned_rows", rows.length)
         rows
       ensure
         Snails::Logger::Context.add_db_us(Snails::Logger::Context.now_us - started)
@@ -812,6 +827,12 @@ module Sqlx
     #   read-only connection
     # @raise [Sqlx::Busy] the database lock stayed held past the busy timeout
     def self.exec_query(dbh, sql, max_rows:, timeout_ms:)
+      Sqlx::Trace.span(sql, "sqlite", false) do |span|
+        exec_query_statement(dbh, sql, max_rows: max_rows, timeout_ms: timeout_ms, span: span)
+      end
+    end
+
+    def self.exec_query_statement(dbh, sql, max_rows:, timeout_ms:, span:)
       deadline = (Process.clock_gettime(Process::CLOCK_MONOTONIC) * 1000000.0).to_i + timeout_ms * 1000
       record_query(sql)
       started = Snails::Logger::Context.now_us
@@ -867,7 +888,9 @@ module Sqlx
             raise "Sqlx::Database.exec_query failed (" + step_rc.to_s + "): " + SQLite3.sqlite3_errmsg(dbh)
           end
         end
-        Sqlx::QueryResult.new(columns, rows, truncated)
+        result = Sqlx::QueryResult.new(columns, rows, truncated)
+        Sqlx::Trace.add_attribute(span, "db.response.returned_rows", rows.length)
+        result
       ensure
         if !stmt.nil? && stmt != 0
           SQLite3.sqlite3_finalize(stmt)
@@ -910,6 +933,12 @@ module Sqlx
     #   Sqlx::Database.exec_write("UPDATE t SET a = ? WHERE id = ? RETURNING id", [ "x", 7 ])
     #   # => { "rows" => [ { "id" => 7 } ], "count" => 1 }
     def self.exec_write(sql, values)
+      Sqlx::Trace.span(sql, "sqlite", true) do |span|
+        exec_write_statement(sql, values, span)
+      end
+    end
+
+    def self.exec_write_statement(sql, values, span)
       conn = current_conn
       record_query(sql)
       started = Snails::Logger::Context.now_us
@@ -921,7 +950,9 @@ module Sqlx
         rows = read_rows(stmt, sql)
         count = SQLite3.sqlite3_changes(conn.dbh)
         finalize(stmt)
-        { "rows" => rows, "count" => count }
+        result = { "rows" => rows, "count" => count }
+        Sqlx::Trace.add_attribute(span, "db.response.returned_rows", rows.length)
+        result
       ensure
         Snails::Logger::Context.add_db_us(Snails::Logger::Context.now_us - started)
       end
@@ -1419,6 +1450,8 @@ module Sqlx
     private_class_method :escape_float_or_nil, :escape_bool, :escape_bool_or_nil
     private_class_method :escape_int_list
     private_class_method :capture_sql, :record_query
+    private_class_method :exec_statement, :exec_read_statement
+    private_class_method :exec_write_statement, :exec_query_statement
     private_class_method :cache_key_for, :cache_token_for
     private_class_method :seed_from_file
     private_class_method :exec_on, :ensure_one_statement!, :read_timeout

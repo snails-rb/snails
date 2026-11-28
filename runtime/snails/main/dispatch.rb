@@ -106,6 +106,7 @@ module Snails
         res.headers["Content-Type"] = "application/json; charset=utf-8"
         return
       end
+      Tep::Trace.apply_route(req, matched)
       body = Snails::Main.body_params(req)
       params = body.nil? ? nil : Snails::Main.request_params(req, matched.path_params, body)
       if params.nil?

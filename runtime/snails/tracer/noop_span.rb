@@ -118,6 +118,11 @@ module Snails
         status
       end
 
+      # @param failure [Exception] the ignored failure
+      # @return [void]
+      def record_exception(failure)
+      end
+
       # @return [void]
       def finish
       end

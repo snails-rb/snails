@@ -23,9 +23,11 @@ module Snails
       # @param kind [Symbol] one of `Tracer::KINDS`
       # @param start_time [Time] the span's start
       # @param attributes [Hash{String => Object}] initial attributes
+      # @param tracer [Tracer, nil] the tracer that buffers a finished span, nil
+      #   for a span built directly by a test
       # @raise [ArgumentError] a field is missing, malformed, or unsupported
       # @return [void]
-      def initialize(name:, trace_id:, span_id:, parent_span_id:, kind:, start_time:, attributes: {})
+      def initialize(name:, trace_id:, span_id:, parent_span_id:, kind:, start_time:, attributes: {}, tracer: nil)
         validate_name(name)
         validate_trace_id(trace_id)
         validate_span_id(span_id)
@@ -52,6 +54,7 @@ module Snails
         @status = :unset
         @status_message = nil
         @finished = false
+        @tracer = tracer
         attributes.each { |key, value| set_attribute(key, value) }
       end
 
@@ -179,8 +182,34 @@ module Snails
         status
       end
 
-      # close the span and make its parent current again. A second call is a
-      # no-op, so an `ensure` cannot close a span twice or move its end time.
+      # record a failure as an `exception` event and set the span status to
+      # `:error`. The event carries the type, message, and stacktrace when the
+      # exception has one; the app re-raises the same failure.
+      #
+      # @param failure [Exception] the failure to record
+      # @raise [ArgumentError] the span is finished or the value is not an Exception
+      # @return [void]
+      def record_exception(failure)
+        ensure_open("exception")
+        if !failure.is_a?(Exception)
+          raise ArgumentError, "span record_exception expects an Exception, got " + failure.class.name
+        end
+
+        attributes = {
+          "exception.type" => failure.class.name,
+          "exception.message" => failure.message
+        }
+        frames = failure.backtrace
+        if !frames.nil? && frames.length > 0
+          attributes["exception.stacktrace"] = frames.join("\n")
+        end
+        add_event("exception", attributes: attributes)
+        set_status(:error)
+      end
+
+      # close the span, make its parent current again, and hand it to the
+      # tracer's buffer. A second call is a no-op, so an `ensure` cannot close
+      # a span twice or move its end time.
       #
       # @return [void]
       def finish
@@ -189,6 +218,7 @@ module Snails
         @finished = true
         @end_time = Time.now.utc
         Context.remove_span(self)
+        @tracer.record_span(self) unless @tracer.nil?
       end
 
       # Reject a change after finish with one message shape.
