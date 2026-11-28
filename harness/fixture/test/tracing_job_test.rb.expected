@@ -1,0 +1,7 @@
+ok test_enqueue_creates_a_producer_span
+ok test_schedule_creates_a_producer_span
+ok test_enqueue_skips_a_delivery_job
+ok test_drain_creates_a_consumer_span
+ok test_job_exception_is_a_consumer_error
+ok test_drain_skips_a_delivery_job
+JobTraceTest: 6 tests passed

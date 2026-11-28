@@ -1,0 +1,6 @@
+ok test_database_consumer_carries_the_row_wait
+ok test_database_body_exception_is_a_consumer_error
+ok test_database_handler_not_found_is_a_consumer_error
+ok test_database_payload_unreadable_is_a_consumer_error
+ok test_database_delivery_job_has_no_consumer_span
+JobTraceDatabaseTest: 5 tests passed

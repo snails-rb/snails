@@ -190,18 +190,28 @@ module ActiveJob
       name = job.name
       Snails::Logger::Context.begin_job(name, job.id, job.attempts)
       started = Time.now
+      wait_ms = Trace.queue_wait_ms(job.scheduled_at, job.created_at, started)
+      body_ran = false
       begin
-        begin
-          handler = Object.const_get(name)
-        rescue NameError => failure
-          record_delivery_failure(job.id, name, job.attempts,
-                                  handler_not_found_error(name), started, failure)
-          return
+        Trace.perform(name, job.id, job.attempts, wait_ms) do |span|
+          handler = nil
+          begin
+            handler = Object.const_get(name)
+          rescue NameError => failure
+            Trace.record_error(span, failure)
+            record_delivery_failure(job.id, name, job.attempts,
+                                    handler_not_found_error(name), started, failure)
+          end
+          if !handler.nil?
+            Snails.logger.debug("job " + name + " started", event: "job.started")
+            handler.perform(job.payload)
+            body_ran = true
+          end
         end
-        Snails.logger.debug("job " + name + " started", event: "job.started")
-        handler.perform(job.payload)
-        Snails::Queue::Job.mark_succeeded!(job.id, Time.now.utc)
-        log_job_finished(name, started)
+        if body_ran
+          Snails::Queue::Job.mark_succeeded!(job.id, Time.now.utc)
+          log_job_finished(name, started)
+        end
       rescue Exception => failure
         raise if Snails::ErrorBoundary.fatal?(failure)
         begin
@@ -229,8 +239,12 @@ module ActiveJob
         name = row["name"].to_s
         Snails::Logger::Context.begin_job(name, row["id"], row["attempts"])
         begin
-          record_delivery_failure(row["id"], name, row["attempts"],
-                                  payload_unreadable_error(failure), Time.now, failure)
+          Trace.perform(name, row["id"], row["attempts"], nil) do |span|
+            Trace.record_error(span, failure)
+            record_delivery_failure(row["id"], name, row["attempts"],
+                                    payload_unreadable_error(failure), Time.now, failure)
+            nil
+          end
         ensure
           Snails::Logger::Context.end_job
         end

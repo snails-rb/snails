@@ -61,7 +61,8 @@ module Snails
       #
       # @param now [Time] the claim clock — rows scheduled after it stay
       # @return [Hash{String => Object}, nil] the claimed row's projected
-      #   columns (`id`, `name`, `payload`, `attempts`), nil when nothing is due
+      #   columns (`id`, `name`, `payload`, `attempts`, `created_at`,
+      #   `scheduled_at`), nil when nothing is due
       def self.claim_due_row(now)
         rows = Sqlx::Base.write("UPDATE " + table_name +
                                 " SET status = 'running', started_at = ?" +
@@ -70,7 +71,7 @@ module Snails
                                 " WHERE status = 'pending' AND scheduled_at <= ?" +
                                 " ORDER BY id LIMIT 1)" +
                                 " AND status = 'pending'" +
-                                " RETURNING id, name, payload, attempts",
+                                " RETURNING id, name, payload, attempts, created_at, scheduled_at",
                                 [ now, now, now ])
         return nil if rows.length == 0
         rows[0]

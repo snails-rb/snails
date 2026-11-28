@@ -132,7 +132,9 @@ module ActiveJob
           started = Time.now
           begin
             Snails.logger.debug("job " + name + " started", event: "job.started")
-            entry["work"].call
+            Trace.perform(name, entry["job_id"], entry["attempt"], nil) do
+              entry["work"].call
+            end
             ran = ran + 1
             log_job_finished(name, started)
           rescue Exception => failure

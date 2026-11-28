@@ -38,7 +38,9 @@ module ActiveJob
   def self.enqueue(job_class, payload = nil)
     work = -> { job_class.perform(payload) }
     if executor_registered
-      queue_adapter.enqueue(job_class.job_name, work, payload)
+      Trace.publish(job_class.job_name) do
+        queue_adapter.enqueue(job_class.job_name, work, payload)
+      end
     else
       work.call
     end
@@ -64,10 +66,12 @@ module ActiveJob
   # @example
   #   ActiveJob.schedule(NotifyJob, Time.now + 900, { "id" => 42 })
   def self.schedule(job_class, at, payload = nil)
-    if executor_registered
-      queue_adapter.enqueue_at(job_class.job_name, -> { job_class.perform(payload) }, payload, at)
-    else
-      raise "schedule needs a worker loop — a scheduled job with none would be silently lost"
+    Trace.publish(job_class.job_name) do
+      if executor_registered
+        queue_adapter.enqueue_at(job_class.job_name, -> { job_class.perform(payload) }, payload, at)
+      else
+        raise "schedule needs a worker loop — a scheduled job with none would be silently lost"
+      end
     end
   end
 
@@ -221,7 +225,9 @@ module ActiveJob
   # helper is free to change without notice.
   def self.enqueue_recurring(entry, occurrence)
     if executor_registered
-      queue_adapter.enqueue_once(entry["name"], entry["work"], nil, Time.at(occurrence).utc)
+      Trace.publish(entry["name"]) do
+        queue_adapter.enqueue_once(entry["name"], entry["work"], nil, Time.at(occurrence).utc)
+      end
     else
       entry["work"].call
     end
