@@ -185,6 +185,34 @@ class LoggerRecordTest < TestBase
     })
   end
 
+  # W3C reserves the all-zero ids. The record refuses them even when a caller
+  # builds the record directly instead of going through the tracer.
+  def test_record_rejects_zero_trace_and_span_ids
+    message = assert_argument_error(-> {
+      Snails::Logger::Record.new(
+        :info, "app.log", "x",
+        trace: {
+          "trace_id" => "00000000000000000000000000000000",
+          "span_id" => "b7ad6b7169203331",
+          "trace_flags" => 1
+        }
+      )
+    })
+    assert_equal true, message.include?("all zero")
+
+    message = assert_argument_error(-> {
+      Snails::Logger::Record.new(
+        :info, "app.log", "x",
+        trace: {
+          "trace_id" => "0af7651916cd43dd8448eb211c80319c",
+          "span_id" => "0000000000000000",
+          "trace_flags" => 1
+        }
+      )
+    })
+    assert_equal true, message.include?("all zero")
+  end
+
   # A value outside the severity vocabulary is rejected at construction time.
   def test_record_rejects_an_unknown_severity
     message = assert_argument_error(-> {
@@ -536,6 +564,7 @@ FixtureRunner.run(LoggerRecordTest, [
   "test_record_exposes_its_values",
   "test_record_exposes_resource_fields",
   "test_record_exposes_and_validates_trace_fields",
+  "test_record_rejects_zero_trace_and_span_ids",
   "test_record_rejects_an_unknown_severity",
   "test_record_rejects_bad_event_names",
   "test_record_rejects_bad_field_names",

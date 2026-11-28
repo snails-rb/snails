@@ -1,6 +1,7 @@
 ok test_record_exposes_its_values
 ok test_record_exposes_resource_fields
 ok test_record_exposes_and_validates_trace_fields
+ok test_record_rejects_zero_trace_and_span_ids
 ok test_record_rejects_an_unknown_severity
 ok test_record_rejects_bad_event_names
 ok test_record_rejects_bad_field_names
@@ -21,4 +22,4 @@ ok test_transport_and_record_formatter_validate_their_contract
 ok test_transport_failure_is_local_only
 ok test_concurrent_writes_do_not_interleave
 ok test_records_include_context_fields
-LoggerRecordTest: 23 tests passed
+LoggerRecordTest: 24 tests passed

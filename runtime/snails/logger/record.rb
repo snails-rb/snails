@@ -56,9 +56,13 @@ module Snails
       TRACE_FIELDS = [ "trace_id", "span_id", "trace_flags" ].freeze
 
       # W3C ids the tracer produces. A record refuses a malformed pair so a
-      # transport cannot emit a correlation the receiver will reject.
+      # transport cannot emit a correlation the receiver will reject. The
+      # all-zero values are reserved as invalid, so a caller that builds a
+      # record directly cannot bypass the tracer's check.
       TRACE_ID_PATTERN = /\A[0-9a-f]{32}\z/
       SPAN_ID_PATTERN = /\A[0-9a-f]{16}\z/
+      ZERO_TRACE_ID = "00000000000000000000000000000000"
+      ZERO_SPAN_ID = "0000000000000000"
       MAX_TRACE_FLAGS = 255
 
       # An event name is lowercase dot-separated segments: `request.completed`,
@@ -236,9 +240,15 @@ module Snails
         if !trace_id.is_a?(String) || !TRACE_ID_PATTERN.match?(trace_id)
           raise ArgumentError, "Snails::Logger::Record trace_id expects 32 lowercase hex characters"
         end
+        if trace_id == ZERO_TRACE_ID
+          raise ArgumentError, "Snails::Logger::Record trace_id must not be all zero"
+        end
         span_id = values["span_id"]
         if !span_id.is_a?(String) || !SPAN_ID_PATTERN.match?(span_id)
           raise ArgumentError, "Snails::Logger::Record span_id expects 16 lowercase hex characters"
+        end
+        if span_id == ZERO_SPAN_ID
+          raise ArgumentError, "Snails::Logger::Record span_id must not be all zero"
         end
         trace_flags = values["trace_flags"]
         if !trace_flags.is_a?(Integer) || trace_flags < 0 || trace_flags > MAX_TRACE_FLAGS
