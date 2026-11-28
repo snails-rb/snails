@@ -4,6 +4,5 @@ module Snails
     def self.body_params: (untyped req) -> Hash[String, untyped]?
     def self.request_params: (untyped req, Hash[String, String] path_params, Hash[String, untyped] body) -> Hash[String, untyped]?
     def self.dispatch: (untyped req, untyped res) -> untyped
-    private def self.enrich_request_span: (untyped req, ::ActionDispatch::Router::MatchResult matched) -> void
   end
 end
