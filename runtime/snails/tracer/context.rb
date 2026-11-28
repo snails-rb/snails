@@ -31,6 +31,7 @@ module Snails
           Thread.current[:snails_trace_span_stack] = stack
         end
         stack.push(span)
+        update_logger_trace_fields(span)
       end
 
       # Remove the span from the stack wherever it sits. A span finished out of
@@ -47,6 +48,7 @@ module Snails
         while i < stack.length
           if stack[i].equal?(span)
             stack.delete_at(i)
+            update_logger_trace_fields(current_span)
             return
           end
           i += 1
@@ -82,11 +84,12 @@ module Snails
         Thread.current[:snails_trace_parent_span_id] = parent_span_id
         Thread.current[:snails_trace_sampled] = sampled
         Thread.current[:snails_tracestate] = tracestate
+        Snails::Logger::Context.clear_trace_fields
       end
 
       # Clear the span stack and the inbound trace values. A request or job
       # boundary will call it at the end of its scope so a reused worker thread
-      # cannot inherit the previous unit's trace.
+      # cannot inherit the previous request or job's trace.
       #
       # @api internal
       # @return [void]
@@ -96,6 +99,7 @@ module Snails
         Thread.current[:snails_trace_parent_span_id] = nil
         Thread.current[:snails_trace_sampled] = nil
         Thread.current[:snails_tracestate] = nil
+        Snails::Logger::Context.clear_trace_fields
       end
 
       # @api internal
@@ -132,6 +136,20 @@ module Snails
         Thread.current[:snails_tracestate]
       end
 
+      # Update the trace fields the logger reads. The tracer writes them; the
+      # logger never reads the tracer, so the dependency stays one-way.
+      #
+      # @api internal
+      # @param span [Span, nil] the current span after a stack change
+      # @return [void]
+      def self.update_logger_trace_fields(span)
+        if span.nil?
+          Snails::Logger::Context.clear_trace_fields
+        else
+          Snails::Logger::Context.set_trace_fields(span.trace_id, span.span_id, Tracer::TRACE_FLAG_SAMPLED)
+        end
+      end
+
       def self.validate_trace_id(value)
         if !value.is_a?(String) || !Tracer::TRACE_ID_PATTERN.match?(value)
           raise ArgumentError, "inbound trace_id expects 32 lowercase hex characters"
@@ -150,7 +168,7 @@ module Snails
         end
       end
 
-      private_class_method :validate_trace_id, :validate_parent_span_id
+      private_class_method :update_logger_trace_fields, :validate_trace_id, :validate_parent_span_id
     end
   end
 end

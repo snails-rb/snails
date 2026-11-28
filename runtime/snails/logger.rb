@@ -385,15 +385,17 @@ module Snails
     # One named record at the level's severity. The arguments are validated
     # before the level check, so a malformed event raises in every mode rather
     # than only when the level happens to write it. An info event is dropped
-    # when the app set `level = :warn`. The record carries the request id,
-    # matched controller/action, and job context as reserved fields; the
-    # service/process attributes ride separately in `Record#resource`. A
-    # caller field with a reserved name raises rather than overwriting it.
+    # when the app set `level = :warn`. The record includes the request id,
+    # matched controller/action, and job context as reserved fields. The
+    # service/process attributes are stored separately in `Record#resource`.
+    # The current span's trace fields are available as `Record#trace_id`,
+    # `Record#span_id`, and `Record#trace_flags`. A caller field with a
+    # reserved name raises rather than overwriting it.
     def write_event(severity, event, body, fields, exception)
       record = Record.new(
         severity, event, body,
         fields: fields, exception: exception,
-        context: context_fields, resource: resource_fields
+        context: context_fields, resource: resource_fields, trace: Context.trace_fields
       )
       # The record writer is the one place that sees both the event name and
       # the running job, so it is where a job whose own records would feed the
@@ -415,7 +417,10 @@ module Snails
     # waiting on the database never holds up other threads' logging.
     def write_line(severity, message)
       body = message.to_s
-      record = Record.new(severity, "app.log", body, context: context_fields, resource: resource_fields)
+      record = Record.new(
+        severity, "app.log", body,
+        context: context_fields, resource: resource_fields, trace: Context.trace_fields
+      )
       line = @formatter.call(severity.to_s.upcase, Time.now, @progname, tagged_message(body))
       write_output_line(line)
       deliver(record)
@@ -486,16 +491,24 @@ module Snails
       fields
     end
 
-    # The request id is included in the message rather than in the formatter:
-    # a replacement formatter (a JSON line, say) receives the same tag without
-    # implementing the request context itself. It is written as a key=value
-    # field so a request line underneath it stays parseable as one
-    # `request_id=… key=value …` record.
+    # The request id and trace fields are included in the message instead of
+    # being left to the formatter: a replacement formatter (a JSON line, say)
+    # receives the same tags without implementing the context itself. They are
+    # written as key=value fields so a request line stays parseable as one
+    # `request_id=… trace_id=… span_id=… key=value …` record.
     def tagged_message(message)
+      prefix = ""
       id = Context.request_id
-      return message.to_s if id.nil? || id.empty?
+      if !id.nil? && !id.empty?
+        prefix = "request_id=" + id + " "
+      end
+      trace = Context.trace_fields
+      if !trace.nil?
+        prefix = prefix + "trace_id=" + trace["trace_id"] + " span_id=" + trace["span_id"] + " "
+      end
+      return message.to_s if prefix.empty?
 
-      "request_id=" + id + " " + message.to_s
+      prefix + message.to_s
     end
 
     private :severity_rank, :writes?, :write_level, :write_event,

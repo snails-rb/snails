@@ -8,6 +8,7 @@ module Snails
     SPAN_ID_PATTERN: Regexp
     ZERO_TRACE_ID: String
     ZERO_SPAN_ID: String
+    TRACE_FLAG_SAMPLED: Integer
 
     @delivery: Snails::Tracer::Delivery
     @sample_rate: Float?

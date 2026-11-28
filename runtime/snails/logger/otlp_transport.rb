@@ -97,7 +97,8 @@ module Snails
       private
 
       # The OTLP envelope for one batch. All records in a batch share the
-      # process resource; the first record's bag is the batch's resource.
+      # process resource; the first record's resource fields become the
+      # batch's resource.
       def encode(records, batch_id)
         first = records[0]
         log_records = []
@@ -140,13 +141,22 @@ module Snails
         end
         attributes_out << { "key" => "snails.batch_id", "value" => { "stringValue" => batch_id } }
         attributes_out << { "key" => "snails.seq", "value" => { "intValue" => seq.to_s } }
-        {
+        out = {
           "timeUnixNano" => time_unix_nano(record.time),
           "severityNumber" => severity_number(record.severity),
           "severityText" => record.severity.to_s.upcase,
           "body" => { "stringValue" => record.body },
           "attributes" => attributes_out
         }
+        # OTLP log records keep the trace fields at the top level, not in
+        # attributes, so a backend can join a log to its span without scanning
+        # the attributes.
+        if !record.trace_id.nil?
+          out["traceId"] = record.trace_id
+          out["spanId"] = record.span_id
+          out["flags"] = record.trace_flags
+        end
+        out
       end
 
       def append_attributes(out, fields)

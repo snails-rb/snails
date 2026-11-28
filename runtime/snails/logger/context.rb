@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
-# The log values that belong to one request or one job — request id, matched
-# controller/action/format, DB time, job name/id/attempt — stored per thread.
+# The log values stored per thread: the request id, the matched controller,
+# action, and format; the current span's trace fields; DB time; and the running
+# job's name, id, and attempt.
 #
 # Values can cross connections on a fiber-per-connection server. The request
 # id is kept until the next request clears it; the server rescue still needs it.
+# The tracer writes the trace fields when the span stack changes, and the
+# logger reads them. The logger never reads the tracer, so the dependency
+# stays one-way.
 require "securerandom"
 
 module Snails
@@ -64,6 +68,59 @@ module Snails
       # @return [String] the assigned name
       def self.format=(name)
         Thread.current[:snails_log_format] = name
+      end
+
+      # the current span's trace fields for log records: the hex trace id, the
+      # span id, and the trace flags. Returns nil when tracing is off or no
+      # span is current. The tracer writes these values when the span stack
+      # changes; the logger reads them and never asks the tracer.
+      #
+      # @return [Hash{String => Object}, nil] the trace fields, or nil
+      def self.trace_fields
+        trace_id = Thread.current[:snails_log_trace_id]
+        return nil if trace_id.nil?
+
+        {
+          "trace_id" => trace_id,
+          "span_id" => Thread.current[:snails_log_span_id],
+          "trace_flags" => Thread.current[:snails_log_trace_flags]
+        }
+      end
+
+      # store the current span's trace fields for log records. The tracer calls
+      # this when its span stack changes; the ids are validated when the span
+      # is created, so this only checks for a missing id or an out-of-range
+      # flags byte.
+      #
+      # @api internal
+      # @param trace_id [String] the 32-hex trace id
+      # @param span_id [String] the 16-hex current span id
+      # @param trace_flags [Integer] the OTel trace flags byte
+      # @raise [ArgumentError] an id is empty or the flags byte is out of range
+      # @return [void]
+      def self.set_trace_fields(trace_id, span_id, trace_flags)
+        if !trace_id.is_a?(String) || trace_id.empty? || !span_id.is_a?(String) || span_id.empty?
+          raise ArgumentError, "Snails::Logger::Context trace fields need non-empty trace_id and span_id values"
+        end
+        if !trace_flags.is_a?(Integer) || trace_flags < 0 || trace_flags > 255
+          raise ArgumentError, "Snails::Logger::Context trace_flags expects an Integer between 0 and 255"
+        end
+
+        Thread.current[:snails_log_trace_id] = trace_id
+        Thread.current[:snails_log_span_id] = span_id
+        Thread.current[:snails_log_trace_flags] = trace_flags
+      end
+
+      # clear the trace fields. The request and job boundaries call it so a
+      # reused thread cannot write the previous request or job's ids in its
+      # first records.
+      #
+      # @api internal
+      # @return [void]
+      def self.clear_trace_fields
+        Thread.current[:snails_log_trace_id] = nil
+        Thread.current[:snails_log_span_id] = nil
+        Thread.current[:snails_log_trace_flags] = nil
       end
 
       # one reading of the monotonic clock in microseconds. `Tep::App` measures
@@ -169,6 +226,7 @@ module Snails
         Thread.current[:snails_log_job_id] = id
         Thread.current[:snails_log_job_attempt] = attempt
         Thread.current[:snails_log_db_us] = 0
+        clear_trace_fields
       end
 
       # clear the job values and the DB accumulator after a run.
@@ -179,6 +237,7 @@ module Snails
         Thread.current[:snails_log_job_id] = nil
         Thread.current[:snails_log_job_attempt] = nil
         Thread.current[:snails_log_db_us] = nil
+        clear_trace_fields
       end
 
       # start a new request: mint the id, clear the matched and job fields, and
@@ -197,6 +256,7 @@ module Snails
         Thread.current[:snails_log_job_name] = nil
         Thread.current[:snails_log_job_id] = nil
         Thread.current[:snails_log_job_attempt] = nil
+        clear_trace_fields
         id
       end
     end

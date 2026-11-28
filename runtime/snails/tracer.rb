@@ -40,6 +40,10 @@ module Snails
     ZERO_TRACE_ID = "00000000000000000000000000000000"
     ZERO_SPAN_ID = "0000000000000000"
 
+    # The W3C sampled bit. Every span that exists is recorded, so the trace
+    # fields written to the logger always include this flag.
+    TRACE_FLAG_SAMPLED = 0x01
+
     def initialize
       @delivery = Delivery.new
       @sample_rate = nil
@@ -235,7 +239,7 @@ module Snails
     # values plus the trace schema version.
     #
     # @api internal
-    # @return [Hash{String => Object}] the resource attribute bag
+    # @return [Hash{String => Object}] the resource attributes
     def resource_attributes
       fields = Snails::OTLP::Resource.attributes
       fields["snails.trace.schema_version"] = TRACE_SCHEMA_VERSION

@@ -13,7 +13,8 @@ module Snails
         ?exception: Exception?,
         ?time: Time?,
         ?context: Hash[String, untyped],
-        ?resource: Hash[String, untyped]
+        ?resource: Hash[String, untyped],
+        ?trace: Hash[untyped, untyped]?
       ) -> void
 
       def severity: () -> Symbol
@@ -21,6 +22,9 @@ module Snails
       def body: () -> String
       def fields: () -> Hash[String, untyped]
       def resource: () -> Hash[String, untyped]
+      def trace_id: () -> String?
+      def span_id: () -> String?
+      def trace_flags: () -> Integer?
       def exception: () -> Exception?
       def time: () -> Time
       def exception_type: () -> String?
