@@ -24,10 +24,10 @@ module Snails
         Formatter.format_time(time)
       end
 
-      # The field section: event first, then the active trace when one is
-      # mirrored, then fields in insertion order, then the exception fields,
-      # then the body. The trace tags use the same names as plain lines so a
-      # reader can search both shapes by one pair of keys.
+      # The field section: event first, then the trace fields when the record
+      # has them, then fields in insertion order, then the exception fields,
+      # then the body. Plain and structured lines use the same tag names, so
+      # one search finds both.
       def message(record)
         parts = [ "event.name=" + record.event ]
         if !record.trace_id.nil?

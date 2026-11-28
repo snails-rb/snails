@@ -2,10 +2,10 @@ require_relative "test_helper"
 require_relative "harness_runner"
 require_relative "test_database"
 
-# Logger trace correlation: the tracer mirrors the innermost span into
-# `Snails::Logger::Context`, and the logger reads that bag without asking
-# `Snails.tracer`. The OTLP logs record carries the ids at the top level so a
-# backend can join logs to spans.
+# Log records and the active span: the tracer writes the current span's trace
+# fields into `Snails::Logger::Context`, and the logger reads them without
+# asking `Snails.tracer`. The OTLP logs transport writes `traceId`, `spanId`,
+# and `flags` at the top level so a backend can join a log to its span.
 class LoggerTraceQueueAdapter
   SUBMITTED = []
 
@@ -48,33 +48,33 @@ class LoggerTraceTest < TestBase
   end
 
   def assert_trace(span)
-    trace = Snails::Logger::Context.trace
+    trace = Snails::Logger::Context.trace_fields
     assert_equal span.trace_id, trace["trace_id"]
     assert_equal span.span_id, trace["span_id"]
     assert_equal 1, trace["trace_flags"]
   end
 
-  # A reused request or job thread must not carry the previous unit's span ids
-  # into its first records, so each boundary clears the mirror.
+  # A thread can serve more than one request or job, so each boundary clears
+  # the trace fields before the next one writes its first record.
   def test_context_trace_fields_are_cleared_at_request_and_job_boundaries
-    Snails::Logger::Context.set_trace(TRACE_ID, SPAN_ID, 1)
-    assert_equal TRACE_ID, Snails::Logger::Context.trace["trace_id"]
+    Snails::Logger::Context.set_trace_fields(TRACE_ID, SPAN_ID, 1)
+    assert_equal TRACE_ID, Snails::Logger::Context.trace_fields["trace_id"]
 
     Snails::Logger::Context.begin_request
-    assert_equal nil, Snails::Logger::Context.trace
+    assert_equal nil, Snails::Logger::Context.trace_fields
 
-    Snails::Logger::Context.set_trace(TRACE_ID, SPAN_ID, 1)
+    Snails::Logger::Context.set_trace_fields(TRACE_ID, SPAN_ID, 1)
     Snails::Logger::Context.begin_job("TraceJob", 7, 1)
-    assert_equal nil, Snails::Logger::Context.trace
+    assert_equal nil, Snails::Logger::Context.trace_fields
 
-    Snails::Logger::Context.set_trace(TRACE_ID, SPAN_ID, 1)
+    Snails::Logger::Context.set_trace_fields(TRACE_ID, SPAN_ID, 1)
     Snails::Logger::Context.end_job
-    assert_equal nil, Snails::Logger::Context.trace
+    assert_equal nil, Snails::Logger::Context.trace_fields
   end
 
-  # Starting a span mirrors its ids, and finishing it restores the parent or
-  # clears the bag at the root.
-  def test_tracer_mirrors_the_current_span_into_the_logger_context
+  # Starting a span writes its trace fields. Finishing it restores the parent
+  # span's fields, or clears them when the root span finishes.
+  def test_tracer_updates_the_logger_trace_fields_for_each_span
     Snails.tracer.transport = LoggerTraceSpanCapture.new
 
     outer = nil
@@ -89,13 +89,13 @@ class LoggerTraceTest < TestBase
       assert_trace(outer)
     end
 
-    assert_equal nil, Snails::Logger::Context.trace
+    assert_equal nil, Snails::Logger::Context.trace_fields
   end
 
-  # The completed request record is written while the request span is still
-  # current, so it carries the request span's ids and the request id together.
-  # The local line exposes the same tags to a human reader.
-  def test_request_record_and_local_line_carry_the_trace_and_request_id
+  # The completed request record is written before the request span closes, so
+  # it includes the span's trace fields and the request id. The local line
+  # shows the same tags to a person reading it.
+  def test_request_record_and_local_line_include_the_trace_fields_and_request_id
     TestDatabase.configure!("logger_trace")
     output = CapturedLog.new
     capture = RecordCapture.new
@@ -130,12 +130,12 @@ class LoggerTraceTest < TestBase
     assert_equal true, line.include?("trace_id=" + request_span.trace_id)
     assert_equal true, line.include?("span_id=" + request_span.span_id)
     assert_equal true, line.include?("snails.request_id=" + request_id)
-    assert_equal nil, Snails::Logger::Context.trace
+    assert_equal nil, Snails::Logger::Context.trace_fields
   end
 
   # The logs transport writes traceId/spanId/flags at the logRecord top level,
-  # not in attributes, and omits them when the record has no trace.
-  def test_otlp_log_record_puts_the_trace_at_the_top_level
+  # not in attributes, and leaves them out when the record has no trace.
+  def test_otlp_log_record_writes_trace_fields_at_the_top_level
     traced = Snails::Logger::Record.new(
       :info, "app.log", "traced",
       trace: { "trace_id" => TRACE_ID, "span_id" => SPAN_ID, "trace_flags" => 1 }
@@ -175,7 +175,7 @@ end
 
 FixtureRunner.run(LoggerTraceTest, [
   "test_context_trace_fields_are_cleared_at_request_and_job_boundaries",
-  "test_tracer_mirrors_the_current_span_into_the_logger_context",
-  "test_request_record_and_local_line_carry_the_trace_and_request_id",
-  "test_otlp_log_record_puts_the_trace_at_the_top_level"
+  "test_tracer_updates_the_logger_trace_fields_for_each_span",
+  "test_request_record_and_local_line_include_the_trace_fields_and_request_id",
+  "test_otlp_log_record_writes_trace_fields_at_the_top_level"
 ])

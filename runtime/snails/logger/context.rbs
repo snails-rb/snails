@@ -9,9 +9,9 @@ module Snails
       def self.action=: (String name) -> String
       def self.format: () -> String?
       def self.format=: (String name) -> String
-      def self.trace: () -> Hash[String, untyped]?
-      def self.set_trace: (String trace_id, String span_id, Integer trace_flags) -> void
-      def self.clear_trace: () -> void
+      def self.trace_fields: () -> Hash[String, untyped]?
+      def self.set_trace_fields: (String trace_id, String span_id, Integer trace_flags) -> void
+      def self.clear_trace_fields: () -> void
       def self.now_us: () -> Integer
       def self.db_us: () -> Integer
       def self.add_db_us: (Integer microseconds) -> void

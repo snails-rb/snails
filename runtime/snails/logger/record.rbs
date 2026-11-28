@@ -4,12 +4,6 @@ module Snails
       SEVERITIES: Array[Symbol]
       SCHEMA_VERSION: Integer
       RESERVED_FIELDS: Array[String]
-      TRACE_FIELDS: Array[String]
-      TRACE_ID_PATTERN: Regexp
-      SPAN_ID_PATTERN: Regexp
-      ZERO_TRACE_ID: String
-      ZERO_SPAN_ID: String
-      MAX_TRACE_FLAGS: Integer
 
       def initialize: (
         Symbol severity,

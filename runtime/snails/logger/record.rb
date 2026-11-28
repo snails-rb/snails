@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# One log event as a field bag: time, severity, stable event name, body,
+# One log event as a set of fields: time, severity, stable event name, body,
 # structured fields, and an optional exception — the transport contract.
 #
 # Values are String, Integer, finite Float, true/false, or nil; caller fields
@@ -51,30 +51,33 @@ module Snails
       # punctuation that would make a key ambiguous.
       FIELD_PATTERN = /\A[A-Za-z][A-Za-z0-9_.-]*\z/
 
-      # The trace correlation names the record carries outside its field bag.
-      # They become OTLP log record `traceId`/`spanId`/`flags`, not attributes.
+      # The trace fields the record stores outside `fields`. They become OTLP
+      # log record `traceId`/`spanId`/`flags`, not attributes.
       TRACE_FIELDS = [ "trace_id", "span_id", "trace_flags" ].freeze
 
-      # W3C ids the tracer produces. A record refuses a malformed pair so a
-      # transport cannot emit a correlation the receiver will reject. The
-      # all-zero values are reserved as invalid, so a caller that builds a
-      # record directly cannot bypass the tracer's check.
+      # W3C ids the tracer produces. A record rejects malformed trace fields so
+      # the transport cannot send ids the backend will reject. The all-zero
+      # values are invalid too, so a caller that builds a record directly
+      # cannot bypass the tracer's check.
       TRACE_ID_PATTERN = /\A[0-9a-f]{32}\z/
       SPAN_ID_PATTERN = /\A[0-9a-f]{16}\z/
       ZERO_TRACE_ID = "00000000000000000000000000000000"
       ZERO_SPAN_ID = "0000000000000000"
       MAX_TRACE_FLAGS = 255
 
+      private_constant :TRACE_FIELDS, :TRACE_ID_PATTERN, :SPAN_ID_PATTERN,
+                       :ZERO_TRACE_ID, :ZERO_SPAN_ID, :MAX_TRACE_FLAGS
+
       # An event name is lowercase dot-separated segments: `request.completed`,
       # `job.failed`, `worker.loop_stopped`, `app.log`.
       EVENT_PATTERN = /\A[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\z/
 
       # build one record. `fields` are caller-owned and checked against
-      # `RESERVED_FIELDS`; `context` carries the request/job correlation the
-      # logger already validated, so those names are allowed there; `resource`
-      # carries the service/process attributes the transport sends per batch;
-      # `trace` carries the active span's ids as `trace_id`, `span_id`, and
-      # `trace_flags`, separate from both bags.
+      # `RESERVED_FIELDS`; `context` holds the request/job fields the logger
+      # already validated, so those names are allowed there; `resource` holds
+      # the service/process attributes the transport sends per batch; `trace`
+      # stores the current span's `trace_id`, `span_id`, and `trace_flags`
+      # outside both hashes.
       #
       # @param severity [Symbol] one of `SEVERITIES`
       # @param event [String] the stable event name
@@ -82,9 +85,10 @@ module Snails
       # @param fields [Hash{String, Symbol => Object}] caller fields
       # @param exception [Exception, nil] the failure this record reports
       # @param time [Time, nil] the event time; defaults to the current UTC time
-      # @param context [Hash{String => Object}] logger-owned correlation fields
+      # @param context [Hash{String => Object}] logger-owned request/job fields
       # @param resource [Hash{String => Object}] service/process attributes
-      # @param trace [Hash{String, Symbol => Object}, nil] the active trace ids
+      # @param trace [Hash{String, Symbol => Object}, nil] the current span's
+      #   trace fields
       # @raise [ArgumentError] a severity, event, field, value, exception,
       #   trace, or time outside the contract
       def initialize(severity, event, body, fields: {}, exception: nil, time: nil, context: {}, resource: {}, trace: nil)
@@ -137,7 +141,7 @@ module Snails
 
       # the caller fields merged with logger context.
       #
-      # @return [Hash{String => Object}] the record's field bag
+      # @return [Hash{String => Object}] the record's fields
       def fields
         @fields
       end
@@ -146,7 +150,7 @@ module Snails
       # does not render them; an OTLP transport sends them once per batch rather
       # than on every record.
       #
-      # @return [Hash{String => Object}] the resource attribute bag
+      # @return [Hash{String => Object}] the resource attributes
       def resource
         @resource
       end
@@ -210,8 +214,8 @@ module Snails
         frames.join("\n")
       end
 
-      # The trace bag is all or nothing: a record with a trace id but no span
-      # id (or flags) would emit a correlation the receiver cannot use.
+      # A record has all three trace fields or none: a trace id without a span
+      # id or flags would send incomplete trace fields to the backend.
       def normalize_trace(trace)
         return [ nil, nil, nil ] if trace.nil?
         if !trace.is_a?(Hash)

@@ -1,7 +1,7 @@
 require_relative "test_helper"
 require_relative "harness_runner"
 
-# Snails::Logger record layer (core) — one log event as a field bag, the
+# Snails::Logger record layer (core) — one log event as a set of fields, the
 # record formatter that renders it locally, the transport setting, and the
 # context fields the logger adds. The five level calls render through
 # `formatter` when they carry only a message and through `record_formatter`
@@ -138,9 +138,9 @@ class LoggerRecordTest < TestBase
     assert_equal 0, record.fields.length
   end
 
-  # The trace is kept separate from fields and context. A partial or malformed
-  # pair is refused here, where it arrives, so the transport cannot emit a
-  # correlation the receiver would reject.
+  # Trace fields are stored separately from `fields` and `context`. A partial
+  # or malformed set is rejected at the record boundary, so the transport
+  # cannot send invalid trace ids.
   def test_record_exposes_and_validates_trace_fields
     record = Snails::Logger::Record.new(
       :info, "app.log", "x",
@@ -185,8 +185,8 @@ class LoggerRecordTest < TestBase
     })
   end
 
-  # W3C reserves the all-zero ids. The record refuses them even when a caller
-  # builds the record directly instead of going through the tracer.
+  # W3C reserves all-zero ids as invalid. The record rejects them even when a
+  # caller builds the record directly instead of going through the tracer.
   def test_record_rejects_zero_trace_and_span_ids
     message = assert_argument_error(-> {
       Snails::Logger::Record.new(
