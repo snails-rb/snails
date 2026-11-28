@@ -5,21 +5,14 @@ module Snails
       READ_TIMEOUT: Integer
       MAX_ATTEMPTS: Integer
 
-      class DeliveryError < StandardError
-        @status: Integer?
-
-        def initialize: (String message, ?Integer? status) -> void
-        def status: () -> Integer?
+      class DeliveryError < Snails::OTLP::DeliveryError
       end
 
-      @endpoint: String
-      @token: String
-      @uri: untyped
+      @http: Snails::OTLP::HTTP
       @executor_warned: bool
-      @session: untyped
-      @session_lock: Mutex
 
       def initialize: (endpoint: String, token: String) -> void
+      def url: () -> untyped
       def after_fork: () -> void
       def deliver: (Array[Record] records) -> void
       def send_encoded: (untyped body) -> bool

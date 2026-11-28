@@ -1,0 +1,7 @@
+module Snails
+  module OTLP
+    module Resource
+      def self.attributes: () -> Hash[String, untyped]
+    end
+  end
+end

@@ -33,10 +33,10 @@ module Snails
       def events: () -> Array[Hash[String, untyped]]
       def set_name: (String name) -> String
       def set_attribute: (String key, untyped value) -> untyped
-      def add_event: (String name, ?attributes: Hash[String, untyped]) -> void
+      def add_event: (String name, ?attributes: Hash[String, untyped], ?timestamp: Time?) -> void
       def set_status: (Symbol status, ?message: String?) -> Symbol
       def record_exception: (Exception failure) -> void
-      def finish: () -> void
+      def finish: (?end_time: Time?) -> void
 
       private def ensure_open: (String what) -> void
       private def validate_name: (untyped value) -> void

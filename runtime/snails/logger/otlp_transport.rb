@@ -1,45 +1,30 @@
 # frozen_string_literal: true
 
-# The default transport: encode one batch as OTLP logs JSON and enqueue
+# The default logs transport: encode one batch as OTLP logs JSON and enqueue
 # `Snails::LogDeliveryJob`, so the HTTP call never blocks a request.
 #
-# The endpoint and token stay out of the job payload. `send_encoded` retries a
-# 5xx or network error once, and the transport appends `v1/logs` to the endpoint.
-require "net/http"
-require "openssl"
+# The endpoint, token, session, retry, and `v1/logs` path live in the shared
+# OTLP HTTP helper; this file owns only the logs encoder and the job handoff.
 require "securerandom"
-require "uri"
 
 module Snails
   class Logger
     class OTLPTransport
-      # Timeouts keep a dead endpoint from holding a worker for long.
-      OPEN_TIMEOUT = 2
-      READ_TIMEOUT = 2
+      # Compatibility aliases for the constants and error the transport
+      # exposed before the HTTP layer moved to `Snails::OTLP::HTTP`.
+      OPEN_TIMEOUT = Snails::OTLP::HTTP::OPEN_TIMEOUT
+      READ_TIMEOUT = Snails::OTLP::HTTP::READ_TIMEOUT
+      MAX_ATTEMPTS = Snails::OTLP::HTTP::MAX_ATTEMPTS
 
-      # One retry covers a transient 5xx or a dropped connection; a 4xx is
-      # permanent (bad token, malformed batch, too large) and is not retried.
-      MAX_ATTEMPTS = 2
-
-      # The failure `send_encoded` raises for a non-2xx response. `status` is
-      # the HTTP code, nil for a network-level failure.
-      class DeliveryError < StandardError
-        def initialize(message, status = nil)
-          super(message)
-          @status = status
-        end
-
-        # the HTTP status that failed, or nil for a network error.
-        #
-        # @return [Integer, nil]
-        def status
-          @status
-        end
+      # The failure `send_encoded` raises for a non-2xx response. The shared
+      # HTTP helper raises `Snails::OTLP::DeliveryError`; the transport keeps
+      # its own class so existing rescues stay valid.
+      class DeliveryError < Snails::OTLP::DeliveryError
       end
 
       # configure the destination. The endpoint is the receiver's base URL
-      # (scheme, host, and optional path prefix); the transport appends the OTLP
-      # logs path itself. A trailing slash on the base is absorbed. The token is
+      # (scheme, host, and optional path prefix); the shared helper appends the
+      # OTLP logs path. A trailing slash on the base is absorbed. The token is
       # sent as `Authorization: Bearer`. Both are validated here so a typo fails
       # at boot rather than on the first batch.
       #
@@ -47,26 +32,16 @@ module Snails
       # @param token [String] the ingest token
       # @raise [ArgumentError] endpoint or token is empty or malformed
       def initialize(endpoint:, token:)
-        if !endpoint.is_a?(String) || endpoint.empty?
-          raise ArgumentError, "OTLPTransport endpoint must be a non-empty String"
-        end
-        if !token.is_a?(String) || token.empty?
-          raise ArgumentError, "OTLPTransport token must be a non-empty String"
-        end
-
-        @endpoint = endpoint
-        @token = token
         @executor_warned = false
-        @session = nil
-        @session_lock = Mutex.new
-        begin
-          @uri = URI.parse(logs_url(endpoint))
-        rescue StandardError
-          raise ArgumentError, "OTLPTransport endpoint is not a valid URL: " + endpoint
-        end
-        if @uri.host.nil? || (@uri.scheme != "http" && @uri.scheme != "https")
-          raise ArgumentError, "OTLPTransport endpoint must be an http or https URL: " + endpoint
-        end
+        @http = Snails::OTLP::HTTP.new(endpoint: endpoint, token: token, path: "v1/logs")
+      end
+
+      # the resolved logs URL, for diagnostics and tests.
+      #
+      # @api internal
+      # @return [URI] the full endpoint URL
+      def url
+        @http.url
       end
 
       # drop the parent's HTTP session in a forked child. The socket and the
@@ -75,8 +50,7 @@ module Snails
       #
       # @return [void]
       def after_fork
-        close_session
-        @session_lock = Mutex.new
+        @http.after_fork
       end
 
       # encode one batch and enqueue the delivery job. It never performs HTTP;
@@ -104,100 +78,23 @@ module Snails
         ActiveJob.enqueue(Snails::LogDeliveryJob, body)
       end
 
-      # post one encoded OTLP batch. A 2xx succeeds; a 4xx raises immediately; a
-      # 5xx or a network error is retried once.
+      # post one encoded OTLP batch. The shared helper owns the 4xx/5xx and
+      # network retry contract; the transport maps its error class back to the
+      # long-standing logs class.
       #
       # @param body [Hash] the OTLP logs JSON structure
       # @return [Boolean] true when the endpoint answered 2xx
       # @raise [DeliveryError] the endpoint refused the batch, or the retry
       #   budget was spent
       def send_encoded(body)
-        attempt = 0
-        while attempt < MAX_ATTEMPTS
-          begin
-            response = post(body)
-            code = response.code.to_i
-            return true if code >= 200 && code < 300
-            if code >= 400 && code < 500
-              raise DeliveryError.new("log endpoint returned " + code.to_s, code)
-            end
-            if attempt + 1 >= MAX_ATTEMPTS
-              raise DeliveryError.new("log endpoint returned " + code.to_s, code)
-            end
-          rescue DeliveryError
-            raise
-          rescue StandardError
-            raise if attempt + 1 >= MAX_ATTEMPTS
-          end
-          attempt = attempt + 1
+        begin
+          @http.send_encoded(body)
+        rescue Snails::OTLP::DeliveryError => failure
+          raise DeliveryError.new(failure.message, failure.status)
         end
-        raise DeliveryError.new("log endpoint did not accept the batch")
       end
 
       private
-
-      # The OTLP logs URL for a base endpoint. OTLP/HTTP defines `v1/logs`
-      # as the default logs path under a base endpoint; a receiver with a
-      # non-default path needs the signal-specific full URL, which this
-      # transport does not model yet. A trailing slash is absorbed, so a base
-      # with or without one addresses the same logs URL; a base path prefix
-      # is preserved.
-      def logs_url(base)
-        path = "v1/logs"
-        if base.end_with?("/")
-          base + path
-        else
-          base + "/" + path
-        end
-      end
-
-      # One HTTP request. A single process keeps one `Net::HTTP` session open:
-      # batches arrive about once a second, so a new TCP/TLS handshake per
-      # batch is waste. `Net::HTTP` reuses the connection while both sides
-      # keep it alive and reconnects when the server closed it; a failed
-      # request drops the session here so the retry opens a fresh one.
-      def post(body)
-        request = Net::HTTP::Post.new(@uri)
-        request["Authorization"] = "Bearer " + @token
-        request["Content-Type"] = "application/json"
-        request.body = JSON.generate(body)
-        @session_lock.synchronize do
-          begin
-            session.request(request)
-          rescue StandardError
-            close_session
-            raise
-          end
-        end
-      end
-
-      # The started session for this process. It is created on first use so a
-      # process that never logs never opens a socket.
-      def session
-        if @session.nil?
-          http = Net::HTTP.new(@uri.host, @uri.port)
-          http.use_ssl = @uri.scheme == "https"
-          http.open_timeout = OPEN_TIMEOUT
-          http.read_timeout = READ_TIMEOUT
-          http.start
-          @session = http
-        end
-        @session
-      end
-
-      # Close the session after a failed request or in a forked child. A
-      # server-side close is not an error: `finish` may raise when the socket
-      # is already gone, and the next request opens a new session.
-      def close_session
-        http = @session
-        @session = nil
-        return if http.nil?
-        begin
-          http.finish
-        rescue StandardError
-          nil
-        end
-      end
 
       # The OTLP envelope for one batch. All records in a batch share the
       # process resource; the first record's bag is the batch's resource.

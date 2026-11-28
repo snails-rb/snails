@@ -107,8 +107,9 @@ module Snails
 
       # @param name [String] the ignored event name
       # @param attributes [Hash{String => Object}] the ignored event attributes
+      # @param timestamp [Time, nil] the ignored event time
       # @return [void]
-      def add_event(name, attributes: {})
+      def add_event(name, attributes: {}, timestamp: nil)
       end
 
       # @param status [Symbol] the ignored status
@@ -123,8 +124,9 @@ module Snails
       def record_exception(failure)
       end
 
+      # @param end_time [Time, nil] the ignored end timestamp
       # @return [void]
-      def finish
+      def finish(end_time: nil)
       end
     end
   end

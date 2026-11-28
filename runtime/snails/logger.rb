@@ -478,17 +478,10 @@ module Snails
     end
 
     # The service/process attributes every record carries. The local formatter
-    # ignores them; a transport sends them once per batch. `host.name` comes
-    # from the deployment environment and is omitted when unset.
+    # ignores them; a transport sends them once per batch. The shared values
+    # come from `Snails::OTLP::Resource`; logs add their own schema version.
     def resource_fields
-      fields = {}
-      fields["service.name"] = Snails.app.app_name
-      host = host_name
-      fields["host.name"] = host if !host.nil? && !host.empty?
-      fields["process.pid"] = Process.pid
-      fields["deployment.environment.name"] = Snails.env.name
-      fields["snails.version"] = Snails.version
-      fields["snails.rev"] = Snails.rev
+      fields = Snails::OTLP::Resource.attributes
       fields["snails.log.schema_version"] = Record::SCHEMA_VERSION
       fields
     end

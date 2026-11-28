@@ -1,0 +1,7 @@
+module Snails
+  class Tracer
+    class OTLPEncoder
+      def self.encode: (Array[Snails::Tracer::Span] spans, Hash[String, untyped] resource, String scope_version) -> Hash[String, untyped]
+    end
+  end
+end
