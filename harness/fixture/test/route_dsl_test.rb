@@ -68,7 +68,7 @@ class RouteDslTest < TestBase
   # request-metadata target; /auth-probe is the filter's 401 target.
   def test_fixture_table_row_is_built_by_the_helper
     rows = Snails::RouteTable.table
-    assert_equal 16, rows.length
+    assert_equal 17, rows.length
     assert_equal "GET", rows[0].verb
     assert_equal "/up", rows[0].pattern
     assert_equal :show, rows[0].action
