@@ -1,0 +1,16 @@
+module Snails
+  class Tracer
+    class OTLPTransport
+      class DeliveryError < Snails::OTLP::DeliveryError
+      end
+
+      @http: Snails::OTLP::HTTP
+
+      def initialize: (endpoint: String, token: String) -> void
+      def url: () -> untyped
+      def after_fork: () -> void
+      def encode: (Array[Snails::Tracer::Span] spans) -> Hash[String, untyped]
+      def send_encoded: (untyped body) -> bool
+    end
+  end
+end

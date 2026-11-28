@@ -135,16 +135,21 @@ module Snails
 
       # add one event with its own timestamp and attributes. An exception is
       # recorded as an event named `exception` with `exception.*` attributes.
+      # An explicit timestamp lets a fixture pin the event time; nil means now.
       #
       # @param name [String] the event name
       # @param attributes [Hash{String => Object}] event attributes
+      # @param timestamp [Time, nil] the event time; nil means now
       # @raise [ArgumentError] the span is finished or an event field is invalid
       # @return [void]
-      def add_event(name, attributes: {})
+      def add_event(name, attributes: {}, timestamp: nil)
         ensure_open("event")
         validate_event_name(name)
         if !attributes.is_a?(Hash)
           raise ArgumentError, "span event attributes expect a Hash"
+        end
+        if !timestamp.nil? && !timestamp.is_a?(Time)
+          raise ArgumentError, "span event timestamp expects a Time or nil"
         end
 
         copied = {}
@@ -153,7 +158,8 @@ module Snails
           validate_attribute_value(key, value)
           copied[key] = value
         end
-        @events.push({ "time" => Time.now.utc, "name" => name, "attributes" => copied })
+        time = timestamp.nil? ? Time.now.utc : timestamp
+        @events.push({ "time" => time, "name" => name, "attributes" => copied })
       end
 
       # set the OTel status. A message is developer-facing and valid only with
@@ -208,15 +214,22 @@ module Snails
       end
 
       # close the span, make its parent current again, and hand it to the
-      # tracer's buffer. A second call is a no-op, so an `ensure` cannot close
-      # a span twice or move its end time.
+      # tracer's buffer. An explicit end time lets a caller record a span with
+      # fixed timestamps (the encoder fixture). A second call is a no-op, so an
+      # `ensure` cannot close a span twice or move its end time.
       #
+      # @param end_time [Time, nil] the end timestamp; nil means now
+      # @raise [ArgumentError] end_time is neither a Time nor nil
       # @return [void]
-      def finish
+      def finish(end_time: nil)
         return if @finished
 
+        if !end_time.nil? && !end_time.is_a?(Time)
+          raise ArgumentError, "span finish end_time expects a Time or nil"
+        end
+
         @finished = true
-        @end_time = Time.now.utc
+        @end_time = end_time.nil? ? Time.now.utc : end_time
         Context.remove_span(self)
         @tracer.record_span(self) unless @tracer.nil?
       end

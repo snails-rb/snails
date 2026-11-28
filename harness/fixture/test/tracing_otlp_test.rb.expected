@@ -1,0 +1,4 @@
+ok test_encoder_matches_the_golden_fixture
+ok test_tracer_transport_validates_and_uses_the_traces_path
+ok test_logs_transport_uses_the_shared_helper_and_logs_path
+TracingOtlpTest: 3 tests passed

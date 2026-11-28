@@ -27,6 +27,10 @@ module Snails
     # a span picks one when it starts and keeps it until finish.
     KINDS = [:internal, :server, :client, :producer, :consumer]
 
+    # The trace schema version the encoder writes into the resource. A field
+    # rename or removal bumps it; an additive field does not.
+    TRACE_SCHEMA_VERSION = 1
+
     # The W3C id rules: lowercase hex, fixed width, never all zero. A generated
     # id is regenerated until it differs; a caller-supplied id is rejected at
     # the span and at the inbound context.
@@ -230,6 +234,17 @@ module Snails
       )
       Context.push_span(span)
       span
+    end
+
+    # The process-wide resource attributes for one span batch: the shared
+    # values plus the trace schema version.
+    #
+    # @api internal
+    # @return [Hash{String => Object}] the resource attribute bag
+    def resource_attributes
+      fields = Snails::OTLP::Resource.attributes
+      fields["snails.trace.schema_version"] = TRACE_SCHEMA_VERSION
+      fields
     end
 
     # the span this thread is inside, or nil outside one.

@@ -3,6 +3,7 @@ module Snails
 
   class Tracer
     KINDS: Array[Symbol]
+    TRACE_SCHEMA_VERSION: Integer
     TRACE_ID_PATTERN: Regexp
     SPAN_ID_PATTERN: Regexp
     ZERO_TRACE_ID: String
@@ -25,6 +26,7 @@ module Snails
     def sample_rate=: (Float | Integer value) -> Float
     def in_span: (String name, ?attributes: Hash[String, untyped], ?kind: Symbol) { (untyped span) -> untyped } -> untyped
     def start_span: (String name, ?attributes: Hash[String, untyped], ?kind: Symbol) -> Snails::Tracer::Span?
+    def resource_attributes: () -> Hash[String, untyped]
     def current_span: () -> Snails::Tracer::Span?
     def trace_id: () -> String?
     def traceparent: () -> String?
