@@ -8,13 +8,14 @@
 # the published dist), version-keyed releases (an rc and its stable on one
 # commit, the legacy rev-release fallback, a mis-stamped asset, and separate
 # per-version caches), `verify-pin` in dist mode (publication check), and
-# install.sh (download, verify, unpack, symlink, latest resolution, version
-# and rev installs, and the optional API token).
+# install.sh (download, verify, unpack, symlink, latest resolution through the
+# release page and feed, the API fallback, version and rev installs, and the
+# optional API token).
 #
 # The distribution base is a local HTTP server serving the same layout
-# as the GitHub releases, so no network is touched; the GitHub-specific
-# pieces (the latest-release API, tag naming) are exercised by the
-# staging e2e instead.
+# as the GitHub releases, so no network is touched; the release page redirect
+# and atom feed are simulated locally, and the real GitHub endpoints are
+# exercised by the staging e2e instead.
 #
 # Usage: bash scripts/test-dist.sh
 # Exit: 0=all cases pass, 1=failure.
@@ -812,31 +813,103 @@ SNAILS_HOME="$WORK/ihome-short" SNAILS_BIN_DIR="$WORK/ibin-short" \
   bash "$INSTALL" --rev "deadbee" >/dev/null 2>&1
 chk "install.sh refuses an abbreviated rev" $? 1
 
-# The default install follows the Latest release; a channel with no stable
-# release yet falls back to the newest published one. Two API bases keep
-# the Latest object and the release list on separate paths.
-mkdir -p serve/api-latest/releases serve/api-list serve/api-list-toolchain serve/api-latest-toolchain/releases
-printf '{"tag_name":"rev-%s"}\n' "$FAKE" > serve/api-latest/releases/latest
-printf '{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"}\n' > serve/api-latest-toolchain/releases/latest
-printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"},{"tag_name":"rev-%s"}]\n' "$FAKE" > serve/api-latest-toolchain/list.json
-printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"},{"tag_name":"rev-%s"}]\n' "$FAKE" > serve/api-list/releases
-printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"}]\n' > serve/api-list-toolchain/releases
-SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-latest" \
+# The default install resolves Latest through the release page redirect, not
+# the REST API. The local server turns a `latest` marker into a tag redirect;
+# the API base is dead here, so a pass proves the API was not called. The feed
+# carries a different tag, so a pass also proves the redirect wins.
+mkdir -p serve/releases serve/releases-empty serve/releases-toolchain-latest
+printf 'rev-%s\n' "$FAKE" > serve/releases/latest
+cat > serve/releases.atom <<ATOM
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/">
+  <entry><id>tag:github.com,2008:Repository/123456/v9.9.11</id></entry>
+</feed>
+ATOM
+cat > serve/releases-empty.atom <<ATOM
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry><id>tag:github.com,2008:Repository/123456/spinel-rev-0000000000000000000000000000000000000000</id></entry>
+  <entry><id>tag:github.com,2008:Repository/123456/rev-$FAKE</id></entry>
+</feed>
+ATOM
+printf 'spinel-rev-0000000000000000000000000000000000000000\n' > serve/releases-toolchain-latest/latest
+cat > serve/releases-toolchain-latest.atom <<ATOM
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry><id>tag:github.com,2008:Repository/123456/rev-$FAKE</id></entry>
+</feed>
+ATOM
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:$DIST_PORT/releases" \
+SNAILS_API_BASE_URL="http://127.0.0.1:9/api" \
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 SNAILS_HOME="$WORK/ihome-latest" SNAILS_BIN_DIR="$WORK/ibin-latest" \
   bash "$INSTALL" > inst-latest.out 2>&1
-chk "install.sh installs the Latest release" $? 0
+chk "install.sh resolves Latest through the release page redirect" $? 0
 grep -q "\[snails\] dist $FAKE -> " inst-latest.out
-chk "the Latest install is reported" $? 0
-SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-list" \
+chk "the redirect tag is installed" $? 0
+! grep -q 'v9.9.11' inst-latest.out
+chk "the feed tag does not win over the redirect" $? 0
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:$DIST_PORT/releases-toolchain-latest" \
+SNAILS_API_BASE_URL="http://127.0.0.1:9/api" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-latest-bad" SNAILS_BIN_DIR="$WORK/ibin-latest-bad" \
+  bash "$INSTALL" > inst-latest-bad.out 2>&1
+chk "install.sh ignores a non-dist tag in the Latest redirect" $? 0
+grep -q "\[snails\] dist $FAKE -> " inst-latest-bad.out
+chk "the invalid redirect falls back to the feed" $? 0
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:$DIST_PORT/releases-empty" \
+SNAILS_API_BASE_URL="http://127.0.0.1:9/api" \
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 SNAILS_HOME="$WORK/ihome-fresh" SNAILS_BIN_DIR="$WORK/ibin-fresh" \
   bash "$INSTALL" > inst-fresh.out 2>&1
-chk "install.sh falls back to the newest release with no Latest" $? 0
+chk "install.sh falls back to the feed with no stable release" $? 0
 grep -q "\[snails\] dist $FAKE -> " inst-fresh.out
-chk "the fallback install is reported" $? 0
+chk "the feed fallback install is reported" $? 0
 grep -q 'spinel-rev' inst-fresh.out
-chk "the fallback ignores a toolchain release" $? 1
+chk "the feed skips a toolchain release" $? 1
+
+# A failed release-page lookup asks the API the same Latest question instead
+# of reading the feed as "no stable release". The fixtures keep the fallback's
+# tag filtering covered, and the feed here carries v9.9.11 so a pass proves
+# the installer stayed on the Latest channel.
+mkdir -p serve/api-latest/releases serve/api-latest-toolchain/releases serve/api-list-toolchain
+printf '{"tag_name":"rev-%s"}\n' "$FAKE" > serve/api-latest/releases/latest
+cat > serve/releases-broken.atom <<ATOM
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry><id>tag:github.com,2008:Repository/123456/v9.9.11</id></entry>
+</feed>
+ATOM
+BROKEN_PORT="${BROKEN_PORT:-8393}"
+(cd serve && FIXTURE_FAILURES=10 FIXTURE_FAIL_SUFFIX="releases-broken/latest" \
+  exec python3 "$ROOT/scripts/fixtures/api-server.py" "$BROKEN_PORT" >/dev/null 2>&1) &
+BROKEN_PID=$!
+for _ in {1..25}; do
+  curl -fsS -o /dev/null "http://127.0.0.1:$BROKEN_PORT/__ready" 2>/dev/null && break
+  sleep 0.2
+done
+curl -fsS -o /dev/null "http://127.0.0.1:$BROKEN_PORT/__ready"
+chk "the broken release-page server is ready" $? 0
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:$BROKEN_PORT/releases-broken" \
+SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-latest" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-redirect-failed" SNAILS_BIN_DIR="$WORK/ibin-redirect-failed" \
+  bash "$INSTALL" > inst-redirect-failed.out 2>&1
+chk "a failed release-page lookup keeps the Latest channel" $? 0
+grep -q "\[snails\] dist $FAKE -> " inst-redirect-failed.out
+chk "the API Latest is installed when the release page fails" $? 0
+! grep -q 'v9.9.11' inst-redirect-failed.out
+chk "the feed does not stand in for a failed release page" $? 0
+kill "$BROKEN_PID" 2>/dev/null || true
+printf '{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"}\n' > serve/api-latest-toolchain/releases/latest
+printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"},{"tag_name":"rev-%s"}]\n' "$FAKE" > serve/api-latest-toolchain/list.json
+printf '[{"tag_name":"spinel-rev-0000000000000000000000000000000000000000"}]\n' > serve/api-list-toolchain/releases
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:9/releases" \
+SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-latest" \
+SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
+SNAILS_HOME="$WORK/ihome-api-fallback" SNAILS_BIN_DIR="$WORK/ibin-api-fallback" \
+  bash "$INSTALL" > inst-api-fallback.out 2>&1
+chk "install.sh asks the API when the release page fails" $? 0
+grep -q "\[snails\] dist $FAKE -> " inst-api-fallback.out
+chk "the API fallback install is reported" $? 0
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:9/releases" \
 SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-latest-toolchain" \
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 SNAILS_HOME="$WORK/ihome-latest-toolchain" SNAILS_BIN_DIR="$WORK/ibin-latest-toolchain" \
@@ -844,6 +917,7 @@ SNAILS_HOME="$WORK/ihome-latest-toolchain" SNAILS_BIN_DIR="$WORK/ibin-latest-too
 chk "install.sh falls back when Latest is a toolchain release" $? 0
 grep -q "\[snails\] dist $FAKE -> " inst-latest-toolchain.out
 chk "the latest-toolchain fallback install is reported" $? 0
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:9/releases" \
 SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-list-toolchain" \
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 SNAILS_HOME="$WORK/ihome-none" SNAILS_BIN_DIR="$WORK/ibin-none" \
@@ -888,11 +962,12 @@ grep -q 'VERSION = "v9.9.13"' "$WORK/ihome-vlegacy/dist/v9.9.13/runtime/snails/v
 chk "the legacy install carries its version" $? 0
 mkdir -p serve/api-version-latest/releases
 printf '{"tag_name":"v9.9.11"}\n' > serve/api-version-latest/releases/latest
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:9/releases" \
 SNAILS_API_BASE_URL="http://127.0.0.1:$DIST_PORT/api-version-latest" \
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 SNAILS_HOME="$WORK/ihome-vlatest" SNAILS_BIN_DIR="$WORK/ibin-vlatest" \
   bash "$INSTALL" > inst-vlatest.out 2>&1
-chk "install.sh follows a version Latest" $? 0
+chk "install.sh follows a version Latest through the API fallback" $? 0
 grep -q '\[snails\] dist v9.9.11 -> ' inst-vlatest.out
 chk "the version Latest install is reported" $? 0
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
@@ -909,10 +984,9 @@ chk "install.sh refuses both --version and --rev" $? 2
 grep -q 'not both' inst-both.out
 chk "the both-flags refusal is named" $? 0
 
-# 9b. install.sh sends SNAILS_GITHUB_TOKEN to the release API. CI runners share
-#     their IP's 60/hour unauthenticated budget, so a release smoke that installs
-#     from the channel needs the header. The server here refuses every request
-#     without it, so only the header path can pass.
+# 9b. install.sh sends SNAILS_GITHUB_TOKEN to the REST API fallback. The
+#     release page and feed are unreachable here, so only the API can answer;
+#     the server refuses every request without the token.
 TOKEN_PORT="${TOKEN_PORT:-8392}"
 (cd serve && exec python3 "$ROOT/scripts/fixtures/api-server.py" "$TOKEN_PORT" expected-token >/dev/null 2>&1) &
 TOKEN_PID=$!
@@ -924,6 +998,7 @@ done
 curl -fsS -H "Authorization: Bearer expected-token" -o /dev/null \
   "http://127.0.0.1:$TOKEN_PORT/api-latest/releases/latest"
 chk "the token-gated dist server is ready" $? 0
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:9/releases" \
 SNAILS_API_BASE_URL="http://127.0.0.1:$TOKEN_PORT/api-latest" \
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 SNAILS_GITHUB_TOKEN=expected-token \
@@ -932,13 +1007,14 @@ SNAILS_HOME="$WORK/ihome-token" SNAILS_BIN_DIR="$WORK/ibin-token" \
 chk "install.sh resolves Latest with SNAILS_GITHUB_TOKEN" $? 0
 grep -q "\[snails\] dist $FAKE -> " inst-token.out
 chk "the token install is reported" $? 0
+SNAILS_RELEASES_BASE_URL="http://127.0.0.1:9/releases" \
 SNAILS_API_BASE_URL="http://127.0.0.1:$TOKEN_PORT/api-latest" \
 SNAILS_DIST_BASE_URL="http://127.0.0.1:$DIST_PORT" \
 SNAILS_HOME="$WORK/ihome-noheader" SNAILS_BIN_DIR="$WORK/ibin-noheader" \
   bash "$INSTALL" > inst-noheader.out 2>&1
 chk "install.sh fails the release lookup without the token" $? 1
-grep -q 'could not find a release' inst-noheader.out
-chk "the missing token is reported as a release lookup failure" $? 0
+grep -q 'could not check the latest release' inst-noheader.out
+chk "the missing token is reported as a latest lookup failure" $? 0
 kill "$TOKEN_PID" 2>/dev/null || true
 TOKEN_PID=""
 
