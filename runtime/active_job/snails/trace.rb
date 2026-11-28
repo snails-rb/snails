@@ -71,23 +71,15 @@ module ActiveJob
         kind: :consumer,
         attributes: perform_attributes(job_name, id, attempt, wait_ms)
       )
-      if span.nil?
-        begin
-          return yield(nil)
-        ensure
-          Snails::Tracer::Context.end_trace
-        end
-      end
-
       begin
         result = yield(span)
-        span.set_status(:ok) if span.status == :unset
+        span.set_status(:ok) if !span.nil? && span.status == :unset
         result
       rescue Exception => failure
-        span.record_exception(failure)
+        span.record_exception(failure) unless span.nil?
         raise
       ensure
-        span.finish
+        span.finish unless span.nil?
         Snails::Tracer::Context.end_trace
       end
     end

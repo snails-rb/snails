@@ -191,10 +191,9 @@ module ActiveJob
       Snails::Logger::Context.begin_job(name, job.id, job.attempts)
       started = Time.now
       wait_ms = Trace.queue_wait_ms(job.scheduled_at, job.created_at, started)
-      body_ran = false
+      handler = nil
       begin
         Trace.perform(name, job.id, job.attempts, wait_ms) do |span|
-          handler = nil
           begin
             handler = Object.const_get(name)
           rescue NameError => failure
@@ -205,10 +204,9 @@ module ActiveJob
           if !handler.nil?
             Snails.logger.debug("job " + name + " started", event: "job.started")
             handler.perform(job.payload)
-            body_ran = true
           end
         end
-        if body_ran
+        if !handler.nil?
           Snails::Queue::Job.mark_succeeded!(job.id, Time.now.utc)
           log_job_finished(name, started)
         end
