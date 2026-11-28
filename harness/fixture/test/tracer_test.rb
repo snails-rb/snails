@@ -126,7 +126,7 @@ class TracerTest < TestBase
   end
 
   # An exception becomes an error status and an exception event, then reaches
-  # the caller unchanged.
+  # the caller unchanged; the finished span is no longer recording.
   def test_in_span_records_an_exception_and_reraises
     tracer = new_tracer
     span = nil
@@ -139,7 +139,7 @@ class TracerTest < TestBase
       assert_equal "boom", failure.message
     end
 
-    assert_equal true, span.recording?
+    assert_equal false, span.recording?
     assert_equal true, span.finished?
     assert_equal :error, span.status
     events = span.events
@@ -233,7 +233,7 @@ class TracerTest < TestBase
     span = tracer.start_span("GET /posts")
     assert_equal TRACE_ID, span.trace_id
     assert_equal SPAN_ID, span.parent_span_id
-    assert_equal "vendor=value", Snails::Tracer::Context.trace_state
+    assert_equal "vendor=value", Snails::Tracer::Context.tracestate
     span.finish
 
     Snails::Tracer::Context.end_trace
@@ -291,7 +291,8 @@ class TracerTest < TestBase
   end
 
   # A span keeps its name, scalar attributes, events, and status until
-  # finish; a setter after finish raises.
+  # finish; a status message is valid only with :error, and a setter after
+  # finish raises.
   def test_span_records_attributes_events_and_status
     tracer = new_tracer
     span = tracer.start_span("checkout.charge")
@@ -307,7 +308,7 @@ class TracerTest < TestBase
     span.set_attribute("payment.provider", "stripe")
     span.set_attribute("retry", true)
     span.add_event("payment.attempt", attributes: { "attempt" => 1 })
-    span.set_status(:ok, message: "charged")
+    span.set_status(:ok)
 
     assert_equal "checkout.charge", span.name
     assert_equal 42, span.attributes["order.id"]
@@ -317,7 +318,13 @@ class TracerTest < TestBase
     assert_equal "payment.attempt", span.events[0]["name"]
     assert_equal 1, span.events[0]["attributes"]["attempt"]
     assert_equal :ok, span.status
-    assert_equal "charged", span.status_message
+    assert_equal nil, span.status_message
+
+    message = assert_argument_error(-> { span.set_status(:ok, message: "charged") })
+    assert_equal true, message.include?("only valid with :error")
+    span.set_status(:error, message: "failed")
+    assert_equal :error, span.status
+    assert_equal "failed", span.status_message
 
     span.finish
     assert_equal true, span.finished?
@@ -381,8 +388,8 @@ class TracerTest < TestBase
     span.finish
   end
 
-  # Nested in_span calls parent the inner span to the outer one and restore
-  # the outer span as current after the inner block.
+  # Nested in_span calls make the inner span a child of the outer span and
+  # restore the outer span as current after the inner block.
   def test_nested_in_span_restores_the_parent
     tracer = new_tracer
     outer_span = nil
@@ -409,16 +416,16 @@ class TracerTest < TestBase
     assert_equal TRACE_ID, Snails::Tracer::Context.trace_id
     assert_equal SPAN_ID, Snails::Tracer::Context.parent_span_id
     assert_equal true, Snails::Tracer::Context.sampled?
-    assert_equal "vendor=value", Snails::Tracer::Context.trace_state
+    assert_equal "vendor=value", Snails::Tracer::Context.tracestate
 
     Snails::Tracer::Context.end_trace
     assert_equal nil, Snails::Tracer::Context.trace_id
     assert_equal nil, Snails::Tracer::Context.parent_span_id
-    assert_equal nil, Snails::Tracer::Context.sampled?
-    assert_equal nil, Snails::Tracer::Context.trace_state
+    assert_equal false, Snails::Tracer::Context.sampled?
+    assert_equal nil, Snails::Tracer::Context.tracestate
   end
 
-  # The inbound context rejects malformed ids and a non-boolean sampled flag.
+  # The inbound context rejects malformed W3C ids.
   def test_context_rejects_malformed_inbound_values
     message = assert_argument_error(-> {
       Snails::Tracer::Context.begin_trace(ZERO_TRACE_ID, SPAN_ID, true, nil)

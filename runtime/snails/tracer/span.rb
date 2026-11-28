@@ -55,12 +55,13 @@ module Snails
         attributes.each { |key, value| set_attribute(key, value) }
       end
 
-      # whether this span records its fields. A real span answers true; a
-      # no-op span answers false and every setter does nothing.
+      # whether this span is still open and records its fields. A finished
+      # span answers false, and a no-op span answers false for its whole
+      # lifetime; every setter on either does nothing or raises.
       #
-      # @return [Boolean] true when the span retains what it is given
+      # @return [Boolean] true while the span retains what it is given
       def recording?
-        true
+        !@finished
       end
 
       # whether `finish` already ran.
@@ -152,16 +153,22 @@ module Snails
         @events.push({ "time" => Time.now.utc, "name" => name, "attributes" => copied })
       end
 
-      # set the OTel status. A message is developer-facing and optional.
+      # set the OTel status. A message is developer-facing and valid only with
+      # `:error`; OTel ignores a description on `:ok` and `:unset`, and taking
+      # one here would store a value the wire drops.
       #
       # @param status [Symbol] one of `:unset`, `:ok`, `:error`
-      # @param message [String, nil] the status message
-      # @raise [ArgumentError] the span is finished or a status field is invalid
+      # @param message [String, nil] the status message, only with `:error`
+      # @raise [ArgumentError] the span is finished, a status field is invalid,
+      #   or a message is given with `:ok` or `:unset`
       # @return [Symbol] the assigned status
       def set_status(status, message: nil)
         ensure_open("status")
         if status != :unset && status != :ok && status != :error
           raise ArgumentError, "span status must be :unset, :ok, or :error"
+        end
+        if !message.nil? && status != :error
+          raise ArgumentError, "span status message is only valid with :error"
         end
         if !message.nil? && !message.is_a?(String)
           raise ArgumentError, "span status message expects a String or nil"

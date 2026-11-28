@@ -51,8 +51,8 @@ module Snails
 
     # replace the span destination. The contract is `deliver(spans)` with an
     # Array of `Span`; nil turns tracing off for spans started later. The
-    # value is checked here so a typo fails where it is written, not on the
-    # first batch.
+    # value is checked here so a typo fails where it is written, not in the
+    # delivery stage.
     #
     # @param value [untyped] an object answering `deliver`, or nil
     # @raise [ArgumentError] value is neither nil nor transport-like
@@ -169,7 +169,7 @@ module Snails
       parent = Context.current_span
       trace_id = Context.trace_id
       parent_span_id = Context.parent_span_id
-      parent_sampled = Context.sampled?
+      parent_sampled = nil
       if !parent.nil?
         trace_id = parent.trace_id
         parent_span_id = parent.span_id
@@ -177,15 +177,17 @@ module Snails
       elsif trace_id.nil?
         trace_id = new_trace_id
         parent_span_id = nil
+      else
+        parent_sampled = Context.sampled?
       end
 
       sampled = sampler.sample?(trace_id, parent_sampled)
       if !sampled
-        # A root that is not recorded still owns this trace decision, so a
+        # A root that is not sampled still owns this trace decision, so a
         # nested span cannot start a fresh trace and escape the sampling.
         # The stack is empty at a root, so replacing it is safe.
         if parent.nil?
-          Context.begin_trace(trace_id, parent_span_id, false, Context.trace_state)
+          Context.begin_trace(trace_id, parent_span_id, false, Context.tracestate)
         end
         return nil
       end

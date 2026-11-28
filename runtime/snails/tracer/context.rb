@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
-# The trace state belonging to one request or one job on this thread: the
+# The trace context belonging to one request or one job on this thread: the
 # active span stack and the inbound trace values. The tracer reads it to pick
-# a parent and a trace id; the request and job boundaries set and clear it.
+# a parent and a trace id; the request and job boundaries will set and clear
+# it.
 #
 # The stack is per thread because a request runs on one green thread. An
 # inbound `traceparent` becomes the stored trace; when no span is active, a
@@ -52,19 +53,19 @@ module Snails
         end
       end
 
-      # Start an inbound trace. The request boundary calls it after reading a
-      # valid W3C `traceparent`; a broken or missing header does not call it, so
-      # the tracer starts a new trace. The stack is reset because an inbound
+      # Start an inbound trace. The request boundary will call it after reading
+      # a valid W3C `traceparent`; a broken or missing header does not call it,
+      # so the tracer starts a new trace. The stack is reset because an inbound
       # trace begins a new request scope.
       #
       # @api internal
       # @param trace_id [String] the 32-hex inbound trace id
       # @param parent_span_id [String, nil] the inbound parent span id
       # @param sampled [Boolean] the inbound sampled flag
-      # @param trace_state [String, nil] the opaque `tracestate`
-      # @raise [ArgumentError] an id, flag, or state value is malformed
+      # @param tracestate [String, nil] the opaque `tracestate`
+      # @raise [ArgumentError] an id, flag, or tracestate value is malformed
       # @return [void]
-      def self.begin_trace(trace_id, parent_span_id, sampled, trace_state)
+      def self.begin_trace(trace_id, parent_span_id, sampled, tracestate)
         validate_trace_id(trace_id)
         if !parent_span_id.nil?
           validate_parent_span_id(parent_span_id)
@@ -72,19 +73,19 @@ module Snails
         if sampled != true && sampled != false
           raise ArgumentError, "trace sampled expects true or false"
         end
-        if !trace_state.nil? && !trace_state.is_a?(String)
-          raise ArgumentError, "trace_state expects a String or nil"
+        if !tracestate.nil? && !tracestate.is_a?(String)
+          raise ArgumentError, "tracestate expects a String or nil"
         end
 
         Thread.current[:snails_trace_span_stack] = []
         Thread.current[:snails_trace_id] = trace_id
         Thread.current[:snails_trace_parent_span_id] = parent_span_id
         Thread.current[:snails_trace_sampled] = sampled
-        Thread.current[:snails_trace_state] = trace_state
+        Thread.current[:snails_tracestate] = tracestate
       end
 
       # Clear the span stack and the inbound trace values. A request or job
-      # boundary calls it at the end of its scope so a reused worker thread
+      # boundary will call it at the end of its scope so a reused worker thread
       # cannot inherit the previous unit's trace.
       #
       # @api internal
@@ -94,7 +95,7 @@ module Snails
         Thread.current[:snails_trace_id] = nil
         Thread.current[:snails_trace_parent_span_id] = nil
         Thread.current[:snails_trace_sampled] = nil
-        Thread.current[:snails_trace_state] = nil
+        Thread.current[:snails_tracestate] = nil
       end
 
       # @api internal
@@ -116,19 +117,19 @@ module Snails
       end
 
       # @api internal
-      # @return [Boolean, nil] the current recording decision, nil with no
-      #   inbound trace and no current span
+      # @return [Boolean] true when the current span records or the inbound
+      #   trace is sampled; false with no trace
       def self.sampled?
         span = current_span
         return span.recording? unless span.nil?
 
-        Thread.current[:snails_trace_sampled]
+        Thread.current[:snails_trace_sampled] == true
       end
 
       # @api internal
       # @return [String, nil] the inbound `tracestate`, preserved as opaque
-      def self.trace_state
-        Thread.current[:snails_trace_state]
+      def self.tracestate
+        Thread.current[:snails_tracestate]
       end
 
       def self.validate_trace_id(value)
