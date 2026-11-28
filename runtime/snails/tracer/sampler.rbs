@@ -1,0 +1,15 @@
+module Snails
+  class Tracer
+    class Sampler
+      SCALE: Integer
+
+      @sample_rate: Float
+
+      def initialize: (Float sample_rate) -> void
+      def sample_rate: () -> Float
+      def sample?: (String trace_id, bool? parent_sampled) -> bool
+
+      private def trace_value: (String trace_id) -> Integer
+    end
+  end
+end

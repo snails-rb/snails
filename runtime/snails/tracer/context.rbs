@@ -1,0 +1,18 @@
+module Snails
+  class Tracer
+    module Context
+      def self.current_span: () -> Snails::Tracer::Span?
+      def self.push_span: (Snails::Tracer::Span span) -> void
+      def self.remove_span: (Snails::Tracer::Span span) -> void
+      def self.begin_trace: (String trace_id, String? parent_span_id, bool sampled, String? trace_state) -> void
+      def self.end_trace: () -> void
+      def self.trace_id: () -> String?
+      def self.parent_span_id: () -> String?
+      def self.sampled?: () -> bool?
+      def self.trace_state: () -> String?
+
+      private def self.validate_trace_id: (untyped value) -> void
+      private def self.validate_parent_span_id: (untyped value) -> void
+    end
+  end
+end

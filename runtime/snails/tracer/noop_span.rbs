@@ -1,0 +1,28 @@
+module Snails
+  class Tracer
+    class NoopSpan
+      @name: String
+
+      def initialize: (String name) -> void
+      def name: () -> String
+      def recording?: () -> bool
+      def finished?: () -> bool
+      def trace_id: () -> nil
+      def span_id: () -> nil
+      def parent_span_id: () -> nil
+      def kind: () -> Symbol
+      def start_time: () -> nil
+      def end_time: () -> nil
+      def attributes: () -> Hash[String, untyped]
+      def links: () -> Array[Hash[String, untyped]]
+      def events: () -> Array[Hash[String, untyped]]
+      def status: () -> Symbol
+      def status_message: () -> nil
+      def set_name: (String name) -> String
+      def set_attribute: (String key, untyped value) -> untyped
+      def add_event: (String name, ?attributes: Hash[String, untyped]) -> void
+      def set_status: (Symbol status, ?message: String?) -> Symbol
+      def finish: () -> void
+    end
+  end
+end

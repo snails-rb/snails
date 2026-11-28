@@ -1,0 +1,32 @@
+module Snails
+  def self.tracer: () -> Snails::Tracer
+
+  class Tracer
+    KINDS: Array[Symbol]
+    TRACE_ID_PATTERN: Regexp
+    SPAN_ID_PATTERN: Regexp
+    ZERO_TRACE_ID: String
+    ZERO_SPAN_ID: String
+
+    @transport: untyped
+    @sample_rate: Float?
+    @sampler: Snails::Tracer::Sampler?
+
+    def initialize: () -> void
+    def transport: () -> untyped
+    def transport=: (untyped value) -> untyped
+    def enabled?: () -> bool
+    def sample_rate: () -> Float
+    def sample_rate=: (Float | Integer value) -> Float
+    def in_span: (String name, ?attributes: Hash[String, untyped], ?kind: Symbol) { (untyped span) -> untyped } -> untyped
+    def start_span: (String name, ?attributes: Hash[String, untyped], ?kind: Symbol) -> Snails::Tracer::Span?
+    def current_span: () -> Snails::Tracer::Span?
+    def trace_id: () -> String?
+    def traceparent: () -> String?
+
+    private def sampler: () -> Snails::Tracer::Sampler
+    private def record_exception: (Snails::Tracer::Span span, Exception failure) -> void
+    private def new_trace_id: () -> String
+    private def new_span_id: () -> String
+  end
+end

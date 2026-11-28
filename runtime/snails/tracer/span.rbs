@@ -1,0 +1,51 @@
+module Snails
+  class Tracer
+    class Span
+      @name: String
+      @trace_id: String
+      @span_id: String
+      @parent_span_id: String?
+      @kind: Symbol
+      @start_time: Time
+      @end_time: Time?
+      @attributes: Hash[String, untyped]
+      @events: Array[Hash[String, untyped]]
+      @status: Symbol
+      @status_message: String?
+      @finished: bool
+
+      attr_reader name: String
+      attr_reader trace_id: String
+      attr_reader span_id: String
+      attr_reader parent_span_id: String?
+      attr_reader kind: Symbol
+      attr_reader start_time: Time
+      attr_reader end_time: Time?
+      attr_reader status: Symbol
+      attr_reader status_message: String?
+
+      def initialize: (name: String, trace_id: String, span_id: String, parent_span_id: String?, kind: Symbol, start_time: Time, ?attributes: Hash[String, untyped]) -> void
+      def recording?: () -> bool
+      def finished?: () -> bool
+      def attributes: () -> Hash[String, untyped]
+      def links: () -> Array[Hash[String, untyped]]
+      def events: () -> Array[Hash[String, untyped]]
+      def set_name: (String name) -> String
+      def set_attribute: (String key, untyped value) -> untyped
+      def add_event: (String name, ?attributes: Hash[String, untyped]) -> void
+      def set_status: (Symbol status, ?message: String?) -> Symbol
+      def finish: () -> void
+
+      private def ensure_open: (String what) -> void
+      private def validate_name: (untyped value) -> void
+      private def validate_event_name: (untyped value) -> void
+      private def validate_non_empty_string: (untyped value, String label) -> void
+      private def validate_trace_id: (untyped value) -> void
+      private def validate_span_id: (untyped value) -> void
+      private def validate_kind: (untyped value) -> void
+      private def validate_attribute_key: (untyped key) -> void
+      private def validate_attribute_value: (String key, untyped value) -> void
+      private def copy_attributes: (Hash[String, untyped] source) -> Hash[String, untyped]
+    end
+  end
+end
