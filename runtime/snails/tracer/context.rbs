@@ -11,6 +11,7 @@ module Snails
       def self.sampled?: () -> bool
       def self.tracestate: () -> String?
 
+      private def self.mirror_log_trace: (Snails::Tracer::Span? span) -> void
       private def self.validate_trace_id: (untyped value) -> void
       private def self.validate_parent_span_id: (untyped value) -> void
     end

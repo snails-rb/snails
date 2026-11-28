@@ -138,6 +138,53 @@ class LoggerRecordTest < TestBase
     assert_equal 0, record.fields.length
   end
 
+  # The trace is kept separate from fields and context. A partial or malformed
+  # pair is refused here, where it arrives, so the transport cannot emit a
+  # correlation the receiver would reject.
+  def test_record_exposes_and_validates_trace_fields
+    record = Snails::Logger::Record.new(
+      :info, "app.log", "x",
+      trace: {
+        "trace_id" => "0af7651916cd43dd8448eb211c80319c",
+        "span_id" => "b7ad6b7169203331",
+        "trace_flags" => 1
+      }
+    )
+
+    assert_equal "0af7651916cd43dd8448eb211c80319c", record.trace_id
+    assert_equal "b7ad6b7169203331", record.span_id
+    assert_equal 1, record.trace_flags
+    assert_equal false, record.fields.key?("trace_id")
+
+    assert_argument_error(-> {
+      Snails::Logger::Record.new(
+        :info, "app.log", "x",
+        trace: { "trace_id" => "0af7651916cd43dd8448eb211c80319c" }
+      )
+    })
+    assert_argument_error(-> {
+      Snails::Logger::Record.new(
+        :info, "app.log", "x",
+        trace: {
+          "trace_id" => "not-hex",
+          "span_id" => "b7ad6b7169203331",
+          "trace_flags" => 1
+        }
+      )
+    })
+    assert_argument_error(-> {
+      Snails::Logger::Record.new(
+        :info, "app.log", "x",
+        trace: {
+          "trace_id" => "0af7651916cd43dd8448eb211c80319c",
+          "span_id" => "b7ad6b7169203331",
+          "trace_flags" => 1,
+          "extra" => 1
+        }
+      )
+    })
+  end
+
   # A value outside the severity vocabulary is rejected at construction time.
   def test_record_rejects_an_unknown_severity
     message = assert_argument_error(-> {
@@ -488,6 +535,7 @@ end
 FixtureRunner.run(LoggerRecordTest, [
   "test_record_exposes_its_values",
   "test_record_exposes_resource_fields",
+  "test_record_exposes_and_validates_trace_fields",
   "test_record_rejects_an_unknown_severity",
   "test_record_rejects_bad_event_names",
   "test_record_rejects_bad_field_names",

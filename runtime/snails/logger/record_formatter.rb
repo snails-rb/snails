@@ -24,10 +24,16 @@ module Snails
         Formatter.format_time(time)
       end
 
-      # The field section: event first, then fields in insertion order, then
-      # the exception fields, then the body.
+      # The field section: event first, then the active trace when one is
+      # mirrored, then fields in insertion order, then the exception fields,
+      # then the body. The trace tags use the same names as plain lines so a
+      # reader can search both shapes by one pair of keys.
       def message(record)
         parts = [ "event.name=" + record.event ]
+        if !record.trace_id.nil?
+          parts << "trace_id=" + record.trace_id
+          parts << "span_id=" + record.span_id
+        end
         record.fields.each do |name, value|
           parts << name + "=" + field_text(value)
         end

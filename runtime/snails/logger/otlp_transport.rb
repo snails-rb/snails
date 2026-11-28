@@ -140,13 +140,22 @@ module Snails
         end
         attributes_out << { "key" => "snails.batch_id", "value" => { "stringValue" => batch_id } }
         attributes_out << { "key" => "snails.seq", "value" => { "intValue" => seq.to_s } }
-        {
+        out = {
           "timeUnixNano" => time_unix_nano(record.time),
           "severityNumber" => severity_number(record.severity),
           "severityText" => record.severity.to_s.upcase,
           "body" => { "stringValue" => record.body },
           "attributes" => attributes_out
         }
+        # OTLP log correlation fields are top-level record fields, not
+        # attributes, so a backend joins them to spans without scanning the
+        # attribute bag.
+        if !record.trace_id.nil?
+          out["traceId"] = record.trace_id
+          out["spanId"] = record.span_id
+          out["flags"] = record.trace_flags
+        end
+        out
       end
 
       def append_attributes(out, fields)

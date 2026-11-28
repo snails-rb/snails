@@ -51,6 +51,16 @@ module Snails
       # punctuation that would make a key ambiguous.
       FIELD_PATTERN = /\A[A-Za-z][A-Za-z0-9_.-]*\z/
 
+      # The trace correlation names the record carries outside its field bag.
+      # They become OTLP log record `traceId`/`spanId`/`flags`, not attributes.
+      TRACE_FIELDS = [ "trace_id", "span_id", "trace_flags" ].freeze
+
+      # W3C ids the tracer produces. A record refuses a malformed pair so a
+      # transport cannot emit a correlation the receiver will reject.
+      TRACE_ID_PATTERN = /\A[0-9a-f]{32}\z/
+      SPAN_ID_PATTERN = /\A[0-9a-f]{16}\z/
+      MAX_TRACE_FLAGS = 255
+
       # An event name is lowercase dot-separated segments: `request.completed`,
       # `job.failed`, `worker.loop_stopped`, `app.log`.
       EVENT_PATTERN = /\A[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+\z/
@@ -58,7 +68,9 @@ module Snails
       # build one record. `fields` are caller-owned and checked against
       # `RESERVED_FIELDS`; `context` carries the request/job correlation the
       # logger already validated, so those names are allowed there; `resource`
-      # carries the service/process attributes the transport sends per batch.
+      # carries the service/process attributes the transport sends per batch;
+      # `trace` carries the active span's ids as `trace_id`, `span_id`, and
+      # `trace_flags`, separate from both bags.
       #
       # @param severity [Symbol] one of `SEVERITIES`
       # @param event [String] the stable event name
@@ -68,9 +80,10 @@ module Snails
       # @param time [Time, nil] the event time; defaults to the current UTC time
       # @param context [Hash{String => Object}] logger-owned correlation fields
       # @param resource [Hash{String => Object}] service/process attributes
-      # @raise [ArgumentError] a severity, event, field, value, exception, or
-      #   time outside the contract
-      def initialize(severity, event, body, fields: {}, exception: nil, time: nil, context: {}, resource: {})
+      # @param trace [Hash{String, Symbol => Object}, nil] the active trace ids
+      # @raise [ArgumentError] a severity, event, field, value, exception,
+      #   trace, or time outside the contract
+      def initialize(severity, event, body, fields: {}, exception: nil, time: nil, context: {}, resource: {}, trace: nil)
         if !SEVERITIES.include?(severity)
           raise ArgumentError, "Snails::Logger::Record severity expects one of :debug, :info, :warn, :error, :fatal, got " + severity.inspect
         end
@@ -94,6 +107,7 @@ module Snails
         @time = time.nil? ? Time.now.utc : time
         @fields = normalize_fields(context, false).merge(normalize_fields(fields, true))
         @resource = normalize_fields(resource, false)
+        @trace_id, @span_id, @trace_flags = normalize_trace(trace)
       end
 
       # the record's severity.
@@ -133,6 +147,27 @@ module Snails
         @resource
       end
 
+      # the trace this record belongs to, when a span was current.
+      #
+      # @return [String, nil] the 32-hex trace id
+      def trace_id
+        @trace_id
+      end
+
+      # the current span's id within the trace.
+      #
+      # @return [String, nil] the 16-hex span id
+      def span_id
+        @span_id
+      end
+
+      # the OTel trace flags byte. `1` is the W3C sampled bit.
+      #
+      # @return [Integer, nil] the flags, nil when the record has no trace
+      def trace_flags
+        @trace_flags
+      end
+
       # the failure this record reports, when any.
       #
       # @return [Exception, nil]
@@ -169,6 +204,48 @@ module Snails
         frames = @exception.backtrace
         return nil if frames.nil? || frames.length == 0
         frames.join("\n")
+      end
+
+      # The trace bag is all or nothing: a record with a trace id but no span
+      # id (or flags) would emit a correlation the receiver cannot use.
+      def normalize_trace(trace)
+        return [ nil, nil, nil ] if trace.nil?
+        if !trace.is_a?(Hash)
+          raise ArgumentError, "Snails::Logger::Record trace expects a Hash or nil, got " + trace.class.name
+        end
+
+        values = {}
+        trace.each do |name, value|
+          key = name.is_a?(Symbol) ? name.to_s : name
+          if !TRACE_FIELDS.include?(key)
+            raise ArgumentError, "Snails::Logger::Record trace field is unknown: " + name.inspect
+          end
+          if values.key?(key)
+            raise ArgumentError, "Snails::Logger::Record trace field " + key + " is repeated"
+          end
+          values[key] = value
+        end
+        return [ nil, nil, nil ] if values.empty?
+
+        missing = TRACE_FIELDS.select { |name| !values.key?(name) }
+        if !missing.empty?
+          raise ArgumentError, "Snails::Logger::Record trace expects trace_id, span_id, and trace_flags together; missing " + missing.join(", ")
+        end
+
+        trace_id = values["trace_id"]
+        if !trace_id.is_a?(String) || !TRACE_ID_PATTERN.match?(trace_id)
+          raise ArgumentError, "Snails::Logger::Record trace_id expects 32 lowercase hex characters"
+        end
+        span_id = values["span_id"]
+        if !span_id.is_a?(String) || !SPAN_ID_PATTERN.match?(span_id)
+          raise ArgumentError, "Snails::Logger::Record span_id expects 16 lowercase hex characters"
+        end
+        trace_flags = values["trace_flags"]
+        if !trace_flags.is_a?(Integer) || trace_flags < 0 || trace_flags > MAX_TRACE_FLAGS
+          raise ArgumentError, "Snails::Logger::Record trace_flags expects an Integer between 0 and 255"
+        end
+
+        [ trace_id, span_id, trace_flags ]
       end
 
       # Normalize names to Strings, validate their format and values, and
@@ -210,7 +287,7 @@ module Snails
         end
       end
 
-      private :normalize_fields, :validate_field_value
+      private :normalize_trace, :normalize_fields, :validate_field_value
     end
   end
 end

@@ -40,6 +40,10 @@ module Snails
     ZERO_TRACE_ID = "00000000000000000000000000000000"
     ZERO_SPAN_ID = "0000000000000000"
 
+    # The W3C sampled bit. A span that exists is recorded, so every current
+    # span mirrors this flag into the logger's correlation bag.
+    TRACE_FLAG_SAMPLED = 0x01
+
     def initialize
       @delivery = Delivery.new
       @sample_rate = nil
