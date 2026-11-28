@@ -14,6 +14,32 @@ fail_suffix = os.environ.get("FIXTURE_FAIL_SUFFIX", "")
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def redirect_latest(self):
+        path = self.path.split("?")[0]
+        if not path.endswith("/latest"):
+            return False
+        source = os.path.join(self.directory, path.lstrip("/"))
+        if not os.path.isfile(source):
+            return False
+        with open(source) as handle:
+            tag = handle.read().strip()
+        if not tag or tag.startswith(("{", "[")):
+            return False
+        self.send_response(302)
+        self.send_header("Location", path.rsplit("/", 1)[0] + "/tag/" + tag)
+        self.end_headers()
+        return True
+
+    def tag_page(self):
+        if "/tag/" not in self.path:
+            return False
+        self.send_response(200)
+        self.end_headers()
+        return True
+
+    def authorized(self):
+        return expected_token is None or self.headers.get("Authorization") == f"Bearer {expected_token}"
+
     def do_GET(self):
         global failures_left
         path = self.path.split("?")[0]
@@ -23,16 +49,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             return
-        if expected_token is not None and self.headers.get("Authorization") != f"Bearer {expected_token}":
+        if not self.authorized():
             self.send_error(401)
             return
         if fail_suffix and path.endswith(fail_suffix) and failures_left > 0:
             failures_left -= 1
             self.send_error(503)
             return
+        if self.redirect_latest():
+            return
+        if self.tag_page():
+            return
         if path == "/api-latest-toolchain/releases":
             self.path = "/api-latest-toolchain/list.json"
         super().do_GET()
+
+    def do_HEAD(self):
+        if not self.authorized():
+            self.send_error(401)
+            return
+        if self.redirect_latest():
+            return
+        if self.tag_page():
+            return
+        super().do_HEAD()
 
     def log_message(self, *args):
         pass

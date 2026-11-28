@@ -10,21 +10,30 @@
 # the same dist. Re-run to upgrade; remove the dist directory and the
 # symlink to uninstall.
 #
+# The default install resolves Latest through the release page redirect and
+# the releases feed, not the REST API; the API is a last resort for the
+# default channel and the legacy version tag, and SNAILS_GITHUB_TOKEN raises
+# its rate limit.
+#
 # Usage: install.sh [--version <vX.Y.Z>] [--rev <full-rev>]
 #
 # Environment:
-#   SNAILS_DIST_BASE_URL  asset base URL (default: the repo's releases)
-#   SNAILS_API_BASE_URL   API base URL (default: the repo's GitHub API)
-#   SNAILS_HOME           install root (default ~/.local/share/snails)
-#   SNAILS_BIN_DIR        symlink location (default ~/.local/bin)
-#   SNAILS_GITHUB_TOKEN   API token — raises the release-API rate limit only
+#   SNAILS_RELEASES_BASE_URL  release page base (default: the repo's releases)
+#   SNAILS_DIST_BASE_URL      asset base URL (default: <release page>/download)
+#   SNAILS_API_BASE_URL       API base URL (default: the repo's GitHub API)
+#   SNAILS_HOME               install root (default ~/.local/share/snails)
+#   SNAILS_BIN_DIR            symlink location (default ~/.local/bin)
+#   SNAILS_GITHUB_TOKEN       API token — raises the release-API rate limit only
 set -euo pipefail
 
 REPO="snails-rb/snails"
 SNAILS_HOME="${SNAILS_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/snails}"
 SNAILS_BIN_DIR="${SNAILS_BIN_DIR:-$HOME/.local/bin}"
-BASE="${SNAILS_DIST_BASE_URL:-https://github.com/$REPO/releases/download}"
+RELEASES="${SNAILS_RELEASES_BASE_URL:-https://github.com/$REPO/releases}"
+RELEASES="${RELEASES%/}"
+BASE="${SNAILS_DIST_BASE_URL:-$RELEASES/download}"
 API="${SNAILS_API_BASE_URL:-https://api.github.com/repos/$REPO}"
+DIST_TAG_RE='^(v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|rev-[0-9a-f]{40})$'
 
 usage() {
   cat <<'USAGE'
@@ -72,10 +81,12 @@ download_asset() {
   curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused \
     --connect-timeout 10 --max-time 300 -o "$out" "$BASE/$tag/$asset"
 }
-# The release API answers unauthenticated and shares the IP's 60/hour budget
-# with everything else on it. A CI runner behind a shared address can exhaust
-# that budget, so SNAILS_GITHUB_TOKEN is accepted here; the assets are public
-# and are fetched without the header. The same transient errors apply.
+# The REST API answers unauthenticated and shares the IP's 60/hour budget
+# with everything else on it. It is the last resort for the default channel
+# and the legacy tag resolution; the release page and feed carry the normal
+# latest lookup. A CI runner behind a shared address can exhaust that
+# budget, so SNAILS_GITHUB_TOKEN is accepted here; the assets are public and
+# are fetched without the header. The same transient errors apply.
 api_get() {
   local url="$1"
   local retry=(--retry 3 --retry-delay 1 --retry-connrefused --connect-timeout 10 --max-time 300)
@@ -117,7 +128,41 @@ dist_matches() {
 dist_tag_from_json() {
   printf '%s' "$1" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' \
     | sed 's/.*"\([^"]*\)"$/\1/' \
-    | grep -E '^(v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?|rev-[0-9a-f]{40})$' \
+    | grep -E "$DIST_TAG_RE" \
+    | head -n1
+}
+# is_dist_tag <tag> — true when the tag names a dist release: a version or
+# an edge rev.
+is_dist_tag() {
+  [[ $1 =~ $DIST_TAG_RE ]]
+}
+# dist_tag_from_redirect — the tag the release page's Latest redirect lands
+# on. The page redirect is a web endpoint; it does not spend the REST API's
+# unauthenticated budget, which shared CI runner IPs exhaust.
+dist_tag_from_redirect() {
+  local effective tag
+  effective="$(curl -fsSIL --retry 3 --retry-delay 1 --retry-connrefused \
+    --connect-timeout 10 --max-time 30 -o /dev/null -w '%{url_effective}' \
+    "$RELEASES/latest")" || return 1
+  case "$effective" in
+    */tag/*) tag="${effective##*/}" ;;
+    *) return 1 ;;
+  esac
+  is_dist_tag "$tag" || return 1
+  printf '%s\n' "$tag"
+}
+# dist_tag_from_atom — the first dist tag in the releases feed. The feed
+# carries every release, including prereleases and toolchain releases; the
+# first dist tag is the newest one. It covers a channel with no stable
+# release, where the Latest redirect has no tag.
+dist_tag_from_atom() {
+  local atom
+  atom="$(curl -fsSL --retry 3 --retry-delay 1 --retry-connrefused \
+    --connect-timeout 10 --max-time 30 "$RELEASES.atom")" || return 1
+  printf '%s' "$atom" \
+    | grep -o 'tag:github\.com,2008:Repository/[0-9]*/[^<]*' \
+    | sed 's#.*Repository/[0-9]*/##' \
+    | grep -E "$DIST_TAG_RE" \
     | head -n1
 }
 # resolve_version_rev <version> — the commit a version tag names. A
@@ -148,27 +193,34 @@ resolve_version_rev() {
 }
 
 # The default install follows the Latest release, whose tag names the pin.
-# A fresh channel has no stable release yet, so fall back to the newest dist
-# release; without either, name a version or rev explicitly.
+# The release page redirect carries the stable Latest without the REST API;
+# a fresh channel has no stable release yet, so the releases feed's first
+# dist tag stands in. The API remains a last resort for both, with a token.
 tag=""
 if [[ -n $version ]]; then
   tag="$version"
 elif [[ -n $rev ]]; then
   tag="rev-$rev"
 else
-  body="$(api_get "$API/releases/latest")" || body=""
-  tag="$(dist_tag_from_json "$body" || true)"
+  tag="$(dist_tag_from_redirect || true)"
   if [[ -z $tag ]]; then
-    body="$(api_get "$API/releases?per_page=100")" || body=""
+    tag="$(dist_tag_from_atom || true)"
+  fi
+  if [[ -z $tag ]]; then
+    body="$(api_get "$API/releases/latest")" || body=""
     tag="$(dist_tag_from_json "$body" || true)"
-  fi
-  if [[ -z $body ]]; then
-    echo "[snails] could not find a release for $REPO — check your network, or pass --version <vX.Y.Z> / --rev <full-rev>" >&2
-    exit 1
-  fi
-  if [[ -z $tag ]]; then
-    echo "[snails] could not find a dist release for $REPO — check the release channel, or pass --version <vX.Y.Z> / --rev <full-rev>" >&2
-    exit 1
+    if [[ -z $tag ]]; then
+      body="$(api_get "$API/releases?per_page=100")" || body=""
+      tag="$(dist_tag_from_json "$body" || true)"
+    fi
+    if [[ -z $body ]]; then
+      echo "[snails] could not find a release for $REPO — check your network, or pass --version <vX.Y.Z> / --rev <full-rev>" >&2
+      exit 1
+    fi
+    if [[ -z $tag ]]; then
+      echo "[snails] could not find a dist release for $REPO — check the release channel, or pass --version <vX.Y.Z> / --rev <full-rev>" >&2
+      exit 1
+    fi
   fi
 fi
 
