@@ -94,27 +94,27 @@ module Tep
       # Actual-response headers go on before the app runs, so a 404, 400, or
       # 401 the dispatch builds still carries them.
       Snails::Cors.apply(req, res)
-      span = Tep::RequestTrace.start(req)
+      span = Tep::Trace.start(req)
       begin
         begin
           Sqlx::Database.with_connection { Snails::Main.dispatch(req, res) }
         rescue Exception => failure
           raise if Snails::ErrorBoundary.fatal?(failure)
-          Tep::RequestTrace.record_failure(span, failure)
+          Tep::Trace.record_failure(span, failure)
           log_request_failed(req, started, 500, failure)
           raise
         end
         # The app may have replaced Vary; merge the origin value again rather
         # than let a controller drop it.
         Snails::Cors.apply(req, res)
-        Tep::RequestTrace.record_response(span, res.status)
+        Tep::Trace.record_response(span, res.status)
         if res.status >= 500
           log_request_failed(req, started, res.status, nil)
         else
           log_request_completed(req, started, res.status)
         end
       ensure
-        Tep::RequestTrace.finish(span)
+        Tep::Trace.finish(span)
       end
     end
 

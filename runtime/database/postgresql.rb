@@ -575,7 +575,7 @@ module Sqlx
     # @raise [Sqlx::ConnectionFailed] the session died, or the statement left
     #   the connection in COPY mode
     def self.exec_query(handle, sql, max_rows:, timeout_ms:)
-      Sqlx::DatabaseTrace.span(sql, "postgresql", false) do |span|
+      Sqlx::Trace.span(sql, "postgresql", false) do |span|
         exec_query_statement(handle, sql, max_rows: max_rows, timeout_ms: timeout_ms, span: span)
       end
     end
@@ -588,7 +588,7 @@ module Sqlx
         open_read_transaction(conn, timeout_ms)
         result = run_cursor_query(conn, sql, max_rows)
         run_statement(conn, "COMMIT")
-        Sqlx::DatabaseTrace.add_attribute(span, "db.response.returned_rows", result.row_count)
+        Sqlx::Trace.add_attribute(span, "db.response.returned_rows", result.row_count)
         result
       rescue Sqlx::ConnectionFailed
         conn.close
@@ -614,7 +614,7 @@ module Sqlx
     # @raise [Sqlx::ConnectionFailed] the session died; the statement's outcome
     #   is unknown — retry the unit, not the statement
     def self.exec(sql)
-      Sqlx::DatabaseTrace.span(sql, "postgresql", false) do |span|
+      Sqlx::Trace.span(sql, "postgresql", false) do |span|
         exec_statement(sql, span)
       end
     end
@@ -656,7 +656,7 @@ module Sqlx
     #   Sqlx::Database.exec_read("SELECT id FROM t WHERE a = ?", [ "x" ])
     #   # => [ { "id" => 7 } ]
     def self.exec_read(sql, values)
-      Sqlx::DatabaseTrace.span(sql, "postgresql", true) do |span|
+      Sqlx::Trace.span(sql, "postgresql", true) do |span|
         exec_read_statement(sql, values, span)
       end
     end
@@ -671,8 +671,8 @@ module Sqlx
         cached = query_cache_fetch(final, generation)
         unless cached.nil?
           record_cache_hit(sql)
-          Sqlx::DatabaseTrace.add_attribute(span, "snails.db.cache_hit", true)
-          Sqlx::DatabaseTrace.add_attribute(span, "db.response.returned_rows", cached.length)
+          Sqlx::Trace.add_attribute(span, "snails.db.cache_hit", true)
+          Sqlx::Trace.add_attribute(span, "db.response.returned_rows", cached.length)
           return cached
         end
       end
@@ -683,7 +683,7 @@ module Sqlx
         rows = read_rows(stmt)
         finalize(stmt)
         query_cache_store(final, rows, generation) if cacheable
-        Sqlx::DatabaseTrace.add_attribute(span, "db.response.returned_rows", rows.length)
+        Sqlx::Trace.add_attribute(span, "db.response.returned_rows", rows.length)
         rows
       ensure
         Snails::Logger::Context.add_db_us(Snails::Logger::Context.now_us - started)
@@ -727,7 +727,7 @@ module Sqlx
     #   Sqlx::Database.exec_write("UPDATE t SET a = ? WHERE id = ? RETURNING id", [ "x", 7 ])
     #   # => { "rows" => [ { "id" => 7 } ], "count" => 1 }
     def self.exec_write(sql, values)
-      Sqlx::DatabaseTrace.span(sql, "postgresql", true) do |span|
+      Sqlx::Trace.span(sql, "postgresql", true) do |span|
         exec_write_statement(sql, values, span)
       end
     end
@@ -753,7 +753,7 @@ module Sqlx
         end
         finalize(stmt)
         result = { "rows" => rows, "count" => count }
-        Sqlx::DatabaseTrace.add_attribute(span, "db.response.returned_rows", rows.length)
+        Sqlx::Trace.add_attribute(span, "db.response.returned_rows", rows.length)
         result
       ensure
         query_cache_clear

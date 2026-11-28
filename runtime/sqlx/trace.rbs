@@ -1,5 +1,5 @@
 module Sqlx
-  module DatabaseTrace
+  module Trace
     def self.span: (String sql, String system, ?bool parameterized) { (Snails::Tracer::Span? span) -> untyped } -> untyped
     def self.add_attribute: (Snails::Tracer::Span? span, String key, untyped value) -> void
   end

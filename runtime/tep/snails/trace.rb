@@ -10,7 +10,7 @@
 # of the Tep server, not a Tep server feature. `runtime/tep/tep.rb` controls
 # the load order.
 module Tep
-  module RequestTrace
+  module Trace
     # @api internal
     # Start the request trace: adopt an inbound `traceparent` first, then open
     # the request span. The name starts as the method and gains the route

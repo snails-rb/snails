@@ -8,7 +8,7 @@
 # for the caller's parameterized SQL, so a statement whose values were rendered
 # by the adapter never reaches the wire.
 module Sqlx
-  module DatabaseTrace
+  module Trace
     # The SQL words a span name may carry. An unknown first word (a statement
     # that is not SQL, or a dialect extension) becomes UNKNOWN, so a value or a
     # typo never lands in a low-cardinality name.

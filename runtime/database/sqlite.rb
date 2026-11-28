@@ -726,7 +726,7 @@ module Sqlx
     # @raise [Sqlx::RecordNotUnique] a UNIQUE constraint rejects the statement
     # @raise [Sqlx::Busy] the file's lock stayed held past the busy timeout
     def self.exec(sql)
-      Sqlx::DatabaseTrace.span(sql, "sqlite", false) do |span|
+      Sqlx::Trace.span(sql, "sqlite", false) do |span|
         exec_statement(sql, span)
       end
     end
@@ -774,7 +774,7 @@ module Sqlx
     #   Sqlx::Database.exec_read("SELECT id FROM t WHERE a = ?", [ "x" ])
     #   # => [ { "id" => 7 } ]
     def self.exec_read(sql, values)
-      Sqlx::DatabaseTrace.span(sql, "sqlite", true) do |span|
+      Sqlx::Trace.span(sql, "sqlite", true) do |span|
         exec_read_statement(sql, values, span)
       end
     end
@@ -789,8 +789,8 @@ module Sqlx
         cached = query_cache_fetch(key, generation)
         unless cached.nil?
           record_cache_hit(sql)
-          Sqlx::DatabaseTrace.add_attribute(span, "snails.db.cache_hit", true)
-          Sqlx::DatabaseTrace.add_attribute(span, "db.response.returned_rows", cached.length)
+          Sqlx::Trace.add_attribute(span, "snails.db.cache_hit", true)
+          Sqlx::Trace.add_attribute(span, "db.response.returned_rows", cached.length)
           return cached
         end
       end
@@ -802,7 +802,7 @@ module Sqlx
         rows = read_rows(stmt, sql)
         finalize(stmt)
         query_cache_store(key, rows, generation) if cacheable
-        Sqlx::DatabaseTrace.add_attribute(span, "db.response.returned_rows", rows.length)
+        Sqlx::Trace.add_attribute(span, "db.response.returned_rows", rows.length)
         rows
       ensure
         Snails::Logger::Context.add_db_us(Snails::Logger::Context.now_us - started)
@@ -827,7 +827,7 @@ module Sqlx
     #   read-only connection
     # @raise [Sqlx::Busy] the database lock stayed held past the busy timeout
     def self.exec_query(dbh, sql, max_rows:, timeout_ms:)
-      Sqlx::DatabaseTrace.span(sql, "sqlite", false) do |span|
+      Sqlx::Trace.span(sql, "sqlite", false) do |span|
         exec_query_statement(dbh, sql, max_rows: max_rows, timeout_ms: timeout_ms, span: span)
       end
     end
@@ -889,7 +889,7 @@ module Sqlx
           end
         end
         result = Sqlx::QueryResult.new(columns, rows, truncated)
-        Sqlx::DatabaseTrace.add_attribute(span, "db.response.returned_rows", rows.length)
+        Sqlx::Trace.add_attribute(span, "db.response.returned_rows", rows.length)
         result
       ensure
         if !stmt.nil? && stmt != 0
@@ -933,7 +933,7 @@ module Sqlx
     #   Sqlx::Database.exec_write("UPDATE t SET a = ? WHERE id = ? RETURNING id", [ "x", 7 ])
     #   # => { "rows" => [ { "id" => 7 } ], "count" => 1 }
     def self.exec_write(sql, values)
-      Sqlx::DatabaseTrace.span(sql, "sqlite", true) do |span|
+      Sqlx::Trace.span(sql, "sqlite", true) do |span|
         exec_write_statement(sql, values, span)
       end
     end
@@ -951,7 +951,7 @@ module Sqlx
         count = SQLite3.sqlite3_changes(conn.dbh)
         finalize(stmt)
         result = { "rows" => rows, "count" => count }
-        Sqlx::DatabaseTrace.add_attribute(span, "db.response.returned_rows", rows.length)
+        Sqlx::Trace.add_attribute(span, "db.response.returned_rows", rows.length)
         result
       ensure
         Snails::Logger::Context.add_db_us(Snails::Logger::Context.now_us - started)
