@@ -1,0 +1,12 @@
+module ActiveJob
+  module Trace
+    def self.publish: (String job_name) { () -> untyped } -> untyped
+    def self.perform: (String job_name, Integer? id, Integer? attempt, Float? wait_ms) { (Snails::Tracer::Span? span) -> untyped } -> untyped
+    def self.record_error: (Snails::Tracer::Span? span, Exception failure) -> void
+    def self.queue_wait_ms: (Time? scheduled_at, Time? created_at, Time started) -> Float?
+
+    private def self.publish_attributes: (String job_name) -> Hash[String, untyped]
+    private def self.perform_attributes: (String job_name, Integer? id, Integer? attempt, Float? wait_ms) -> Hash[String, untyped]
+    private def self.delivery_job?: (String job_name) -> bool
+  end
+end

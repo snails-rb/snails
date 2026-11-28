@@ -3,6 +3,7 @@
 #
 # Load order is a contract: `base` defines the module and the queue adapter setting; the
 # background loops load before the launcher, and DB models resolve at call time.
+require_relative "active_job/snails/trace"
 require_relative "active_job/base"
 require_relative "active_job/process_queue"
 require_relative "active_job/database_queue"
