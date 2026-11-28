@@ -13,6 +13,21 @@ module Snails
       @route_table ||= Snails::RouteTable.table
     end
 
+    # Fill the request span's route name and semantic attributes once the
+    # router has matched. A miss keeps the method-only name; the request
+    # boundary still closes the span with the 404 status.
+    def self.enrich_request_span(req, matched)
+      span = Snails.tracer.current_span
+      return if span.nil?
+
+      span.set_name(req.verb + " " + matched.pattern)
+      span.set_attribute("http.route", matched.pattern)
+      span.set_attribute("snails.controller", matched.controller.name)
+      span.set_attribute("snails.action", matched.action.to_s)
+    end
+
+    private_class_method :enrich_request_span
+
     # the request body's own params: urlencoded fields and multipart text
     # parts, nested by `ActionDispatch::ParamBuilder`, or a JSON object as its
     # structured hash with String leaves. Query and path captures are not
@@ -106,6 +121,7 @@ module Snails
         res.headers["Content-Type"] = "application/json; charset=utf-8"
         return
       end
+      enrich_request_span(req, matched)
       body = Snails::Main.body_params(req)
       params = body.nil? ? nil : Snails::Main.request_params(req, matched.path_params, body)
       if params.nil?

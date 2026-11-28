@@ -4,6 +4,7 @@ require_relative "../app/controllers/boom_controller"
 require_relative "../app/controllers/current_probe_controller"
 require_relative "../app/controllers/auth_probe_controller"
 require_relative "../app/controllers/db_probe_controller"
+require_relative "../app/controllers/trace_probe_controller"
 require_relative "../app/controllers/body_params_controller"
 require_relative "../app/controllers/cookie_probe_controller"
 require_relative "../app/controllers/request_probe_controller"
@@ -19,6 +20,7 @@ module Snails
        get("/server-error", HarnessBoomController, :server_error),
        get("/current-probe", HarnessCurrentProbeController, :show),
        get("/db-probe", HarnessDbProbeController, :show),
+       get("/trace-probe/:id", HarnessTraceProbeController, :show),
        post("/body-params", HarnessBodyParamsController, :show),
        get("/request-probe", HarnessRequestProbeController, :show),
        post("/request-probe", HarnessRequestProbeController, :show),

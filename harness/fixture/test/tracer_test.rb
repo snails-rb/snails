@@ -290,6 +290,22 @@ class TracerTest < TestBase
     assert_equal false, sampler.sample?(low, false)
   end
 
+  # Finished spans wait in the tracer buffer; flush hands them over as one
+  # batch.
+  def test_flush_hands_finished_spans_to_the_transport
+    tracer = new_tracer
+    capture = tracer.transport
+    tracer.in_span("outer") do
+      tracer.in_span("inner") do
+      end
+    end
+
+    assert_equal 0, capture.batches.length
+    tracer.flush
+    assert_equal 1, capture.batches.length
+    assert_equal 2, capture.batches[0].length
+  end
+
   # A span keeps its name, scalar attributes, events, and status until
   # finish; a status message is valid only with :error, and a setter after
   # finish raises.
@@ -459,6 +475,7 @@ FixtureRunner.run(TracerTest, [
   "test_sample_rate_defaults_by_mode",
   "test_sample_rate_setter_validates_the_range",
   "test_sampler_uses_the_trace_id_ratio",
+  "test_flush_hands_finished_spans_to_the_transport",
   "test_span_records_attributes_events_and_status",
   "test_span_finish_is_idempotent",
   "test_span_rejects_invalid_ids_and_kinds",

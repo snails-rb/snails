@@ -5,9 +5,9 @@
 # transport is set, so framework instrumentation can ask for a span on every
 # request without paying for one when the app collects no traces.
 #
-# The app sets the transport and sample rate in config/environment.rb. Span
-# delivery (batching and the OTLP transport) is a later layer; this layer owns
-# the OTel span model, the current-trace stack, and the sampling decision.
+# The app sets the transport and sample rate in config/environment.rb. Finished
+# spans go to a per-process buffer; `flush` hands the batch to the transport.
+# The flush schedule and the OTLP delivery job are a later layer.
 require "securerandom"
 
 module Snails
@@ -39,6 +39,9 @@ module Snails
       @transport = nil
       @sample_rate = nil
       @sampler = nil
+      @db_query_text = false
+      @finished = []
+      @finished_lock = Mutex.new
     end
 
     # the object that receives finished span batches, or nil when tracing is
@@ -63,6 +66,29 @@ module Snails
       end
 
       @transport = value
+    end
+
+    # whether DB spans may carry the parameterized SQL as `db.query.text`.
+    # Default false: the summary stays, the statement text does not. Raw
+    # `exec` / `exec_query` text never qualifies even when this is true.
+    #
+    # @return [Boolean] true when parameterized SQL text is collected
+    def db_query_text
+      @db_query_text
+    end
+
+    # set whether DB spans collect parameterized SQL text. The change applies
+    # to spans started later.
+    #
+    # @param value [Boolean] true to collect `db.query.text`
+    # @raise [ArgumentError] value is not true or false
+    # @return [Boolean] the assigned value
+    def db_query_text=(value)
+      if value != true && value != false
+        raise ArgumentError, "Snails.tracer.db_query_text expects true or false"
+      end
+
+      @db_query_text = value
     end
 
     # whether a transport is set. Framework instrumentation reads this before
@@ -145,7 +171,7 @@ module Snails
       begin
         yield span
       rescue Exception => failure
-        record_exception(span, failure)
+        span.record_exception(failure) unless span.finished?
         raise
       ensure
         span.finish
@@ -199,7 +225,8 @@ module Snails
         parent_span_id: parent_span_id,
         kind: kind,
         start_time: Time.now.utc,
-        attributes: attributes
+        attributes: attributes,
+        tracer: self
       )
       Context.push_span(span)
       span
@@ -244,22 +271,34 @@ module Snails
       @sampler
     end
 
-    # Record a failure as an error status and an `exception` event. The caller
-    # re-raises the same failure; this never replaces it. A span the app closed
-    # inside the block is left alone, so the original failure wins.
-    def record_exception(span, failure)
-      return if span.finished?
+    # Buffer one finished span for the next flush. A span finished while no
+    # transport is set is dropped; the transport is the delivery switch.
+    #
+    # @api internal
+    # @param span [Span] the finished span
+    # @return [void]
+    def record_span(span)
+      return if @transport.nil?
 
-      attributes = {
-        "exception.type" => failure.class.name,
-        "exception.message" => failure.message
-      }
-      frames = failure.backtrace
-      if !frames.nil? && frames.length > 0
-        attributes["exception.stacktrace"] = frames.join("\n")
+      @finished_lock.synchronize do
+        @finished.push(span)
       end
-      span.add_event("exception", attributes: attributes)
-      span.set_status(:error)
+    end
+
+    # hand the buffered spans to the transport as one batch. The periodic
+    # scheduler and the OTLP delivery job are a later layer; this is the seam
+    # they call.
+    #
+    # @return [void]
+    def flush
+      spans = []
+      @finished_lock.synchronize do
+        spans = @finished
+        @finished = []
+      end
+      return if spans.empty? || @transport.nil?
+
+      @transport.deliver(spans)
     end
 
     # A fresh W3C trace id: 32 lowercase hex characters, never all zero.
@@ -280,6 +319,6 @@ module Snails
       id
     end
 
-    private :sampler, :record_exception, :new_trace_id, :new_span_id
+    private :sampler, :new_trace_id, :new_span_id
   end
 end

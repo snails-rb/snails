@@ -53,14 +53,15 @@ module ActionDispatch
     end
 
     # The result of a successful `Router.match` call: the resolved controller
-    # class, action symbol, and captured path parameters. Positional
-    # initialize, same rationale as Route.
+    # class, action symbol, matched route pattern, and captured path
+    # parameters. Positional initialize, same rationale as Route.
     class MatchResult
-      attr_reader :controller, :action, :path_params, :req_format
+      attr_reader :controller, :action, :pattern, :path_params, :req_format
 
-      def initialize(controller, action, path_params, req_format = nil)
+      def initialize(controller, action, pattern, path_params, req_format = nil)
         @controller  = controller
         @action      = action
+        @pattern     = pattern
         @path_params = path_params
         @req_format  = req_format
       end
@@ -135,7 +136,7 @@ module ActionDispatch
         if route.verb.to_s == method_upcase
           params = match_parts(route.pattern_parts, path_parts, route.int_params, format)
           unless params.nil?
-            return ActionDispatch::Router::MatchResult.new(route.controller, route.action, params, route.req_format)
+            return ActionDispatch::Router::MatchResult.new(route.controller, route.action, route.pattern, params, route.req_format)
           end
         end
         i += 1

@@ -94,21 +94,118 @@ module Tep
       # Actual-response headers go on before the app runs, so a 404, 400, or
       # 401 the dispatch builds still carries them.
       Snails::Cors.apply(req, res)
+      continue_inbound_trace(req)
+      span = start_request_span(req)
       begin
-        Sqlx::Database.with_connection { Snails::Main.dispatch(req, res) }
-      rescue Exception => failure
-        raise if Snails::ErrorBoundary.fatal?(failure)
-        log_request_failed(req, started, 500, failure)
-        raise
+        begin
+          Sqlx::Database.with_connection { Snails::Main.dispatch(req, res) }
+        rescue Exception => failure
+          raise if Snails::ErrorBoundary.fatal?(failure)
+          record_request_failure(span, failure)
+          log_request_failed(req, started, 500, failure)
+          raise
+        end
+        # The app may have replaced Vary; merge the origin value again rather
+        # than let a controller drop it.
+        Snails::Cors.apply(req, res)
+        record_request_response(span, res.status)
+        if res.status >= 500
+          log_request_failed(req, started, res.status, nil)
+        else
+          log_request_completed(req, started, res.status)
+        end
+      ensure
+        span.finish unless span.nil?
+        Snails::Tracer::Context.end_trace
       end
-      # The app may have replaced Vary; merge the origin value again rather
-      # than let a controller drop it.
-      Snails::Cors.apply(req, res)
-      if res.status >= 500
-        log_request_failed(req, started, res.status, nil)
+    end
+
+    # Adopt a valid inbound W3C `traceparent` before the request span starts.
+    # A broken or missing header is ignored, so `start_request_span` starts a
+    # new trace; `tracestate` is preserved as opaque input.
+    def continue_inbound_trace(req)
+      return unless Snails.tracer.enabled?
+
+      header = req.req_headers["traceparent"].to_s
+      return if header.empty?
+
+      parts = header.split("-")
+      return unless parts.length == 4
+      return unless parts[0] == "00"
+
+      flags = parts[3]
+      return unless flags.length == 2 && hex_text?(flags)
+
+      begin
+        Snails::Tracer::Context.begin_trace(
+          parts[1],
+          parts[2],
+          sampled_flag?(flags),
+          req.req_headers["tracestate"]
+        )
+      rescue ArgumentError
+        nil
+      end
+    end
+
+    # Open the request span. The name starts as the method and gains the route
+    # pattern in `Snails::Main.dispatch`; the path is the actual path without
+    # the query string.
+    def start_request_span(req)
+      return nil unless Snails.tracer.enabled?
+
+      attributes = {
+        "http.request.method" => req.verb,
+        "url.path" => req.path
+      }
+      request_id = Snails::Logger::Context.request_id
+      if !request_id.nil? && !request_id.empty?
+        attributes["snails.request_id"] = request_id
+      end
+      Snails.tracer.start_span(req.verb, kind: :server, attributes: attributes)
+    end
+
+    def record_request_failure(span, failure)
+      return if span.nil?
+
+      span.set_attribute("http.response.status_code", 500)
+      span.record_exception(failure)
+    end
+
+    # Close the request span's status: 2xx/3xx are ok, 4xx stay unset as client
+    # errors, and 5xx are error. The request log uses the same 500 line.
+    def record_request_response(span, status)
+      return if span.nil?
+
+      span.set_attribute("http.response.status_code", status)
+      if status >= 500
+        span.set_status(:error)
+      elsif status >= 400
+        span.set_status(:unset)
       else
-        log_request_completed(req, started, res.status)
+        span.set_status(:ok)
       end
+    end
+
+    # Whether `value` is lowercase or uppercase hex text. The id validators
+    # enforce lowercase for the ids; this only keeps a malformed flag byte from
+    # reaching the sampled-bit check.
+    def hex_text?(value)
+      i = 0
+      while i < value.length
+        byte = value.getbyte(i)
+        if (byte >= 48 && byte <= 57) || (byte >= 97 && byte <= 102) || (byte >= 65 && byte <= 70)
+          i += 1
+        else
+          return false
+        end
+      end
+      true
+    end
+
+    # The least significant bit of the W3C flags byte: an odd last hex digit.
+    def sampled_flag?(flags)
+      "13579bdf".include?(flags[1, 1].to_s.downcase)
     end
 
     # the one info record a served request leaves. The matched controller/action
@@ -161,6 +258,9 @@ module Tep
       fields
     end
 
+    private :continue_inbound_trace, :start_request_span
+    private :record_request_failure, :record_request_response
+    private :hex_text?, :sampled_flag?
     private :log_request_completed, :log_request_failed, :request_summary, :request_fields
   end
 

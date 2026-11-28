@@ -15,10 +15,11 @@ module ActionDispatch
     class MatchResult
       def controller: () -> Class
       def action: () -> Symbol
+      def pattern: () -> String
       def path_params: () -> Hash[String, String]
       def req_format: () -> Symbol?
 
-      def initialize: (Class controller, Symbol action, Hash[String, String] path_params, ?Symbol? req_format) -> void
+      def initialize: (Class controller, Symbol action, String pattern, Hash[String, String] path_params, ?Symbol? req_format) -> void
     end
 
     def self.match: (
