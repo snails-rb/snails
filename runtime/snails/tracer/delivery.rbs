@@ -1,0 +1,31 @@
+module Snails
+  class Tracer
+    class Delivery
+      MAX_SPANS: Integer
+      FLUSH_INTERVAL_SECONDS: Integer
+
+      class DroppedBatch < StandardError
+        @count: Integer
+
+        def initialize: (Integer count, Exception cause) -> void
+        def count: () -> Integer
+        def severity: () -> Symbol
+      end
+
+      @transport: untyped
+      @buffer: Array[Snails::Tracer::Span]
+      @buffer_lock: Mutex
+      @flush_registered: bool
+
+      def initialize: () -> void
+      def transport: () -> untyped
+      def transport=: (untyped value) -> untyped
+      def after_fork: () -> void
+      def register_flush: () -> void
+      def deliver: (Snails::Tracer::Span span) -> Exception?
+      def flush: () -> Exception?
+
+      private def deliver_batch: (Array[Snails::Tracer::Span] spans) -> Exception?
+    end
+  end
+end

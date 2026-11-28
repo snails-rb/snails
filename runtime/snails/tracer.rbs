@@ -9,12 +9,10 @@ module Snails
     ZERO_TRACE_ID: String
     ZERO_SPAN_ID: String
 
-    @transport: untyped
+    @delivery: Snails::Tracer::Delivery
     @sample_rate: Float?
     @sampler: Snails::Tracer::Sampler?
     @db_query_text: bool
-    @finished: Array[Snails::Tracer::Span]
-    @finished_lock: Mutex
 
     def initialize: () -> void
     def transport: () -> untyped
@@ -32,8 +30,11 @@ module Snails
     def traceparent: () -> String?
     def record_span: (Snails::Tracer::Span span) -> void
     def flush: () -> void
+    def register_flush: () -> void
+    def after_fork: () -> void
 
     private def sampler: () -> Snails::Tracer::Sampler
+    private def report_outcome: (Exception? outcome) -> void
     private def new_trace_id: () -> String
     private def new_span_id: () -> String
   end

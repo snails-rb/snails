@@ -50,11 +50,12 @@ module Tep
           while i < workers
             pid = Sock.sphttp_fork
             if pid == 0
-              # The child owns the logger the fork copied: the parent's
-              # buffered records would be sent by every child, and the
-              # inherited write lock may be held by a thread that does not
-              # exist here. Before the first record, so nothing is dropped.
+              # The child owns the logger and tracer the fork copied: the
+              # parent's buffered records/spans would be sent by every child,
+              # and the inherited locks may be held by a thread that does not
+              # exist here. Before the first record/span, so nothing is dropped.
               Snails.logger.after_fork
+              Snails.tracer.after_fork
               run_connection(sfd)
               Sock.sphttp_exit(0)   # see the single-process exit below
             end

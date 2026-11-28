@@ -6,9 +6,9 @@
 module ActiveJob
   module Launcher
     # run the scheduler and the drain loops on new threads of THIS process,
-    # registering the logger's periodic flush on that scheduler first
-    # (`Snails.logger.register_flush`), so the flush callback exists before the
-    # loop iterates the registry. The servers call it once per server process,
+    # registering the logger and tracer periodic flushes on that scheduler first
+    # (`Snails.logger.register_flush` and `Snails.tracer.register_flush`), so the
+    # callbacks exist before the loop iterates the registry. The servers call it once per server process,
     # from their connection loop — after any prefork, so every child drains the
     # queue its requests enqueue to. A thread started before the fork would not
     # exist in the children: fork carries only the forking thread. The scheduler
@@ -20,6 +20,7 @@ module ActiveJob
     # @return [void]
     def self.start
       Snails.logger.register_flush
+      Snails.tracer.register_flush
       Thread.new do
         Scheduler.run
       end
