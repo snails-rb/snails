@@ -5,10 +5,12 @@ module Snails
       end
 
       @http: Snails::OTLP::HTTP
+      @executor_warned: bool
 
       def initialize: (endpoint: String, token: String) -> void
       def url: () -> untyped
       def after_fork: () -> void
+      def deliver: (Array[Snails::Tracer::Span] spans) -> void
       def encode: (Array[Snails::Tracer::Span] spans) -> Hash[String, untyped]
       def send_encoded: (untyped body) -> bool
     end

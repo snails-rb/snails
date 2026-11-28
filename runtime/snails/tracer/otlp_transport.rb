@@ -25,6 +25,7 @@ module Snails
       # @param token [String] the ingest token
       # @raise [ArgumentError] endpoint or token is empty or malformed
       def initialize(endpoint:, token:)
+        @executor_warned = false
         @http = Snails::OTLP::HTTP.new(endpoint: endpoint, token: token, path: "v1/traces")
       end
 
@@ -43,9 +44,32 @@ module Snails
         @http.after_fork
       end
 
-      # encode one finished span batch as OTLP traces JSON. The batch stage
-      # calls this before the delivery job; the resource is read at encode time
-      # so an app/environment change applies to the next batch.
+      # Encode one finished span batch and enqueue `TraceDeliveryJob`; the
+      # request/job thread never performs HTTP. A process without a registered
+      # executor would run the job at the call site, so that case is refused;
+      # the first refusal raises and later batches stay local without repeating
+      # the warning.
+      #
+      # @param spans [Array<Snails::Tracer::Span>] the finished spans
+      # @return [void]
+      # @raise [RuntimeError] no executor is registered, on the first batch
+      def deliver(spans)
+        return nil if spans.length == 0
+        if !ActiveJob.executor_registered
+          if !@executor_warned
+            @executor_warned = true
+            raise "trace delivery needs a worker loop"
+          end
+          return nil
+        end
+
+        body = encode(spans)
+        ActiveJob.enqueue(Snails::TraceDeliveryJob, body)
+      end
+
+      # encode one finished span batch as OTLP traces JSON. The delivery job
+      # calls `send_encoded`; the resource is read at encode time so an
+      # app/environment change applies to the next batch.
       #
       # @api internal
       # @param spans [Array<Snails::Tracer::Span>] the finished spans

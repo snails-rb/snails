@@ -5,9 +5,10 @@
 # transport is set, so framework instrumentation can ask for a span on every
 # request without paying for one when the app collects no traces.
 #
-# The app sets the transport and sample rate in config/environment.rb. Finished
-# spans go to a per-process buffer; `flush` hands the batch to the transport.
-# The flush schedule and the OTLP delivery job are a later layer.
+# The app sets the transport and sample rate in config/environment.rb.
+# `Delivery` buffers finished spans and hands batches to the transport; the
+# scheduler flushes once per interval and `TraceDeliveryJob` performs the HTTP
+# call outside request and job threads.
 require "securerandom"
 
 module Snails
@@ -40,12 +41,10 @@ module Snails
     ZERO_SPAN_ID = "0000000000000000"
 
     def initialize
-      @transport = nil
+      @delivery = Delivery.new
       @sample_rate = nil
       @sampler = nil
       @db_query_text = false
-      @finished = []
-      @finished_lock = Mutex.new
     end
 
     # the object that receives finished span batches, or nil when tracing is
@@ -53,7 +52,7 @@ module Snails
     #
     # @return [untyped] the current transport
     def transport
-      @transport
+      @delivery.transport
     end
 
     # replace the span destination. The contract is `deliver(spans)` with an
@@ -65,11 +64,7 @@ module Snails
     # @raise [ArgumentError] value is neither nil nor transport-like
     # @return [untyped] the assigned transport
     def transport=(value)
-      if !value.nil? && !value.respond_to?(:deliver)
-        raise ArgumentError, "Snails.tracer.transport expects an object answering deliver, got " + value.class.name
-      end
-
-      @transport = value
+      @delivery.transport = value
     end
 
     # whether DB spans may carry the parameterized SQL as `db.query.text`.
@@ -100,7 +95,7 @@ module Snails
     #
     # @return [Boolean] true when tracing is on
     def enabled?
-      !@transport.nil?
+      !transport.nil?
     end
 
     # the share of new traces to record. An unset rate follows the mode: every
@@ -293,27 +288,32 @@ module Snails
     # @param span [Span] the finished span
     # @return [void]
     def record_span(span)
-      return if @transport.nil?
-
-      @finished_lock.synchronize do
-        @finished.push(span)
-      end
+      report_outcome(@delivery.deliver(span))
     end
 
     # hand the buffered spans to the transport as one batch. The periodic
-    # scheduler and the OTLP delivery job are a later layer; this is the seam
-    # they call.
+    # scheduler calls it every `Delivery::FLUSH_INTERVAL_SECONDS`; a
+    # shutting-down process may call it once more.
     #
     # @return [void]
     def flush
-      spans = []
-      @finished_lock.synchronize do
-        spans = @finished
-        @finished = []
-      end
-      return if spans.empty? || @transport.nil?
+      report_outcome(@delivery.flush)
+    end
 
-      @transport.deliver(spans)
+    # put the periodic span flush on this process's scheduler. Called once by
+    # `ActiveJob::Launcher.start`; a second call is a no-op.
+    #
+    # @return [void]
+    def register_flush
+      @delivery.register_flush
+    end
+
+    # make this process's span buffer its own after a fork: drop the parent's
+    # buffer and lock and let the transport discard its socket.
+    #
+    # @return [void]
+    def after_fork
+      @delivery.after_fork
     end
 
     # A fresh W3C trace id: 32 lowercase hex characters, never all zero.
@@ -334,6 +334,13 @@ module Snails
       id
     end
 
-    private :sampler, :new_trace_id, :new_span_id
+    # One local line for a delivery outcome, and nothing for nil. The line is
+    # written here rather than inside Delivery because it must never go back
+    # through the transport — a failing sink would feed itself.
+    def report_outcome(outcome)
+      Snails.logger.report_local(outcome.severity, "[tracer] " + outcome.message) unless outcome.nil?
+    end
+
+    private :sampler, :report_outcome, :new_trace_id, :new_span_id
   end
 end

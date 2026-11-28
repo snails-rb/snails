@@ -171,6 +171,16 @@ class JobTraceTest < TestBase
     spans = flush_spans(capture)
     assert_equal 0, spans.length
   end
+
+  # The trace delivery job is excluded from the automatic job span for the
+  # same reason: its run would feed the trace pipeline it delivers.
+  def test_drain_skips_a_trace_delivery_job
+    capture = enable_tracing
+    ActiveJob.enqueue(Snails::TraceDeliveryJob, {})
+    ActiveJob::ProcessQueue.drain
+    spans = flush_spans(capture)
+    assert_equal 0, spans.length
+  end
 end
 
 FixtureRunner.run(JobTraceTest, [
@@ -179,5 +189,6 @@ FixtureRunner.run(JobTraceTest, [
   "test_enqueue_skips_a_delivery_job",
   "test_drain_creates_a_consumer_span",
   "test_job_exception_is_a_consumer_error",
-  "test_drain_skips_a_delivery_job"
+  "test_drain_skips_a_delivery_job",
+  "test_drain_skips_a_trace_delivery_job"
 ])

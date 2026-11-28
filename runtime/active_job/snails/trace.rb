@@ -10,11 +10,6 @@
 module ActiveJob
   # @api internal
   module Trace
-    # The delivery jobs write spans and logs themselves; instrumenting them
-    # would feed the pipeline it delivers to. The trace delivery class lands in
-    # a later stage, so its key is named here until the class exists.
-    TRACE_DELIVERY_JOB_NAME = "Snails::TraceDeliveryJob"
-
     # @api internal
     # Run one enqueue inside a producer span. The span becomes a child of the
     # request or job span that enqueues it. A delivery job is left alone, and
@@ -137,15 +132,13 @@ module ActiveJob
     end
 
     # A delivery job writes spans or logs itself; instrumenting its enqueue or
-    # run would create a feedback loop. The log delivery job already exists; the
-    # trace delivery job name is reserved for the later stage.
+    # run would create a feedback loop.
     def self.delivery_job?(job_name)
       return true if job_name == Snails::LogDeliveryJob.name
 
-      job_name == TRACE_DELIVERY_JOB_NAME
+      job_name == Snails::TraceDeliveryJob.name
     end
 
-    private_constant :TRACE_DELIVERY_JOB_NAME
     private_class_method :publish_attributes, :perform_attributes, :delivery_job?
   end
 end
