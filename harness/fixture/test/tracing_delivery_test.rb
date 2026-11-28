@@ -233,10 +233,16 @@ class TraceDeliveryTest < TestBase
       token: "token"
     )
 
-    transport.deliver([build_span])
+    span = build_span
+    transport.deliver([span])
     assert_equal 1, TracingQueueAdapter::SUBMITTED.length
     assert_equal "Snails::TraceDeliveryJob", TracingQueueAdapter::SUBMITTED[0][0]
-    assert_equal true, TracingQueueAdapter::SUBMITTED[0][1].has_key?("resourceSpans")
+    expected = Snails::Tracer::OTLPEncoder.encode(
+      [span],
+      Snails.tracer.resource_attributes,
+      Snails.version
+    )
+    assert_equal expected, TracingQueueAdapter::SUBMITTED[0][1]
     assert_equal 0, capture.batches.length
   end
 

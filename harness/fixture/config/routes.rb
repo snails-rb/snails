@@ -5,6 +5,7 @@ require_relative "../app/controllers/current_probe_controller"
 require_relative "../app/controllers/auth_probe_controller"
 require_relative "../app/controllers/db_probe_controller"
 require_relative "../app/controllers/trace_probe_controller"
+require_relative "../app/controllers/trace_tree_controller"
 require_relative "../app/controllers/body_params_controller"
 require_relative "../app/controllers/cookie_probe_controller"
 require_relative "../app/controllers/request_probe_controller"
@@ -29,7 +30,8 @@ module Snails
        get("/cookie-write", HarnessCookieController, :write),
        get("/cookie-delete", HarnessCookieController, :delete),
        get("/cookie-permanent", HarnessCookieController, :permanent),
-       get("/auth-probe", HarnessAuthProbeController, :show)]
+       get("/auth-probe", HarnessAuthProbeController, :show),
+       get("/trace-tree-probe", HarnessTraceTreeController, :show)]
     end
   end
 end
